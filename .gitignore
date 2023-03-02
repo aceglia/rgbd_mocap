@@ -6,7 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# video extension
+*.avi
+
 # Distribution / packaging
+
+.idea
 .Python
 build/
 develop-eggs/
