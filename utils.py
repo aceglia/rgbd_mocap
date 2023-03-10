@@ -1,7 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize, minimize_scalar
-from casadi import SX, nlpsol, dot, sin, cos, einstein, mtimes, MX,blockcat
+import cv2
 
 
 def closest_node(node, nodes):
@@ -133,3 +132,72 @@ class MarkerSet:
         for i in range(2):
             # next_pos.append(np.concatenate((self.next_pos[i, :, :], self.compute_next_position(self.speed[i, :], self.pos[i, :, -1])[:, np.newaxis]), axis=1))
             self.next_pos[i, :] = self.compute_next_position(self.speed[i, :], self.pos[i, :, -1])[:, np.newaxis]
+
+
+def find_bounds_color(frame):
+    """
+    Find the bounds of the image
+    """
+    def nothing(x):
+        pass
+
+
+    cv2.namedWindow("Trackbars")
+    cv2.createTrackbar("L - H", "Trackbars", 0, 255, nothing)
+    cv2.createTrackbar("L - S", "Trackbars", 0, 255, nothing)
+    cv2.createTrackbar("L - V", "Trackbars", 0, 255, nothing)
+    cv2.namedWindow("Trackbars_u")
+    cv2.createTrackbar("U - H", "Trackbars_u", 0, 255, nothing)
+    cv2.createTrackbar("U - S", "Trackbars_u", 0, 255, nothing)
+    cv2.createTrackbar("U - V", "Trackbars_u", 0, 255, nothing)
+    hsv_low = np.zeros((250, 500, 3), np.uint8)
+    hsv_high = np.zeros((250, 500, 3), np.uint8)
+
+    while True:
+        l_h = cv2.getTrackbarPos("L - H", "Trackbars")
+        l_s = cv2.getTrackbarPos("L - S", "Trackbars")
+        l_v = cv2.getTrackbarPos("L - V", "Trackbars")
+        u_h = cv2.getTrackbarPos("U - H", "Trackbars_u")
+        u_s = cv2.getTrackbarPos("U - S", "Trackbars_u")
+        u_v = cv2.getTrackbarPos("U - V", "Trackbars_u")
+
+        hsv_low[:] = (l_h, l_s, l_v)
+        hsv_high[:] = (u_h, u_s, u_v)
+        cv2.imshow("Trackbars_u", hsv_high)
+        cv2.imshow("Trackbars", hsv_low)
+        # lower = np.array([l_h, l_s, l_v])
+        # upper = np.array([u_h, u_s, u_v])
+        lower = np.array([l_h])
+        upper = np.array([u_h])
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        h = hsv[:, :, 0]
+        mask = cv2.inRange(h, lower, upper)
+        result = cv2.bitwise_and(frame, frame, mask=mask)
+        imgray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=5.0, tileGridSize=(8, 8))
+        imgray = clahe.apply(imgray)
+        contours, hierarchy = cv2.findContours(image=imgray,
+                                               mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
+        for c, contour in enumerate(contours):
+            if cv2.contourArea(contour) > 5 and cv2.contourArea(contour) < 1000:
+                M = cv2.moments(contour)
+                # cX = int(M["m10"] / M["m00"]) + area_x[0]
+                # cY = int(M["m01"] / M["m00"]) + area_y[0]
+                cv2.drawContours(image=result, contours=contour, contourIdx=-1, color=(255, 0, 0), thickness=2,
+                                     lineType=cv2.LINE_AA)
+
+        params = cv2.SimpleBlobDetector_Params()
+        detector = cv2.SimpleBlobDetector_create(params)
+        imgray_scaled = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        keypoints = detector.detect(imgray_scaled)
+        blobs = cv2.drawKeypoints(imgray_scaled, keypoints, np.array([]), (0, 0, 255),
+                          cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+        cv2.namedWindow(f'mask', cv2.WINDOW_NORMAL)
+        cv2.imshow(f'mask', result)
+        cv2.namedWindow(f'blob', cv2.WINDOW_NORMAL)
+        cv2.imshow(f'blob', imgray)
+        if cv2.waitKey(10) & 0xFF == ord('q'):
+            break
+    cv2.destroyAllWindows()
+    return lower, upper

@@ -12,61 +12,7 @@ from pathlib import Path
 import itertools
 import time
 import numpy as np
-
-
-class MarkerSet:
-    """
-    This class is used to store the marker information
-    """
-    def __init__(self, nb_markers: int, marker_names: list, image_idx: int):
-        """
-        init markers class with number of markers, names and image index
-
-        Parameters
-        ----------
-        nb_markers : int
-            number of markers
-        marker_names : list
-            list of names for the markers
-        image_idx : list
-            index of the image where the marker set is located
-        """
-        self.nb_markers = nb_markers
-        self.image_idx = image_idx
-        self.marker_names = marker_names
-        self.pos = np.zeros((2, nb_markers, 1))
-        self.speed = np.zeros((2, nb_markers, 1))
-        self.marker_set_model = None
-        self.markers_idx_in_image = []
-        self.estimated_area = []
-        self.next_pos = np.zeros((2, nb_markers, 1))
-
-    @staticmethod
-    def compute_speed(pos, pos_old, dt=1):
-        """
-        Compute the speed of the markers
-        """
-        return (pos - pos_old) / dt
-
-    @staticmethod
-    def compute_next_position(speed, pos, dt=1):
-        """
-        Compute the next position of the markers
-        """
-        return pos + speed * dt
-
-    def update_speed(self):
-        for i in range(2):
-            self.speed[i, :] = self.compute_speed(self.pos[i, :, -1], self.pos[i, :, -2])
-
-    def update_next_position(self):
-        """
-        Update the next position of the markers
-        """
-        next_pos=[]
-        for i in range(2):
-            # next_pos.append(np.concatenate((self.next_pos[i, :, :], self.compute_next_position(self.speed[i, :], self.pos[i, :, -1])[:, np.newaxis]), axis=1))
-            self.next_pos[i, :] = self.compute_next_position(self.speed[i, :], self.pos[i, :, -1])[:, np.newaxis]
+from utils import MarkerSet, find_bounds_color
 
 
 class Cropper:
@@ -116,19 +62,6 @@ class Cropper:
         markers_arm.estimated_area.append([0, self.frame.shape[0], 0, self.frame.shape[1]])
         # markers_arm.pos[0] = [30, 74]
         # markers_arm.pos[1] = [72, 125]
-        def nothing(x):
-            pass
-        if find_bounds:
-            cv2.namedWindow("Trackbars")
-            cv2.createTrackbar("L - H", "Trackbars", 0, 255, nothing)
-            cv2.createTrackbar("L - S", "Trackbars", 0, 255, nothing)
-            cv2.createTrackbar("L - V", "Trackbars", 0, 255, nothing)
-            cv2.namedWindow("Trackbars_u")
-            cv2.createTrackbar("U - H", "Trackbars_u", 0, 255, nothing)
-            cv2.createTrackbar("U - S", "Trackbars_u", 0, 255, nothing)
-            cv2.createTrackbar("U - V", "Trackbars_u", 0, 255, nothing)
-            hsv_low = np.zeros((250, 500, 3), np.uint8)
-            hsv_high = np.zeros((250, 500, 3), np.uint8)
 
         #prep some stuff for cropping
         self.cropping = False
@@ -146,32 +79,22 @@ class Cropper:
 
         # Now let us crop the video with same cropping parameters
         self.cap = cv2.VideoCapture(self.videofile)
-
-
-        # self.frame[:, :, 0] = 0 * self.copy[:, :, 0] + 0 *  self.copy[:, :, 1] -1 * self.copy[:, :, 2]
-        # self.frame[:, :, 1] = 0 * self.copy[:, :, 0] + 0 *  self.copy[:, :, 1] + 0 * self.copy[:, :, 2]
-        # self.frame[:, :, 2] = 0 * self.copy[:, :, 0] + 0 *  self.copy[:, :, 1] - 1 * self.copy[:, :, 2]
         count_frame = 0
-        #read frame by frame
-        while(True):
-            self.ret, self.frame = self.cap.read()
-            if find_bounds:
-                l_h = cv2.getTrackbarPos("L - H", "Trackbars")
-                l_s = cv2.getTrackbarPos("L - S", "Trackbars")
-                l_v = cv2.getTrackbarPos("L - V", "Trackbars")
-                u_h = cv2.getTrackbarPos("U - H", "Trackbars_u")
-                u_s = cv2.getTrackbarPos("U - S", "Trackbars_u")
-                u_v = cv2.getTrackbarPos("U - V", "Trackbars_u")
-                hsv_low[:] = (l_h, l_s, l_v)
-                hsv_high[:] = (u_h, u_s, u_v)
-                cv2.imshow("Trackbars_u", hsv_high)
-                cv2.imshow("Trackbars", hsv_low)
-            else:
-                l_h, l_s, l_v, u_h, u_s, u_v = 101, 20, 0, 108, 255, 114
-                l_h, l_s, l_v, u_h, u_s, u_v = 26, 73, 0, 43, 184, 121
+        for i in range(n_sub):
+            cx, cy = [], []
+            self.cropped[i] = self.frame[self.y_start_crop[i]:self.y_end_crop[i],
+                              self.x_start_crop[i]:self.x_end_crop[i]]
+        if find_bounds:
+            lower_blue, upper_blue = find_bounds_color(self.cropped[1])
+        else:
+            l_h, l_s, l_v, u_h, u_s, u_v = 101, 20, 0, 108, 255, 114
+            l_h, l_s, l_v, u_h, u_s, u_v = 26, 73, 0, 43, 184, 121
             lower_blue = np.array([l_h, l_s, l_v])
             upper_blue = np.array([u_h, u_s, u_v])
+        #read frame by frame
 
+        while(True):
+            self.ret, self.frame = self.cap.read()
             if self.ret:
                 mask = []
                 for i in range(n_sub):
@@ -198,12 +121,19 @@ class Cropper:
 
                     contours, hierarchy = cv2.findContours(image=thresh[area_y[0]:area_y[1], area_x[0]:area_x[1]], mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
                     imgray = cv2.cvtColor(self.cropped[i], cv2.COLOR_BGR2GRAY)
+                    detector = cv2.SimpleBlobDetector_create()
+                    keypoints = detector.detect(thresh[area_y[0]:area_y[1], area_x[0]:area_x[1]])
+                    cv2.drawKeypoints(imgray, keypoints, np.array([]), (0, 0, 255),
+                                                          cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
                     contours_final, cX, cY = [], [], []
                     contour_threshold = 4
 
                     # TODO: Optim label marker using predefined model for hand and shoulder (find the index and the model position to minimize the least square error)
                     #  Once the first frame found use it as the model. always use the last frame as the model for the next one.
                     contours = self.agglomerative_cluster(list(contours), threshold_distance=20)
+                    if len(contours) == 0:
+                        raise ValueError('No contour found. Please check the color range.')
 
                     for c, contour in enumerate(contours):
                         if cv2.contourArea(contour) > contour_threshold:
@@ -284,7 +214,7 @@ class Cropper:
                             cv2.putText(imgray, "center", (cx[j]- 20, cy[j] - 20),
                                         cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
                     cv2.namedWindow(f'HSV video{i}', cv2.WINDOW_NORMAL)
-                    cv2.imshow(f'HSV video{i}', hsv)
+                    cv2.imshow(f'HSV video{i}', hsv[:, :, 0])
                     cv2.namedWindow(f'original', cv2.WINDOW_NORMAL)
                     cv2.imshow('original', self.cropped[i])
                     # cv2.namedWindow(f'copy', cv2.WINDOW_NORMAL)
@@ -298,14 +228,6 @@ class Cropper:
                         cv2.destroyAllWindows()
                         self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop = [], [], [], []
                         self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop = self.select_cropping(n_sub)
-                        cv2.namedWindow("Trackbars")
-                        cv2.createTrackbar("L - H", "Trackbars", 0, 255, nothing)
-                        cv2.createTrackbar("L - S", "Trackbars", 0, 255, nothing)
-                        cv2.createTrackbar("L - V", "Trackbars", 0, 255, nothing)
-                        cv2.namedWindow("Trackbars_u")
-                        cv2.createTrackbar("U - H", "Trackbars_u", 0, 255, nothing)
-                        cv2.createTrackbar("U - S", "Trackbars_u", 0, 255, nothing)
-                        cv2.createTrackbar("U - V", "Trackbars_u", 0, 255, nothing)
                     else:
                         pass
                 count_frame += 1
