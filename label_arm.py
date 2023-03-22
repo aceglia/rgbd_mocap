@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import filedialog
 import os.path
 from pathlib import Path
+from biosiglive.file_io.save_and_load import save, load, compress
 import itertools
 import time
 import numpy as np
@@ -25,8 +26,13 @@ class Cropper:
         self.screen_height = self.root.winfo_screenheight()
 
         # Select the file to work on, need to use withdraw to get rid of dialogue window
-        self.videofile = "Cycle-Camera 1 (C11141).avi"
+        # self.videofile = "Cycle-Camera 1 (C11141).avi"
+        self.videofile = "videos/image_camera_trial_1_short.bio.gzip"
         # self.videofile = "viridis_101.png"
+
+        from_data = False
+        if self.videofile.endswith(".bio.gzip"):
+            from_data = True
 
         n_sub = 3
         pos_dic = {}
@@ -43,20 +49,30 @@ class Cropper:
         markers["larm"] = []
         markers["epic_l"] = []
 
-        find_bounds = False
-        self.cap = cv2.VideoCapture(self.videofile)
+        find_bounds = True
+        cropping = False
+        if not from_data:
+            self.cap = cv2.VideoCapture(self.videofile)
+            # Check if video opened successfully - TBD: nice exit
+            if (self.cap.isOpened() == False):
+              print("Unable to read file!")
+              exit()
 
-        # Check if video opened successfully - TBD: nice exit
-        if (self.cap.isOpened() == False):
-          print("Unable to read file!")
-          exit()
+            while(self.cap.isOpened()):
+                # Capture first frame and exit loop
+                self.ret, self.frame = self.cap.read()
+                break
+            # release the video capture object, make sure we start from frame 1 next time
+            self.cap.release()
+        else:
+            data_from_file = load(self.videofile)
+            color_images = data_from_file
+            self.frame = data_from_file[0]["color"]
+            self.frame_depth = data_from_file[0]["depth"]
+            # color_images = color_images.reshape(480, 848, 3, -1)
 
-        while(self.cap.isOpened()):
-            # Capture first frame and exit loop
-            self.ret, self.frame = self.cap.read()
-            break
-        # release the video capture object, make sure we start from frame 1 next time
-        self.cap.release()
+            # self.frame = color_images[:, :, :, 0]
+
         markers_arm = MarkerSet(nb_markers=2, marker_names=["arm_l", "epic_l"], image_idx=1)
         markers_arm.estimated_area.append([0, self.frame.shape[0], 0, self.frame.shape[1]])  # [x_start, x_end, y_start, y_end]
         markers_arm.estimated_area.append([0, self.frame.shape[0], 0, self.frame.shape[1]])
@@ -65,27 +81,36 @@ class Cropper:
 
         #prep some stuff for cropping
         self.cropping = False
+
         self.oriImage = self.frame.copy()
+
+
         #prep a window, and place it at the center of the screen
 
         self.x_pos = round(self.screen_width/2) - round(self.frame.shape[1]/2)
         self.y_pos = round(self.screen_height/2) - round(self.frame.shape[0]/2)
-        # self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop = [0], [0], [round(self.frame.shape[1])], [round(self.frame.shape[0])]
-        self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop = [732, 900, 1017], [400, 541, 480], [908, 1040, 1207], [641, 721, 653]
+        self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop = [0, 0, 0], [0, 0, 0], [round(self.frame.shape[1]), round(self.frame.shape[1]), round(self.frame.shape[1])], [round(self.frame.shape[0]),round(self.frame.shape[0]), round(self.frame.shape[0])]
+        # self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop = [187, 284, 352, 349], [203, 322, 262, 222], [308, 351, 534, 548], [329, 397, 403, 388]
         self.cropped = []
+        if cropping :
+            self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop = [], [], [], []
+            self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop = self.select_cropping(n_sub)
+        else:
+            pass
         for i in range(n_sub):
             self.cropped.append(self.oriImage[self.y_start_crop[i]:self.y_end_crop[i], self.x_start_crop[i]:self.x_end_crop[i]])
         print(self.x_start_crop, self.y_start_crop, self.x_end_crop, self.y_end_crop)
 
         # Now let us crop the video with same cropping parameters
-        self.cap = cv2.VideoCapture(self.videofile)
+        if not from_data:
+            self.cap = cv2.VideoCapture(self.videofile)
         count_frame = 0
         for i in range(n_sub):
             cx, cy = [], []
             self.cropped[i] = self.frame[self.y_start_crop[i]:self.y_end_crop[i],
                               self.x_start_crop[i]:self.x_end_crop[i]]
         if find_bounds:
-            lower_blue, upper_blue = find_bounds_color(self.cropped[1])
+            lower_blue, upper_blue = find_bounds_color(self.cropped[1], self.frame_depth)
         else:
             l_h, l_s, l_v, u_h, u_s, u_v = 101, 20, 0, 108, 255, 114
             l_h, l_s, l_v, u_h, u_s, u_v = 26, 73, 0, 43, 184, 121
@@ -94,7 +119,14 @@ class Cropper:
         #read frame by frame
 
         while(True):
-            self.ret, self.frame = self.cap.read()
+            if not from_data:
+                self.ret, self.frame = self.cap.read()
+            else:
+                try:
+                    self.frame = data_from_file[count_frame]["color"]
+                    self.ret = True
+                except:
+                    self.ret = False
             if self.ret:
                 mask = []
                 for i in range(n_sub):
@@ -231,12 +263,13 @@ class Cropper:
                     else:
                         pass
                 count_frame += 1
-        # Break the loop when done
-
             else:
-                self.cap = cv2.VideoCapture(self.videofile)
-                self.ret, self.frame = self.cap.read()
                 count_frame = 0
+                if not from_data:
+                    self.cap = cv2.VideoCapture(self.videofile)
+                    self.ret, self.frame = self.cap.read()
+                else:
+                    self.frame = data_from_file[count_frame]["color"]
                 markers_arm = MarkerSet(nb_markers=2, marker_names=["arm_l", "epic_l"], image_idx=1)
                 markers_arm.estimated_area.append(
                     [0, self.frame.shape[0], 0, self.frame.shape[1]])  # [x_start, x_end, y_start, y_end]
