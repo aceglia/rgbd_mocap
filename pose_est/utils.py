@@ -78,62 +78,6 @@ def label_point_set(ref_points, target_points, labels, print_stats=True):
     return auto_label(result_set, target_points, labels)
 
 
-class MarkerSet:
-    """
-    This class is used to store the marker information
-    """
-    def __init__(self, nb_markers: int, marker_names: list, image_idx: int):
-        """
-        init markers class with number of markers, names and image index
-
-        Parameters
-        ----------
-        nb_markers : int
-            number of markers
-        marker_names : list
-            list of names for the markers
-        image_idx : list
-            index of the image where the marker set is located
-        """
-        self.nb_markers = nb_markers
-        self.image_idx = image_idx
-        self.marker_names = marker_names
-        self.pos = np.zeros((2, nb_markers, 1))
-        self.speed = np.zeros((2, nb_markers, 1))
-        self.marker_set_model = None
-        self.markers_idx_in_image = []
-        self.estimated_area = []
-        self.next_pos = np.zeros((2, nb_markers, 1))
-        self.model = None
-
-    @staticmethod
-    def compute_speed(pos, pos_old, dt=1):
-        """
-        Compute the speed of the markers
-        """
-        return (pos - pos_old) / dt
-
-    @staticmethod
-    def compute_next_position(speed, pos, dt=1):
-        """
-        Compute the next position of the markers
-        """
-        return pos + speed * dt
-
-    def update_speed(self):
-        for i in range(2):
-            self.speed[i, :] = self.compute_speed(self.pos[i, :, -1], self.pos[i, :, -2])
-
-    def update_next_position(self):
-        """
-        Update the next position of the markers
-        """
-        next_pos=[]
-        for i in range(2):
-            # next_pos.append(np.concatenate((self.next_pos[i, :, :], self.compute_next_position(self.speed[i, :], self.pos[i, :, -1])[:, np.newaxis]), axis=1))
-            self.next_pos[i, :] = self.compute_next_position(self.speed[i, :], self.pos[i, :, -1])[:, np.newaxis]
-
-
 def find_bounds_color(frame, depth):
     """
     Find the bounds of the image
@@ -152,7 +96,7 @@ def find_bounds_color(frame, depth):
     cv2.createTrackbar("U - V", "Trackbars_u", 0, 255, nothing)
     hsv_low = np.zeros((250, 500, 3), np.uint8)
     hsv_high = np.zeros((250, 500, 3), np.uint8)
-
+    depth_scale = 0.0010000000474974513
     while True:
         l_h = cv2.getTrackbarPos("L - H", "Trackbars")
         l_s = cv2.getTrackbarPos("L - S", "Trackbars")
@@ -169,9 +113,11 @@ def find_bounds_color(frame, depth):
         # upper = np.array([u_h, u_s, u_v])
         lower = np.array([l_h])
         upper = np.array([u_h])
-        clip_distance = 2500
+        clipping_distance_in_meters = 1.4  # 1 meter
+        clip_distance = clipping_distance_in_meters / depth_scale
+        clipping_distance_in_meters_min = 0.5  # 1 meter
+        clip_distance_min = clipping_distance_in_meters_min / depth_scale
         grey_color = 153
-        depth_image_3d = np.dstack((depth,depth,depth)) #depth image is 1 channel, color is 3 channels
         #aligned_depth = depth_rgb_registration(depth, frame)
         d_intr = [429.627, 429.627, 422.179, 243.999]
         c_intr = [418.856, 418.447, 418.145, 245.17]
@@ -185,11 +131,11 @@ def find_bounds_color(frame, depth):
         intrinsics_color = np.array([[c_intr[0], 0, c_intr[2]],
                                      [0, c_intr[1], c_intr[3]],
                                      [0, 0, 1]], dtype=float)
-        aligned_depth = cv2.rgbd.registerDepth(intrinsics_depth, intrinsics_color, None, np.array(d_to_c, dtype=float), depth, (frame.shape[1], frame.shape[0]), True)
-        # frame = np.where((depth_image_3d > clip_distance) | (depth_image_3d <= 0), grey_color, frame)
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(aligned_depth, alpha=0.03), cv2.COLORMAP_JET)
-        init_depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth, alpha=0.03), cv2.COLORMAP_RAINBOW)
-        # images = np.hstack((depth_image_3d, depth_colormap))
+        depth = cv2.rgbd.registerDepth(intrinsics_depth, intrinsics_color, None, np.array(d_to_c, dtype=float), depth, (frame.shape[1], frame.shape[0]), True)
+        depth_image_3d = np.dstack((depth,depth,depth)) #depth image is 1 channel, color is 3 channels
+        frame = np.where((depth_image_3d > clip_distance) | (depth_image_3d <= clip_distance_min), grey_color, frame)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth, alpha=0.03), cv2.COLORMAP_RAINBOW)
+        images = np.hstack((frame, depth_colormap))
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         h = hsv[:, :, 0]
         mask = cv2.inRange(h, lower, upper)
@@ -222,12 +168,8 @@ def find_bounds_color(frame, depth):
         cv2.imshow(f'mask', result)
         cv2.namedWindow(f'hsv', cv2.WINDOW_NORMAL)
         cv2.imshow(f'hsv', h)
-        cv2.namedWindow(f'origin', cv2.WINDOW_NORMAL)
-        cv2.imshow(f'origin', frame)
-        cv2.namedWindow(f'origin_bis', cv2.WINDOW_NORMAL)
-        cv2.imshow(f'origin_bis', frame_bis)
         cv2.namedWindow(f'depth', cv2.WINDOW_NORMAL)
-        cv2.imshow(f'depth', init_depth_colormap)
+        cv2.imshow(f'depth', images)
         cv2.waitKey(0)
         # cv2.namedWindow(f'blob', cv2.WINDOW_NORMAL)
         # cv2.imshow(f'blob', imgray)
@@ -276,42 +218,6 @@ def align(depth_data, rgb_data):
                 aligned_depth[v, u] = rgb_data[int(v_rgb), int(u_rgb)]
 
     return aligned_depth
-import open3d as o3d
-def align_bis(depth_data, rgb_data):
-    depth_scale = 0.0010000000474974513
-    d_intr = [429.627, 429.627, 422.179, 243.999]
-    c_intr = [420.684, 420.273, 418.145, 245.17]
-    d_to_c = [[0.99999577, - 0.00241159, - 0.00164173,-0.05902871], [0.00239989, 0.99997199, - 0.00709178,  0.00020985],
-          [0.00165878, 0.00708781, 0.99997348, 0.00028736],
-          [0, 0, 0, 1]]
-    # Convert depth data to metric units
-    depth_data = depth_data.astype(float) * depth_scale
-
-    # Create Open3D geometry objects
-    depth_image = o3d.geometry.Image(depth_data.astype(np.uint8))
-    rgb_image = o3d.geometry.Image(rgb_data.astype(np.uint8))
-    depth_intrinsics = o3d.camera.PinholeCameraIntrinsic(depth_data.shape[1], depth_data.shape[0], 429.627,
-                                                         429.627, 422.179, 243.999)
-    rgb_intrinsics = o3d.camera.PinholeCameraIntrinsic(rgb_data.shape[1], rgb_data.shape[0], 420.684, 420.273, 418.145,
-                                                       245.17)
-
-    # Create Open3D RGBD image
-    rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(rgb_image, depth_image, depth_scale,
-                                                                    #depth_intrinsics,
-                                                                    convert_rgb_to_intensity=False)
-
-    # Align RGBD image with Open3D method
-    option = o3d.pipelines.odometry.OdometryOption()
-    odo_init = np.identity(4)
-    [success, odo_optimized, info] = o3d.pipelines.odometry.compute_rgbd_odometry(rgbd_image, rgbd_image,
-                                                                                  depth_intrinsics, odo_init,
-                                                                                  o3d.pipelines.odometry.RGBDOdometryJacobianFromHybridTerm(),
-                                                                                  option)
-
-    # Extract the rotation and translation matrix
-    rototranslation_matrix = odo_optimized[:3, :4]
-
-    print(rototranslation_matrix)
             # depth = [0,
             # 0,
             # 0,
