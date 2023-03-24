@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class MarkerSet:
     """
     This class is used to store the marker information
