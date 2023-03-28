@@ -1,13 +1,52 @@
 import numpy as np
 from scipy.optimize import minimize, minimize_scalar
 import cv2
+from skimage.feature import blob_log
 from .enums import *
+import json
+import math
+try:
+    import pyrealsense2 as rs
+except ModuleNotFoundError:
+    pass
 
 
 def closest_node(node, nodes):
     deltas = nodes - node
     dist_2 = np.einsum('ij,ij->i', deltas, deltas)
     return np.argmin(dist_2)
+
+
+def find_closest_node(point, node_list):
+    closest_node = None
+    smallest_distance = float('inf')
+    for node in node_list:
+        distance = math.sqrt((point[0]-node[0])**2 + (point[1]-node[1])**2)
+        if distance < smallest_distance:
+            closest_node = node
+            smallest_distance = distance
+    if closest_node:
+        return closest_node[0], closest_node[1]
+    else:
+        return None, None
+
+
+def find_closest_blob(center, blobs):
+    """
+    Find the closest blob to the center
+    """
+    delta = 10
+    cx, cy = find_closest_node(center, blobs)
+    if cx and cy:
+        if cx in range(center[0] - delta, center[0] + delta) and cy in range(center[1] - delta, center[1] + delta):
+            final_centers = [cx, cy]
+            is_visible = True
+        else:
+            final_centers = center
+            is_visible = False
+        return final_centers, is_visible
+    else:
+        return center, False
 
 
 def list_authorized_color_resolution(camera_type: str = "D455"):
@@ -73,6 +112,11 @@ def objective(x, from_pts, to_pts):
     return J
 
 
+def label_markers_from_model(centers_from_model, centers_from_blobs, marker_names):
+    ordered_labels = label_point_set(centers_from_model, centers_from_blobs, labels=marker_names)
+    return ordered_labels
+
+
 def minimize_points_location(ref_points, target_points, print_stats=True):
     if not isinstance(target_points, np.ndarray):
         target_points = np.array(target_points)
@@ -86,7 +130,8 @@ def minimize_points_location(ref_points, target_points, print_stats=True):
 
     result_points = np.zeros(target_points.shape)
     for i in range(ref_points.shape[0]):
-        result_points[i, :] = np.dot(rototrans, ref_points[i, :] - np.mean(ref_points, axis=0)) + np.mean(target_points, axis=0)
+        result_points[i, :] = np.dot(rototrans, ref_points[i, :] - np.mean(ref_points, axis=0)) + np.mean(target_points,
+                                                                                                          axis=0)
     return result_points
 
 
@@ -105,10 +150,6 @@ def auto_label(labelized_points, points_to_label, true_labels):
 
 
 def label_point_set(ref_points, target_points, labels, print_stats=True):
-    # ref_points: points with label
-    # target_points: points to label
-    # labels: labels of ref_points
-    # returns: a list of labels for target_points
     if not isinstance(target_points, np.ndarray):
         target_points = np.array(target_points)
     if not isinstance(ref_points, np.ndarray):
@@ -117,7 +158,29 @@ def label_point_set(ref_points, target_points, labels, print_stats=True):
     return auto_label(result_set, target_points, labels)
 
 
-def find_bounds_color(frame, method, filter):
+def get_conf_data(conf_file):
+    with open(conf_file, 'r') as infile:
+        data = json.load(infile)
+    return data
+
+
+def distribute_pos_markers(pos_markers_dic:dict):
+    """
+    Distribute the markers in a dictionary of markers
+    :param pos_markers_dic: dictionary of markers
+    :return: list of markers
+    """
+    markers = np.zeros((2, len(pos_markers_dic.keys())))
+    occlusion = []
+    c = 0
+    for key in pos_markers_dic.keys():
+        markers[:, c] = np.array(pos_markers_dic[key][0], dtype=np.int)
+        occlusion.append(pos_markers_dic[key][1])
+        c += 1
+    return markers, occlusion
+
+
+def find_bounds_color(color_frame, depth, method, filter, depth_scale=1):
     """
     Find the bounds of the image
     """
@@ -125,9 +188,10 @@ def find_bounds_color(frame, method, filter):
         pass
 
     if method == DetectionMethod.CV2Contours:
-        cv2.namedWindow("Trackbars")
+        cv2.namedWindow("Trackbars", cv2.WINDOW_NORMAL)
         cv2.createTrackbar("min threshold", "Trackbars", 30, 255, nothing)
         cv2.createTrackbar("max threshold", "Trackbars", 111, 255, nothing)
+        cv2.createTrackbar("clipping distance in meters", "Trackbars", 14, 80, nothing)
 
     elif method == DetectionMethod.CV2Blobs:
         cv2.namedWindow("Trackbars", cv2.WINDOW_NORMAL)
@@ -149,21 +213,21 @@ def find_bounds_color(frame, method, filter):
     import matplotlib.pyplot as plt
 
     plt.figure(num=None, figsize=(8, 6), dpi=80)
-
+    color_frame_init = color_frame.copy()
     while True:
         if method == DetectionMethod.CV2Contours:
             min_threshold = cv2.getTrackbarPos("min threshold", "Trackbars")
             max_threshold = cv2.getTrackbarPos("max threshold", "Trackbars")
-            params = {"min_threshold": min_threshold, "max_threshold": max_threshold}
-            im_from, contours = get_blobs(frame, method, params, return_image=True)
-            result = frame.copy()
-            for c, contour in enumerate(contours):
-                if cv2.contourArea(contour) > 5 and cv2.contourArea(contour) < 50:
-                    M = cv2.moments(contour)
-                    # cX = int(M["m10"] / M["m00"]) + area_x[0]
-                    # cY = int(M["m01"] / M["m00"]) + area_y[0]
-                    cv2.drawContours(image=result, contours=contour, contourIdx=-1, color=(255, 0, 0), thickness=2,
-                                     lineType=cv2.LINE_AA)
+            clipping_distance = (cv2.getTrackbarPos("clipping distance in meters", "Trackbars")/10)
+            params = {"min_threshold": min_threshold,
+                      "max_threshold": max_threshold,
+                      "clipping_distance_in_meters": clipping_distance}
+            depth_image_3d = np.dstack((depth, depth, depth))
+            color_frame = np.where((depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= 0), 155,
+                                   color_frame_init)
+            im_from, contours = get_blobs(color_frame, method=method, params=params, return_image=True,
+                                          return_centers=True)
+            draw_blobs(color_frame, contours)
 
         elif method == DetectionMethod.CV2Blobs:
             min_area = cv2.getTrackbarPos("min area", "Trackbars")
@@ -177,7 +241,7 @@ def find_bounds_color(frame, method, filter):
                 max_area = 1
             if max_area < min_area:
                 max_area = min_area + 1
-            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            hsv = cv2.cvtColor(color_frame, cv2.COLOR_BGR2HSV)
             # Set up the detector parameters
             params = cv2.SimpleBlobDetector_Params()
             # Filter by color
@@ -192,15 +256,14 @@ def find_bounds_color(frame, method, filter):
             im_from = hsv[:, :, 2]
             im_from = cv2.GaussianBlur(im_from, (5, 5), 0)
             im_from = cv2.inRange(im_from, min_threshold, max_threshold, im_from)
-            result_mask = cv2.bitwise_and(frame, frame, mask=im_from)
+            result_mask = cv2.bitwise_and(color_frame, color_frame, mask=im_from)
 
-            tic = time.time()
             keypoints = detector.detect(im_from)
-            print(time.time() - tic)
 
-            result = cv2.drawKeypoints(frame, keypoints, np.array([]), (0, 255, 0),
+            result = cv2.drawKeypoints(color_frame, keypoints, np.array([]), (0, 255, 0),
                                                  cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
             params = {"min_area": min_area, "max_area": max_area, "color": color, "min_threshold": min_threshold,}
+
         elif method == DetectionMethod.SCIKITBlobs:
             from skimage.feature import blob_log
             from math import sqrt
@@ -212,13 +275,13 @@ def find_bounds_color(frame, method, filter):
                       "min_threshold": min_threshold,
                         "max_threshold": max_threshold
                       }
-            im_from, blobs = get_blobs(frame, method, params, return_image=True)
-            result = frame.copy()
+            im_from, blobs = get_blobs(color_frame, method, params, return_image=True)
+            result = color_frame.copy()
             for blob in blobs:
                 y, x, area = blob
                 result = cv2.circle(result, (int(x), int(y)), int(area), (0, 0, 255), 1)
         cv2.namedWindow("Result", cv2.WINDOW_NORMAL)
-        cv2.imshow("Result", result)
+        cv2.imshow("Result", color_frame)
         cv2.namedWindow("im_from", cv2.WINDOW_NORMAL)
         cv2.imshow("im_from", im_from)
         key = cv2.waitKey(1)
@@ -227,28 +290,146 @@ def find_bounds_color(frame, method, filter):
             break
     return params
 
-import time
-def get_blobs(frame, method, params, return_image=False):
+
+def calculate_contour_distance(contour1, contour2):
+    x1, y1, w1, h1 = cv2.boundingRect(contour1)
+    c_x1 = x1 + w1 / 2
+    c_y1 = y1 + h1 / 2
+
+    x2, y2, w2, h2 = cv2.boundingRect(contour2)
+    c_x2 = x2 + w2 / 2
+    c_y2 = y2 + h2 / 2
+
+    return max(abs(c_x1 - c_x2) - (w1 + w2) / 2, abs(c_y1 - c_y2) - (h1 + h2) / 2)
+
+
+def merge_cluster(blobs, threshold_distance=5.0):
+    current_contours = blobs
+    while len(current_contours) > 1:
+        min_distance = None
+        min_coordinate = None
+
+        for x in range(len(current_contours) - 1):
+            for y in range(x + 1, len(current_contours)):
+                distance = calculate_contour_distance(current_contours[x], current_contours[y])
+                if min_distance is None:
+                    min_distance = distance
+                    min_coordinate = (x, y)
+                elif distance < min_distance:
+                    min_distance = distance
+                    min_coordinate = (x, y)
+
+        if min_distance < threshold_distance:
+            index1, index2 = min_coordinate
+            current_contours[index1] = np.concatenate((current_contours[index1], current_contours[index2]), axis=0)
+            del current_contours[index2]
+        else:
+            break
+    return current_contours
+
+
+def get_blobs(frame, params, method=DetectionMethod.CV2Contours, return_image=False, area_bounds: tuple = None,
+              return_centers=False, image_bounds=None):
+    if not area_bounds:
+        area_bounds = (5, 60)
+    if image_bounds:
+        bounded_frame = frame.copy()[image_bounds[2]: image_bounds[3], image_bounds[0]: image_bounds[1]]
+    else:
+        bounded_frame = frame.copy()
     if method == DetectionMethod.SCIKITBlobs:
-        from skimage.feature import blob_log
-        from math import sqrt
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(bounded_frame, cv2.COLOR_BGR2HSV)
         im_from = hsv[:, :, 2]
         im_from = cv2.GaussianBlur(im_from, (5, 5), 0)
         im_from = cv2.inRange(im_from, params["min_threshold"], params["max_threshold"], im_from)
-        blobs = blob_log(im_from, max_sigma=30, min_sigma=2, threshold=0.3)
+        blobs = blob_log(im_from, max_sigma=area_bounds[1], min_sigma=area_bounds[0], threshold=0.3)
         if return_image:
             return im_from, blobs
         else:
             return blobs
 
     if method == DetectionMethod.CV2Contours:
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(bounded_frame, cv2.COLOR_BGR2HSV)
         im_from = hsv[:, :, 2]
         im_from = cv2.GaussianBlur(im_from, (5, 5), 0)
         im_from = cv2.inRange(im_from, params["min_threshold"], params["max_threshold"], im_from)
         contours, _ = cv2.findContours(image=im_from, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
+        contours = merge_cluster(list(contours), threshold_distance=5)
+        centers = []
+        if return_centers:
+            if len(contours) != 0:
+                for c in contours:
+                    if area_bounds[0] < cv2.contourArea(c) < area_bounds[1]:
+                        M = cv2.moments(c)
+                        cx = int(M["m10"] / M["m00"])
+                        cy = int(M["m01"] / M["m00"])
+                        if image_bounds:
+                            cx = cx + image_bounds[0]
+                            cy = cy + image_bounds[2]
+                        centers.append((cx, cy))
+
         if return_image:
-            return im_from, contours
+            if return_centers:
+                return im_from, centers
+            else:
+                return im_from, contours
+        elif return_centers:
+            return centers
         else:
             return contours
+
+
+def set_conf_file_from_camera(pipeline, device):
+    device_product_line = str(device.get_info(rs.camera_info.product_line))
+    d_profile = pipeline.get_active_profile().get_stream(rs.stream.depth).as_video_stream_profile()
+    d_intr = d_profile.get_intrinsics()
+    scale = pipeline.get_active_profile().get_device().first_depth_sensor().get_depth_scale()
+    c_profile = pipeline.get_active_profile().get_stream(rs.stream.color).as_video_stream_profile()
+    c_intr = c_profile.get_intrinsics()
+    deth_to_color = d_profile.get_extrinsics_to(c_profile)
+    r = np.array(deth_to_color.rotation).reshape(3, 3)
+    t = np.array(deth_to_color.translation)
+    dic = {"camera_name": device_product_line,
+           'depth_scale': scale,
+           'depth_fx_fy': [d_intr.fx, d_intr.fy],
+           'depth_ppx_ppy': [d_intr.ppx, d_intr.ppy],
+           'color_fx_fy': [c_intr.fx, c_intr.fy],
+           'color_ppx_ppy': [c_intr.ppx, c_intr.ppy],
+           'depth_to_color_trans': t.tolist(),
+           'depth_to_color_rot': r.tolist(),
+           "model_color": c_intr.model.name,
+           "model_depth": d_intr.model.name,
+           "dist_coeffs_color": c_intr.coeffs,
+           "dist_coeffs_depth": d_intr.coeffs,
+           "size_color": [c_intr.width, c_intr.height],
+           "size_depth": [d_intr.width, d_intr.height],
+           "color_rate": c_profile.fps(),
+           "depth_rate": d_profile.fps()
+           }
+
+    with open('camera_conf.json', 'w') as outfile:
+        json.dump(dic, outfile, indent=4)
+
+
+def draw_blobs(frame, blobs, color=(255, 0, 0)):
+    if blobs is not None:
+        for blob in blobs:
+            frame = cv2.circle(frame, (int(blob[0]), int(blob[1])), 5, color, 1)
+    return frame
+
+
+def draw_markers(frame, markers_pos, markers_filtered_pos=None, markers_names=None):
+    if markers_pos is not None:
+        for i in range(markers_pos.shape[1]):
+            frame = cv2.circle(frame, (int(markers_pos[0, i]), int(markers_pos[1, i])), 5, (0, 255, 0), 1)
+            frame = cv2.circle(frame, (int(markers_filtered_pos[0, i]), int(markers_filtered_pos[1, i])), 5, (155, 255, 0), 1)
+            if markers_names:
+                frame = cv2.putText(frame, markers_names[i], (int(markers_pos[0, i]), int(markers_pos[1, i])),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 1)
+    return frame
+
+
+def bounding_rect(frame, points, color=(255, 0, 0), delta=10):
+    x_min, x_max = np.clip(min(points[0])-delta, 0, None), max(points[0])+delta
+    y_min, y_max = np.clip(min(points[1])-delta, 0, None), max(points[1])+delta
+    frame = cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), color, 1)
+    return frame, (x_min, x_max, y_min, y_max)

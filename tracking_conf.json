@@ -25,43 +25,124 @@
     ],
     "mask_params": [
         {
-            "min_threshold": 30,
-            "max_threshold": 129
+            "min_threshold": 44,
+            "max_threshold": 124,
+            "clipping_distance_in_meters": 1.4
+        },
+        {
+            "min_threshold": 64,
+            "max_threshold": 99,
+            "clipping_distance_in_meters": 1.2
         },
         {
             "min_threshold": 30,
-            "max_threshold": 104
-        },
-        {
-            "min_threshold": 68,
-            "max_threshold": 135
+            "max_threshold": 132,
+            "clipping_distance_in_meters": 1.4
         }
     ],
     "first_frame_markers": [
         {
             "C7": [
-                51,
-                14
+                [
+                    60,
+                    20
+                ],
+                true
             ],
             "Scap_AA": [
-                53,
-                59
+                [
+                    61,
+                    65
+                ],
+                true
             ],
             "Scap_IA": [
-                48,
-                114
+                [
+                    56,
+                    119
+                ],
+                true
             ],
             "Acrom": [
-                97,
-                85
+                [
+                    106,
+                    88
+                ],
+                true
             ],
             "Clav_AC": [
-                107,
-                62
+                [
+                    116,
+                    65
+                ],
+                true
             ],
             "Clav_SC": [
-                111,
-                37
+                [
+                    121,
+                    43
+                ],
+                true
+            ]
+        },
+        {
+            "delt": [
+                [
+                    28,
+                    13
+                ],
+                true
+            ],
+            "arm_l": [
+                [
+                    37,
+                    29
+                ],
+                true
+            ],
+            "epic_l": [
+                [
+                    53,
+                    61
+                ],
+                true
+            ]
+        },
+        {
+            "styl_u": [
+                [
+                    48,
+                    78
+                ],
+                true
+            ],
+            "h_up": [
+                [
+                    58,
+                    97
+                ],
+                false
+            ],
+            "h_down": [
+                [
+                    71,
+                    69
+                ],
+                false
+            ],
+            "ped_l": [
+                [
+                    66,
+                    54
+                ],
+                false
+            ],
+            "ped_r": [
+                [
+                    78,
+                    48
+                ],
+                false
             ]
         }
     ]
