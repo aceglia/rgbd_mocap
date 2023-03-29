@@ -7,6 +7,8 @@ class Marker:
         self.name = name
         self.pos = np.zeros((2, 1), dtype=int)
         self.filtered_pos = np.zeros((2, 1), dtype=int)
+        self.global_filtered_pos = np.zeros((2, 1), dtype=int)
+        self.global_pos = np.zeros((2, 1), dtype=int)
         self.depth = np.zeros((1, 1))
         self.speed = np.zeros((2, 1))
         self.next_pos = np.zeros((2, 1), dtype=int)
@@ -64,11 +66,23 @@ class Marker:
         self.kalman.statePost = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
         self.kalman.statePre = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
 
+    def set_global_pos(self, local_pos, start_crop):
+        if local_pos[0] is not None and local_pos[1] is not None:
+            self.global_pos[0] = local_pos[0] + start_crop[0]
+            self.global_pos[1] = local_pos[1] + start_crop[1]
+        else:
+            self.global_pos = np.array([None, None])[:, np.newaxis]
+
+    def set_global_filtered_pos(self, local_pos, start_crop):
+        self.global_filtered_pos[0] = local_pos[0] + start_crop[0]
+        self.global_filtered_pos[1] = local_pos[1] + start_crop[1]
+
 
 class MarkerSet:
     """
     This class is used to store the marker information
     """
+
     def __init__(self, marker_names: list[str], image_idx: int = 0, fps=30):
         """
         init markers class with number of markers, names and image index
@@ -105,7 +119,7 @@ class MarkerSet:
         np.ndarray
             position of the markers
         """
-        return np.array([marker.pos for marker in self.markers], dtype=int).T.reshape(2, self.nb_markers)
+        return np.array([marker.pos for marker in self.markers]).T.reshape(2, self.nb_markers)
 
     def get_markers_filtered_pos(self):
         """
@@ -117,6 +131,39 @@ class MarkerSet:
             position of the markers
         """
         return np.array([marker.filtered_pos for marker in self.markers], dtype=int).T.reshape(2, self.nb_markers)
+
+    def get_markers_global_filtered_pos(self):
+        """
+        Get the position of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        return np.array([marker.global_filtered_pos for marker in self.markers], dtype=int).T.reshape(2, self.nb_markers)
+
+    def get_markers_global_pos(self):
+        """
+        Get the position of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        return np.array([marker.global_pos for marker in self.markers]).T.reshape(2, self.nb_markers)
+
+    def get_markers_names(self):
+        """
+        Get the names of the markers
+
+        Returns
+        -------
+        list
+            names of the markers
+        """
+        return [marker.name for marker in self.markers]
 
     def set_markers_pos(self, pos):
         """
@@ -142,6 +189,30 @@ class MarkerSet:
         for m, marker in enumerate(self.markers):
             marker.filtered_pos = pos[:, m].astype(int)
 
+    def set_global_filtered_markers_pos(self, pos, start_crop):
+        """
+        Set the position of the markers
+
+        Parameters
+        ----------
+        pos : np.ndarray
+            position of the markers
+        """
+        for m, marker in enumerate(self.markers):
+            marker.set_global_filtered_pos(pos[:, m], start_crop)
+
+    def set_global_markers_pos(self, pos, start_crop):
+        """
+        Set the position of the markers
+
+        Parameters
+        ----------
+        pos : np.ndarray
+            position of the markers
+        """
+        for m, marker in enumerate(self.markers):
+            marker.set_global_pos(pos[:, m], start_crop)
+
     def set_markers_occlusion(self, occlusions):
         """
         Set the position of the markers
@@ -164,7 +235,7 @@ class MarkerSet:
         np.ndarray
             occlusion of the markers
         """
-        return np.array([marker.is_visible for marker in self.markers])
+        return [marker.is_visible for marker in self.markers]
 
     def get_marker(self, name: str = None, idx: int = None):
         """
@@ -202,4 +273,3 @@ class MarkerSet:
     def init_kalman(self, points):
         for m, mark in enumerate(self.markers):
             mark.init_kalman(points[:, m])
-
