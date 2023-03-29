@@ -140,7 +140,8 @@ class RgbdImages:
                 raise ValueError("The data type must be 'color', 'depth' or 'both'.")
         return data_end
 
-    def init_camera(self, color_size: tuple, depth_size: tuple, color_fps: int, depth_fps: int, align: bool = False):
+    def init_camera(self, color_size: Union[tuple, ColorResolution], depth_size: Union[tuple, DepthResolution],
+                    color_fps: Union[int, FrameRate], depth_fps: Union[int, FrameRate], align: bool = False):
         """
         Initialize the camera and the images parameters
 
@@ -158,6 +159,14 @@ class RgbdImages:
             If True, the depth and color images will be aligned.
             This can slow down the process.
         """
+        if isinstance(depth_size, DepthResolution):
+            depth_size = depth_size.value
+        if isinstance(color_size, ColorResolution):
+            color_size = color_size.value
+        if isinstance(color_fps, FrameRate):
+            color_fps = color_fps.value
+        if isinstance(depth_fps, FrameRate):
+            depth_fps = depth_fps.value
         if self.color_images or self.depth_images:
             raise ValueError("The camera can't be initialized if the images are loaded from a file.")
         self.pipeline = rs.pipeline()
@@ -224,23 +233,6 @@ class RgbdImages:
         self._set_extrinsic_from_file()
         self._set_depth_scale_from_file()
 
-    def _get_frame_from_file(self):
-        if self.frame_idx >= len(self.color_images):
-            self.frame_idx = 0
-            if self.first_frame_markers:
-                for i in range(len(self.first_frame_markers)):
-                    markers_pos, occlusion = distribute_pos_markers(self.first_frame_markers[i])
-                    self.marker_sets[i].set_markers_pos(markers_pos)
-                    self.marker_sets[i].init_kalman(markers_pos)
-                    self.marker_sets[i].set_markers_occlusion(occlusion)
-        self.color_frame, self.depth_frame = self.color_images[self.frame_idx], self.depth_images[self.frame_idx]
-        if self.is_frame_aligned:
-            self.depth_frame = self._align_images(self.color_frame, self.depth_frame)
-        self.color_cropped, self.depth_cropped = self._crop_frames(self.color_frame, self.depth_frame)
-        if self.is_frame_clipped:
-            self.color_cropped = self._clip_frames(self.color_cropped, self.depth_cropped)
-        self.frame_idx += 1
-
     def _crop_frames(self, color, depth):
         color_cropped = []
         depth_cropped = []
@@ -273,11 +265,14 @@ class RgbdImages:
 
     def _clip_frames(self, color, depth):
         color_clipped = []
+        depth_clipped = []
         for i in range(len(color)):
             clipping_distance = self.clipping_distance_in_meters[i] / self.depth_scale
-            depth_image_3d = np.dstack((depth[i], depth[i], depth[i]))
-            color_clipped.append(np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), 155, color[i]))
-        return color_clipped
+            depth_clipped.append(np.where((depth[i] > clipping_distance), -1, depth[i]))
+            depth_image_3d = np.dstack((depth_clipped[i], depth_clipped[i], depth_clipped[i]))
+            color_clipped.append(np.where((depth_image_3d <= 0), 155, color[i]))
+
+        return color_clipped, depth_clipped
 
     def _align_images(self, color, depth):
         return cv2.rgbd.registerDepth(
@@ -290,19 +285,34 @@ class RgbdImages:
             False,
         )
 
-    def _get_frame_from_camera(self):
-        frames = self.pipeline.wait_for_frames()
-        if self.is_frame_aligned:
-            frames = self.align.process(frames)
-        self.depth_frame = frames.get_depth_frame()
-        self.color_frame = frames.get_color_frame()
-        if not self.depth_frame or not self.color_frame:
-            return None, None
-        self.depth_frame = np.asanyarray(self.depth_frame.get_data())
-        self.color_frame = np.asanyarray(self.color_frame.get_data())
-        if self.is_frame_clipped:
-            self.color_frame = self._clip_frames(self.color_frame, self.depth_frame)
+    def _get_frame_from_source(self):
+        if self.is_camera_init:
+            frames = self.pipeline.wait_for_frames()
+            if self.is_frame_aligned:
+                frames = self.align.process(frames)
+            self.depth_frame = frames.get_depth_frame()
+            self.color_frame = frames.get_color_frame()
+            if not self.depth_frame or not self.color_frame:
+                return None, None
+            self.depth_frame = np.asanyarray(self.depth_frame.get_data())
+            self.color_frame = np.asanyarray(self.color_frame.get_data())
+        elif self.color_images and self.depth_images:
+            if self.frame_idx >= len(self.color_images):
+                self.frame_idx = 0
+            self.color_frame, self.depth_frame = self.color_images[self.frame_idx], self.depth_images[self.frame_idx]
+            if self.is_frame_aligned:
+                self.depth_frame = self._align_images(self.color_frame, self.depth_frame)
+        else:
+            raise ValueError("Camera is not initialized and images are not loaded from a file.")
+
         self.color_cropped, self.depth_cropped = self._crop_frames(self.color_frame, self.depth_frame)
+        if self.is_frame_clipped:
+            self.color_cropped, self.depth_cropped = self._clip_frames(self.color_cropped, self.depth_cropped)
+        if self.first_frame_markers:
+            for i in range(len(self.first_frame_markers)):
+                self._distribute_pos_markers(i)
+
+        self.frame_idx += 1
 
     def get_frames(
         self,
@@ -329,13 +339,7 @@ class RgbdImages:
             Depth frame
         """
         self.is_frame_aligned = aligned
-
-        if self.is_camera_init:
-            self._get_frame_from_camera()
-        elif self.color_images and self.depth_images:
-            self._get_frame_from_file()
-        else:
-            raise ValueError("Camera is not initialized and images are not loaded from a file.")
+        self._get_frame_from_source()
         self.blobs = []
         color_list = []
         depth = self.depth_cropped
@@ -373,9 +377,13 @@ class RgbdImages:
                         marker.predict_from_kalman()
                         blob_center, marker.is_visible = find_closest_blob(marker.filtered_pos, self.blobs[i])
                         if marker.is_visible:
-                            marker.correct_from_kalman(blob_center)
+                            marker_depth, marker.is_depth_visible = check_and_attribute_depth(blob_center,
+                                                                     self.depth_cropped[i],
+                                                                     depth_scale=self.depth_scale)
+                            marker_pos = blob_center + [marker_depth]
+                            marker.correct_from_kalman(marker_pos)
                         else:
-                            marker.pos = [None, None]
+                            marker.pos = [None, None, None]
                         marker.set_global_filtered_pos(marker.filtered_pos, [self.start_crop[0][i], self.start_crop[1][i]])
                         marker.set_global_pos(marker.pos, [self.start_crop[0][i], self.start_crop[1][i]])
 
@@ -419,14 +427,6 @@ class RgbdImages:
             markers_names = markers_names + marker_set.get_markers_names()
             occlusions = occlusions + occlusion_tmp
         return markers_pos, markers_names, occlusions
-
-    def get_markers_depth(self, markers_pos=None):
-        if markers_pos is None:
-            markers_pos, _, _ = self.get_merged_global_markers_pos()
-        markers_depth = []
-        for i in range(markers_pos.shape[1]):
-            markers_depth.append(self.depth_frame[markers_pos[0][i], markers_pos[1][i]] / self.depth_scale)
-        return markers_depth
 
     def get_global_filtered_markers_pos(self):
         markers_pos = None
@@ -503,10 +503,8 @@ class RgbdImages:
         """
         Find the bounds of the image
         """
-
         def nothing(x):
             pass
-
         self.is_cropped = is_cropped
         self.is_frame_aligned = is_aligned
         mask_params = []
@@ -644,10 +642,28 @@ class RgbdImages:
                 self.clipping_distance_in_meters.append(params["clipping_distance_in_meters"])
         if self.first_frame_markers:
             for i in range(len(self.first_frame_markers)):
-                markers_pos, occlusion = distribute_pos_markers(self.first_frame_markers[i])
-                self.marker_sets[i].set_markers_pos(markers_pos)
-                self.marker_sets[i].init_kalman(markers_pos)
-                self.marker_sets[i].set_markers_occlusion(occlusion)
+                self._distribute_pos_markers(i)
+
+    def _distribute_pos_markers(self, i:int):
+        """
+        Distribute the markers in a dictionary of markers
+        :param pos_markers_dic: dictionary of markers
+        :return: list of markers
+        """
+        markers = np.zeros((3, len(self.first_frame_markers[i].keys())))
+        occlusion = []
+        depth_occlusion = []
+        c = 0
+        for key in self.first_frame_markers[i].keys():
+            markers[:, c] = np.array(self.first_frame_markers[i][key][0], dtype=int)
+            occlusion.append(self.first_frame_markers[i][key][1])
+            depth_occlusion.append(self.first_frame_markers[i][key][2])
+            c += 1
+        self.marker_sets[i].set_markers_pos(markers)
+        if self.frame_idx == 0:
+            self.marker_sets[i].init_kalman(markers)
+        self.marker_sets[i].set_markers_occlusion(occlusion)
+        self.marker_sets[i].set_markers_depth_occlusion(depth_occlusion)
 
     def add_marker_set(self, marker_set: Union[list[MarkerSet], MarkerSet]):
         if not isinstance(marker_set, list):
@@ -664,9 +680,10 @@ class RgbdImages:
                 raise ValueError("The image index of the marker set must be unique.")
 
     def label_first_frame(self, method: DetectionMethod = DetectionMethod.CV2Contours):
-        color_frame, _ = self.get_frames(self.is_frame_aligned)
+        color_frame, depth_frame = self.get_frames(self.is_frame_aligned)
         if not isinstance(color_frame, list):
             color_frame = [color_frame]
+            depth_frame = [depth_frame]
         dic = []
         if len(self.marker_sets) != len(color_frame):
             raise ValueError("The number of marker sets and the number of frames are not equal.")
@@ -739,12 +756,17 @@ class RgbdImages:
             m = 0
             dic.append({})
             for x, y in zip(x_tmp, y_tmp):
-                self.marker_sets[idx].markers[m].pos, self.marker_sets[idx].markers[m].is_visible = find_closest_blob(
+                self.marker_sets[idx].markers[m].pos[:2],\
+                self.marker_sets[idx].markers[m].is_visible = find_closest_blob(
                     [x, y], blobs
                 )
+                self.marker_sets[idx].markers[m].pos[2:],\
+                self.marker_sets[idx].markers[m].is_depth_visible = check_and_attribute_depth(
+                    self.marker_sets[idx].markers[m].pos[:2], self.depth_cropped[i], self.depth_scale)
                 dic[-1][marker_names[m]] = [
-                    self.marker_sets[idx].markers[m].pos,
+                    self.marker_sets[idx].markers[m].pos.tolist(),
                     self.marker_sets[idx].markers[m].is_visible,
+                    self.marker_sets[idx].markers[m].is_depth_visible,
                 ]
                 m += 1
         return dic

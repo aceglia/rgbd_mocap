@@ -45,43 +45,55 @@
             "C7": [
                 [
                     60,
-                    20
+                    20,
+                    1
                 ],
+                true,
                 true
             ],
             "Scap_AA": [
                 [
                     61,
-                    65
+                    65,
+                    0
                 ],
+                true,
                 true
             ],
             "Scap_IA": [
                 [
                     56,
-                    119
+                    119,
+                    1
                 ],
+                true,
                 true
             ],
             "Acrom": [
                 [
                     106,
-                    88
+                    88,
+                    0
                 ],
+                true,
                 true
             ],
             "Clav_AC": [
                 [
                     116,
-                    65
+                    65,
+                    0
                 ],
+                true,
                 true
             ],
             "Clav_SC": [
                 [
                     121,
-                    43
+                    43,
+                    1
                 ],
+                true,
                 true
             ]
         },
@@ -89,22 +101,28 @@
             "delt": [
                 [
                     28,
-                    13
+                    13,
+                    1
                 ],
+                true,
                 true
             ],
             "arm_l": [
                 [
                     37,
-                    29
+                    29,
+                    1
                 ],
+                true,
                 true
             ],
             "epic_l": [
                 [
                     53,
-                    61
+                    61,
+                    1
                 ],
+                true,
                 true
             ]
         },
@@ -112,37 +130,47 @@
             "styl_u": [
                 [
                     48,
-                    78
+                    78,
+                    1
                 ],
+                true,
                 true
             ],
             "h_up": [
                 [
-                    58,
-                    97
+                    73,
+                    68,
+                    1
                 ],
-                false
+                false,
+                true
             ],
             "h_down": [
                 [
-                    74,
-                    84
+                    78,
+                    85,
+                    1
                 ],
-                false
+                true,
+                true
             ],
             "ped_l": [
                 [
                     66,
-                    54
+                    49,
+                    1
                 ],
-                false
+                false,
+                true
             ],
             "ped_r": [
                 [
-                    78,
-                    48
+                    77,
+                    46,
+                    1
                 ],
-                false
+                false,
+                true
             ]
         }
     ]

@@ -41,6 +41,7 @@ def find_closest_blob(center, blobs):
     Find the closest blob to the center
     """
     delta = 10
+    center = center.astype(int)
     cx, cy = find_closest_node(center, blobs)
     if cx and cy:
         if cx in range(center[0] - delta, center[0] + delta) and cy in range(center[1] - delta, center[1] + delta):
@@ -52,38 +53,6 @@ def find_closest_blob(center, blobs):
         return final_centers, is_visible
     else:
         return center, False
-
-
-def list_authorized_color_resolution(camera_type: str = "D455"):
-    if camera_type == "D455":
-        return [(424, 240), (480, 270), (640, 360), (640, 480), (848, 480), (1280, 720), (1280, 800)]
-    else:
-        raise ValueError("Camera type not supported")
-
-
-def list_authorized_depth_resolution(camera_type: str = "D455"):
-    if camera_type == "D455":
-        return [
-            (256, 144),
-            (424, 240),
-            (480, 270),
-            (640, 360),
-            (640, 400),
-            (640, 480),
-            (848, 100),
-            (848, 480),
-            (1280, 720),
-            (1280, 800),
-        ]
-    else:
-        raise ValueError("Camera type not supported")
-
-
-def list_authorized_fps(camera_type: str = "D455"):
-    if camera_type == "D455":
-        return [5, 15, 25, 30, 60, 90, 100]
-    else:
-        raise ValueError("Camera type not supported")
 
 
 def RT(angleX):
@@ -168,17 +137,37 @@ def get_conf_data(conf_file):
     return data
 
 
-def distribute_pos_markers(pos_markers_dic: dict):
+def check_and_attribute_depth(pos_2d, depth_image, depth_scale=1):
+    """
+    Check if the depth is valid
+    :param pos_2d: 2d position of the marker
+    :param depth_image: depth image
+    :param depth_scale: depth scale
+    :return: depth value
+    """
+    delta = 10
+    if depth_image[pos_2d[1], pos_2d[0]] < 0:
+        pos = np.mean(depth_image[pos_2d[1] - delta : pos_2d[1] + delta,
+                           pos_2d[0]-delta:pos_2d[0]+delta]) * depth_scale
+        is_visible = False
+    else:
+        pos = depth_image[pos_2d[1], pos_2d[0]] * depth_scale
+        is_visible = True
+    return pos, is_visible
+
+
+def distribute_pos_markers(pos_markers_dic: dict, depth_image: list):
     """
     Distribute the markers in a dictionary of markers
     :param pos_markers_dic: dictionary of markers
     :return: list of markers
     """
-    markers = np.zeros((2, len(pos_markers_dic.keys())))
+    markers = np.zeros((3, len(pos_markers_dic.keys())))
     occlusion = []
     c = 0
     for key in pos_markers_dic.keys():
-        markers[:, c] = np.array(pos_markers_dic[key][0], dtype=int)
+        markers[:2, c] = np.array(pos_markers_dic[key][0], dtype=int)
+        markers[2, c] = depth_image[c][pos_markers_dic[key][0][1], pos_markers_dic[key][0][0]]
         occlusion.append(pos_markers_dic[key][1])
         c += 1
     return markers, occlusion
@@ -442,7 +431,12 @@ def draw_blobs(frame, blobs, color=(255, 0, 0)):
     return frame
 
 
-def draw_markers(frame, markers_pos, markers_filtered_pos=None, markers_names=None, is_visible=None):
+def draw_markers(frame,
+                 markers_pos,
+                 markers_filtered_pos=None,
+                 markers_names=None,
+                 is_visible=None,
+                 scaling_factor=1.0):
     x, y = None, None
     if markers_pos is not None:
         for i in range(markers_pos.shape[1]):
@@ -460,23 +454,24 @@ def draw_markers(frame, markers_pos, markers_filtered_pos=None, markers_names=No
                         )
             if markers_names:
                 if x and y:
-                    frame = cv2.putText(
-                        frame,
-                        markers_names[i],
-                        (x, y),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.7,
-                        (0, 255, 0),
-                        1,
-                    )
+                    if markers_pos[2, i]:
+                        frame = cv2.putText(
+                            frame,
+                            str(np.round(markers_pos[2, i]*100, 2)),
+                            (x, y),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            scaling_factor,
+                            (0, 255, 0),
+                            1,
+                        )
     return frame
 
 
 def bounding_rect(frame, points, color=(255, 0, 0), delta=10):
     point_x = [item for item in points[0] if item is not None]
     point_y = [item for item in points[1] if item is not None]
-    x_min, x_max = np.clip(min(point_x) - delta, 0, None), np.clip(max(point_x) + delta, None, frame.shape[0])
-    y_min, y_max = np.clip(min(point_y) - delta, 0, None), np.clip(max(point_y) + delta, None, frame.shape[1])
+    x_min, x_max = np.clip(min(point_x) - delta, 0, None).astype(int), np.clip(max(point_x) + delta, None, frame.shape[0]).astype(int)
+    y_min, y_max = np.clip(min(point_y) - delta, 0, None).astype(int), np.clip(max(point_y) + delta, None, frame.shape[1]).astype(int)
     frame = cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), color, 1)
     return frame, (x_min, x_max, y_min, y_max)
 
