@@ -683,7 +683,6 @@ class RgbdImages:
         color_frame, depth_frame = self.get_frames(self.is_frame_aligned)
         if not isinstance(color_frame, list):
             color_frame = [color_frame]
-            depth_frame = [depth_frame]
         dic = []
         if len(self.marker_sets) != len(color_frame):
             raise ValueError("The number of marker sets and the number of frames are not equal.")
@@ -762,7 +761,7 @@ class RgbdImages:
                 )
                 self.marker_sets[idx].markers[m].pos[2:],\
                 self.marker_sets[idx].markers[m].is_depth_visible = check_and_attribute_depth(
-                    self.marker_sets[idx].markers[m].pos[:2], self.depth_cropped[i], self.depth_scale)
+                    self.marker_sets[idx].markers[m].pos[:2], depth_frame[i], self.depth_scale)
                 dic[-1][marker_names[m]] = [
                     self.marker_sets[idx].markers[m].pos.tolist(),
                     self.marker_sets[idx].markers[m].is_visible,

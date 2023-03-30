@@ -41,7 +41,7 @@ def find_closest_blob(center, blobs):
     Find the closest blob to the center
     """
     delta = 10
-    center = center.astype(int)
+    center = np.array(center).astype(int)
     cx, cy = find_closest_node(center, blobs)
     if cx and cy:
         if cx in range(center[0] - delta, center[0] + delta) and cy in range(center[1] - delta, center[1] + delta):
@@ -145,8 +145,11 @@ def check_and_attribute_depth(pos_2d, depth_image, depth_scale=1):
     :param depth_scale: depth scale
     :return: depth value
     """
-    delta = 10
-    if depth_image[pos_2d[1], pos_2d[0]] < 0:
+    delta = 2
+    if isinstance(pos_2d, list):
+        pos_2d = np.array(pos_2d)
+    pos_2d = pos_2d.astype(int)
+    if depth_image[pos_2d[1], pos_2d[0]] <= 0:
         pos = np.mean(depth_image[pos_2d[1] - delta : pos_2d[1] + delta,
                            pos_2d[0]-delta:pos_2d[0]+delta]) * depth_scale
         is_visible = False
@@ -436,7 +439,8 @@ def draw_markers(frame,
                  markers_filtered_pos=None,
                  markers_names=None,
                  is_visible=None,
-                 scaling_factor=1.0):
+                 scaling_factor=1.0,
+                 ):
     x, y = None, None
     if markers_pos is not None:
         for i in range(markers_pos.shape[1]):
@@ -454,7 +458,7 @@ def draw_markers(frame,
                         )
             if markers_names:
                 if x and y:
-                    if markers_pos[2, i]:
+                    if markers_pos[2, i] is not None:
                         frame = cv2.putText(
                             frame,
                             str(np.round(markers_pos[2, i]*100, 2)),

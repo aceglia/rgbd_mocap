@@ -32,7 +32,7 @@ if __name__ == "__main__":
     )
     mask_params = camera.mask_params
     fig = plt.figure()
-
+    count =0
     while True:
         color_cropped, depth_cropped = camera.get_frames(
             aligned=True,
@@ -47,8 +47,8 @@ if __name__ == "__main__":
             depth_cropped = [depth_cropped]
 
         for i in range(len(color_cropped)):
-            depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_cropped[i], alpha=0.03), cv2.COLORMAP_JET)
-            cv2.addWeighted(depth_colormap, 0.5, color_cropped[i], 0.5, 0, color_cropped[i])
+            # depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_cropped[i], alpha=0.03), cv2.COLORMAP_JET)
+            # cv2.addWeighted(depth_colormap, 0.5, color_cropped[i], 0.5, 0, color_cropped[i])
             cv2.namedWindow("cropped_" + str(i), cv2.WINDOW_NORMAL)
             cv2.imshow("cropped_" + str(i), color_cropped[i])
 
@@ -60,23 +60,23 @@ if __name__ == "__main__":
             markers_pos=markers_pos,
             markers_names=markers_names,
             is_visible=occlusions,
-            scaling_factor=0.5
+            scaling_factor=0.5,
         )
+        count += 1
         cv2.namedWindow("Global", cv2.WINDOW_NORMAL)
         cv2.imshow("Global", color)
         cv2.waitKey(100)
-
         # ax = plt.axes(projection='3d')
-        # ax.scatter3D(markers_pos[0, :], markers_pos[1, :], depth, c=depth, cmap='Greens')
+        # ax.scatter3D(markers_pos[0, :], markers_pos[1, :], markers_pos[2, :], c=markers_pos[2, :])
         # for i, txt in enumerate(markers_names):
-        #     ax.text(markers_pos[0, i], markers_pos[1, i], depth[i], txt)
-        #
+        #     ax.text(markers_pos[0, i], markers_pos[1, i], markers_pos[2, i], txt)
+        # 
         # # Set axis labels and title
         # ax.set_xlabel('X Label')
         # ax.set_ylabel('Y Label')
         # ax.set_zlabel('Z Label')
         # ax.set_title('3D Scatter Plot')
-        # # plt.show()
+        # plt.show()
         #
 
 

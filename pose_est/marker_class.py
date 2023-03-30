@@ -54,10 +54,7 @@ class Marker:
         if local_pos[0] is not None and local_pos[1] is not None:
             self.global_pos[0] = local_pos[0] + start_crop[0]
             self.global_pos[1] = local_pos[1] + start_crop[1]
-            if len(local_pos) == 3:
-                self.global_pos[2] = local_pos[2]
-            else:
-                self.global_pos[2] = None
+            self.global_pos[2] = local_pos[2]
         else:
             self.global_pos = np.array([None, None, None])
 
@@ -159,10 +156,7 @@ class MarkerSet:
             position of the markers
         """
         for m, marker in enumerate(self.markers):
-            if pos.shape[0] != 3:
-                marker.pos[:2] = pos[:, m]
-            else:
-                marker.pos = pos[:, m]
+            marker.pos = pos[:, m]
 
     def set_filtered_markers_pos(self, pos):
         """
