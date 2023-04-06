@@ -474,10 +474,13 @@ def draw_markers(frame,
 def bounding_rect(frame, points, color=(255, 0, 0), delta=10):
     point_x = [item for item in points[0] if item is not None]
     point_y = [item for item in points[1] if item is not None]
-    x_min, x_max = np.clip(min(point_x) - delta, 0, None).astype(int), np.clip(max(point_x) + delta, None, frame.shape[0]).astype(int)
-    y_min, y_max = np.clip(min(point_y) - delta, 0, None).astype(int), np.clip(max(point_y) + delta, None, frame.shape[1]).astype(int)
+    min_x, max_x = int(min(point_x)- delta), int(max(point_x)+ delta)
+    min_y, max_y = int(min(point_y)- delta), int(max(point_y)+ delta)
+    x_min, x_max = np.clip(min_x, 0, frame.shape[1]), np.clip(max_x, 0, frame.shape[1])
+    y_min, y_max = np.clip(min_y, 0, frame.shape[0]), np.clip(max_y, 0, frame.shape[0])
+    # x_min, x_max, y_min, y_max = 0, frame.shape[1], 0, frame.shape[0]
     frame = cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), color, 1)
-    return frame, (x_min, x_max, y_min, y_max)
+    return frame, (int(x_min), int(x_max), int(y_min), int(y_max))
 
 
 def check_filtered_or_true_pos(pos, filtered, occlusions):
