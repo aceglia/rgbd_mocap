@@ -1,13 +1,16 @@
+import numpy as np
+
 from pose_est.marker_class import MarkerSet
 from pose_est.RgbdImages import RgbdImages
 from pose_est.utils import *
 import matplotlib.pyplot as plt
+import pyrealsense2 as rs
 import cv2
 
 if __name__ == "__main__":
     with_camera = False
     if not with_camera:
-        file_path = r"D:\Documents\Programmation\vision\image_camera_trial_1_short.bio.gzip"
+        file_path = r"videos/image_camera_trial_1_short.bio.gzip"
         camera = RgbdImages(conf_file="config_camera_mod.json", merged_images=file_path)
     else:
         camera = RgbdImages()
@@ -34,7 +37,7 @@ if __name__ == "__main__":
     fig = plt.figure()
     import time
     count = 0
-    import open3d as o3d
+    # import open3d as o3d
     while True:
         color_cropped, depth_cropped = camera.get_frames(
             aligned=True,
@@ -56,10 +59,12 @@ if __name__ == "__main__":
 
         color = camera.color_frame.copy()
         depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(camera.depth_frame, alpha=0.03), cv2.COLORMAP_JET)
-        # cv2.addWeighted(depth_colormap, 0.5, color, 0.5, 0, color)
+        cv2.addWeighted(depth_colormap, 0.5, color, 0.5, 0, color)
 
         depth_image = camera.depth_frame.copy()
         markers_pos, markers_names, occlusions = camera.get_merged_global_markers_pos()
+        markers_in_meters, _, _ = camera.get_merged_global_markers_pos_in_meter(markers_pos)
+
         color = draw_markers(
             color,
             markers_pos=markers_pos,
@@ -68,14 +73,58 @@ if __name__ == "__main__":
             scaling_factor=0.5,
         )
         count += 1
+        # import pickle
+        # with open("markers_pos.pkl", "wb") as f:
+        #     pickle.dump({"mark_pos": markers_pos, "mark_pos_in_meters": markers_in_meters}, f)
         # cv2.namedWindow("Global", cv2.WINDOW_NORMAL)
         # cv2.imshow("Global", color)
         # cv2.waitKey(100)
         # ax = plt.axes(projection='3d')
-        # ax.scatter3D(markers_pos[0, :], markers_pos[1, :], markers_pos[2, :], c=markers_pos[2, :])
+        # ax.scatter3D(markers_in_meters[0, :], markers_in_meters[1, :], markers_in_meters[2, :], c=markers_in_meters[2, :])
         # for i, txt in enumerate(markers_names):
-        #     ax.text(markers_pos[0, i], markers_pos[1, i], markers_pos[2, i], txt)
+        #     ax.text(markers_in_meters[0, i], markers_in_meters[1, i], markers_in_meters[2, i], txt)
         #
+        # # Set axis labels and title
+        # ax.set_xlabel('X Label')
+        # ax.set_ylabel('Y Label')
+        # ax.set_zlabel('Z Label')
+        # ax.set_title('3D Scatter Plot')
+        # plt.show()
+        #
+        import open3d as o3d
+
+        # Create a sphere
+
+        # Create a point cloud with a single point
+        pt_cloud = o3d.geometry.PointCloud()
+        pt_cloud.points = o3d.utility.Vector3dVector(markers_in_meters.T)
+        pt_cloud.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+        sphere_list = []
+        for pt in pt_cloud.points:
+            sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.02)
+            sphere.translate(pt)
+            sphere.paint_uniform_color([0.8, 0.2, 0.2])  # Set color of spheres to red
+            sphere_list.append(sphere)
+
+        # Create line sets for x-, y-, and z- axes
+        lineset = o3d.geometry.LineSet()
+
+        # x-axis (red)
+        lineset.lines = o3d.utility.Vector2iVector([[0, 1]])
+        lineset.points = o3d.utility.Vector3dVector(np.array([[0, 0, 0], [1, 0, 0]]))
+        lineset.colors = o3d.utility.Vector3dVector(np.array([[1, 0, 0]]))
+
+        # y-axis (green)
+        lineset2 = o3d.geometry.LineSet()
+        lineset2.lines = o3d.utility.Vector2iVector([[0, 1]])
+        lineset2.points = o3d.utility.Vector3dVector(np.array([[0, 0, 0], [0, 1, 0]]))
+        lineset2.colors = o3d.utility.Vector3dVector(np.array([[0, 1, 0]]))
+
+        # z-axis (blue)
+        lineset3 = o3d.geometry.LineSet()
+        lineset3.lines = o3d.utility.Vector2iVector([[0, 1]])
+        lineset3.points = o3d.utility.Vector3dVector(np.array([[0, 0, 0], [0, 0, 1]]))
+        lineset3.colors = o3d.utility.Vector3dVector(np.array([[0, 0, 1]]))
 
         intrinsics = o3d.camera.PinholeCameraIntrinsic()
         intrinsics.set_intrinsics(width=depth_image.shape[0], height=depth_image.shape[1], fx=camera.depth_fx_fy[0],
@@ -91,22 +140,17 @@ if __name__ == "__main__":
         pcd1.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
         print("time to create point cloud: ", time.time() - tic)
         #
-        o3d.visualization.draw_geometries([pcd1])
+        o3d.visualization.draw_geometries([pcd1, lineset, lineset2, lineset3] + sphere_list)
         # Visualize point cloud
         # pointcloud += pcd1
         # vis.add_geometry(pointcloud)
         # # vis.update_geometry()
         # vis.poll_events()
         # vis.update_renderer()
-        import time
-        time.sleep(0.05)
+        # import time
+        # time.sleep(0.05)
 
-        # Set axis labels and title
-        # ax.set_xlabel('X Label')
-        # ax.set_ylabel('Y Label')
-        # ax.set_zlabel('Z Label')
-        # ax.set_title('3D Scatter Plot')
-        # plt.show()
+
         #
 
 

@@ -461,7 +461,7 @@ def draw_markers(frame,
                     if markers_pos[2, i] is not None:
                         frame = cv2.putText(
                             frame,
-                            str(np.round(markers_pos[2, i]*100, 2)),
+                            str(markers_names[i]),
                             (x, y),
                             cv2.FONT_HERSHEY_SIMPLEX,
                             scaling_factor,

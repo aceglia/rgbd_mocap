@@ -428,6 +428,33 @@ class RgbdImages:
             occlusions = occlusions + occlusion_tmp
         return markers_pos, markers_names, occlusions
 
+    def get_merged_global_markers_pos_in_meter(self, marker_pos_in_pixel=None):
+        if marker_pos_in_pixel is None:
+            marker_pos_in_pixel, markers_names, occlusions = self.get_merged_global_markers_pos()
+        else:
+            markers_names, occlusions = None, None
+
+        if self.is_camera_init:
+            _intrinsics = self.pipeline.get_active_profile().get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
+        else:
+            _intrinsics = rs.intrinsics()
+            _intrinsics.width = self.depth_frame.shape[1]
+            _intrinsics.height = self.depth_frame.shape[0]
+            _intrinsics.ppx = self.depth_ppx_ppy[0]
+            _intrinsics.ppy = self.depth_ppx_ppy[1]
+            _intrinsics.fx = self.depth_fx_fy[0]
+            _intrinsics.fy = self.depth_fx_fy[1]
+            _intrinsics.model = rs.distortion.none
+
+        markers_in_meters = np.zeros_like(marker_pos_in_pixel)
+        for m in range(marker_pos_in_pixel.shape[1]):
+            markers_in_meters[:, m] = rs.rs2_deproject_pixel_to_point(_intrinsics,
+                                                                      [marker_pos_in_pixel[0, m],
+                                                                       marker_pos_in_pixel[1, m]],
+                                                                      marker_pos_in_pixel[2, m])
+
+        return markers_in_meters, markers_names, occlusions
+
     def get_global_filtered_markers_pos(self):
         markers_pos = None
         markers_names = []
