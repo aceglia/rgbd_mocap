@@ -16,6 +16,8 @@ __pycache__/
 .idea
 .Python
 build/
+data_files/
+kinematic_model/
 develop-eggs/
 dist/
 downloads/

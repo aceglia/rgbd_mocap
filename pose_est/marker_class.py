@@ -1,8 +1,5 @@
 import numpy as np
-# from pose_est.kalman_filter import KalmanFilter
 import cv2
-from kalman_pykalman import KalmanFilter
-# from pykalman import KalmanFilter
 
 
 class Marker:
@@ -14,64 +11,52 @@ class Marker:
         self.global_pos = np.zeros((3,))
         self.is_visible = False
         self.is_depth_visible = False
-        self._reliability_index = -1
-        self.reliability_index = -1
+        self._reliability_index = 0
+        self.reliability_index = 0
+        self.mean_reliability_index = 0
         self.dt = 1
         self.n_states = 4
         self.n_measures = 2
         self.kalman = None
-        self.kalman_from_opencv = True
 
     def predict_from_kalman(self):
-        if self.kalman_from_opencv:
-            self.filtered_pos[:2] = self.kalman.predict()[:2].reshape(2,)
-            self.filtered_pos[2] = self.pos[2]
-        else:
-            self.filtered_pos[:2] = self.kalman.predict()[0][0, :2].reshape(2,)
-            self.filtered_pos[2] = self.pos[2]
+        self.pos[:2] = self.kalman.predict()[:2].reshape(2,)
 
     def get_reliability_index(self, frame_idx):
-        return self._reliability_index/frame_idx
+        return self.reliability_index/(frame_idx+1)
 
     def correct_from_kalman(self, points):
         self.pos[:2] = np.array(points)
-        if self.kalman_from_opencv:
-            self.filtered_pos[:2] = self.kalman.correct(np.array(points[:2], dtype=np.float32))[:2].reshape(2,)
-        else:
-            self.filtered_pos[:2] = self.kalman.update(np.array(points[:2]))[0][0, :2]
+        _ = self.kalman.correct(np.array(points[:2], dtype=np.float32))[:2].reshape(2,)
 
     def init_kalman(self, points):
-        if self.kalman_from_opencv:
-            self.kalman = cv2.KalmanFilter(self.n_states, self.n_measures)
-            self.kalman.transitionMatrix = np.eye(self.n_states, dtype=np.float32)
-            # self.kalman.processNoiseCov = np.eye(self.n_states, dtype = np.float32) * 1
-            self.kalman.measurementNoiseCov = np.eye(self.n_measures, dtype=np.float32) * 0.005
-            self.kalman.errorCovPost = 1. * np.eye(self.n_states, self.n_states, dtype=np.float32)
+        self.kalman = cv2.KalmanFilter(self.n_states, self.n_measures)
+        self.kalman.transitionMatrix = np.eye(self.n_states, dtype=np.float32)
+        # self.kalman.processNoiseCov = np.eye(self.n_states, dtype = np.float32) * 1
+        self.kalman.measurementNoiseCov = np.eye(self.n_measures, dtype=np.float32) * 0.005
+        self.kalman.errorCovPost = 1. * np.eye(self.n_states, self.n_states, dtype=np.float32)
 
-            self.kalman.measurementMatrix = np.zeros((self.n_measures, self.n_states), np.float32)
-            self.Measurement_array = []
-            self.dt_array = []
-            for i in range(0, self.n_states, 4):
-                self.Measurement_array.append(i)
-                self.Measurement_array.append(i + 1)
+        self.kalman.measurementMatrix = np.zeros((self.n_measures, self.n_states), np.float32)
+        self.Measurement_array = []
+        self.dt_array = []
+        for i in range(0, self.n_states, 4):
+            self.Measurement_array.append(i)
+            self.Measurement_array.append(i + 1)
 
-            for i in range(0, self.n_states):
-                if i not in self.Measurement_array:
-                    self.dt_array.append(i)
+        for i in range(0, self.n_states):
+            if i not in self.Measurement_array:
+                self.dt_array.append(i)
 
-            self.kalman.transitionMatrix[0, 2] = self.dt
-            self.kalman.transitionMatrix[1, 3] = self.dt
-            for i in range(0, self.n_measures):
-                self.kalman.measurementMatrix[i, self.Measurement_array[i]] = 1
-            self.pos = np.array(points)
+        self.kalman.transitionMatrix[0, 2] = self.dt
+        self.kalman.transitionMatrix[1, 3] = self.dt
+        for i in range(0, self.n_measures):
+            self.kalman.measurementMatrix[i, self.Measurement_array[i]] = 1
+        self.pos = np.array(points)
 
-            input_points = np.float32(np.ndarray.flatten(points))
-            self.kalman.statePre = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
-            self.kalman.statePost = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
-            self.predict_from_kalman()
-        else:
-            self.kalman = KalmanFilter(1, 0,0,1,1,1)
-            self.kalman.x = np.array([points[0], points[1], 0, 0])
+        input_points = np.float32(np.ndarray.flatten(points))
+        self.kalman.statePre = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
+        self.kalman.statePost = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
+        self.predict_from_kalman()
 
     def set_global_pos(self, local_pos, start_crop):
         if local_pos[0] is not None and local_pos[1] is not None:
@@ -127,7 +112,7 @@ class MarkerSet:
         return np.array([marker.pos for marker in self.markers]).T.reshape(3, self.nb_markers)
 
     def get_markers_reliability_index(self, frame_idx):
-        return np.array([marker.get_reliability_index(frame_idx) for marker in self.markers]).round(2)
+        return list(np.array([marker.get_reliability_index(frame_idx) for marker in self.markers]).round(2))
 
     def get_marker_set_model_pos(self):
         """
@@ -315,3 +300,9 @@ class MarkerSet:
     def init_filtered_pos(self, points):
         for m, mark in enumerate(self.markers):
             mark.filtered_pos = points[:, m]
+
+    def get_markers_local_in_meters(self):
+        pass
+
+    def get_markers_global_in_meters(self):
+        pass

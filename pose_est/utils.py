@@ -19,9 +19,138 @@ try:
 except ModuleNotFoundError:
     pass
 
-from .model_creation import (AxisReal, Axis, Data, BiomechanicalModelReal, SegmentCoordinateSystemReal,\
-    MarkerReal, Marker, SegmentReal, Segment)
+import functools
 
+import haiku as hk
+import jax
+import jax.numpy as jnp
+import mediapy as media
+from tqdm import tqdm
+import tree
+
+import tapir_model
+from utils import transforms
+from utils import viz_utils
+
+
+def build_online_model_init(frames, query_points):
+  """Initialize query features for the query points."""
+  model = tapir_model.TAPIR(use_causal_conv=True, bilinear_interp_with_depthwise_conv=False)
+
+  feature_grids = model.get_feature_grids(frames, is_training=False)
+  query_features = model.get_query_features(
+      frames,
+      is_training=False,
+      query_points=query_points,
+      feature_grids=feature_grids,
+  )
+  return query_features
+
+
+def build_online_model_predict(frames, query_features, causal_context):
+  """Compute point tracks and occlusions given frames and query points."""
+  model = tapir_model.TAPIR(use_causal_conv=True, bilinear_interp_with_depthwise_conv=False)
+  feature_grids = model.get_feature_grids(frames, is_training=False)
+  trajectories = model.estimate_trajectories(
+      frames.shape[-3:-1],
+      is_training=False,
+      feature_grids=feature_grids,
+      query_features=query_features,
+      query_points_in_video=None,
+      query_chunk_size=64,
+      causal_context=causal_context,
+      get_causal_context=True,
+  )
+  causal_context = trajectories['causal_context']
+  del trajectories['causal_context']
+  return {k: v[-1] for k, v in trajectories.items()}, causal_context
+
+
+def preprocess_frames(frames):
+  """Preprocess frames to model inputs.
+
+  Args:
+    frames: [num_frames, height, width, 3], [0, 255], np.uint8
+
+  Returns:
+    frames: [num_frames, height, width, 3], [-1, 1], np.float32
+  """
+  frames = frames.astype(np.float32)
+  frames = frames / 255 * 2 - 1
+  return frames
+
+
+def postprocess_occlusions(occlusions, expected_dist):
+  """Postprocess occlusions to boolean visible flag.
+
+  Args:
+    occlusions: [num_points, num_frames], [-inf, inf], np.float32
+
+  Returns:
+    visibles: [num_points, num_frames], bool
+  """
+  pred_occ = jax.nn.sigmoid(occlusions)
+  pred_occ = 1 - (1 - pred_occ) * (1 - jax.nn.sigmoid(expected_dist))
+  visibles = pred_occ < 0.5  # threshold
+  return visibles
+
+
+def sample_random_points(frame_max_idx, height, width, num_points):
+  """Sample random points with (time, height, width) order."""
+  y = np.random.randint(0, height, (num_points, 1))
+  x = np.random.randint(0, width, (num_points, 1))
+  t = np.random.randint(0, frame_max_idx + 1, (num_points, 1))
+  points = np.concatenate((t, y, x), axis=-1).astype(np.int32)  # [num_points, 3]
+  return points
+
+
+def construct_initial_causal_state(num_points, num_resolutions):
+  value_shapes = {
+      "tapir/~/pips_mlp_mixer/block_1_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_1_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_2_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_2_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_3_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_3_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_4_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_4_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_5_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_5_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_6_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_6_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_7_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_7_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_8_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_8_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_9_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_9_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_10_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_10_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_11_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_11_causal_2": (1, num_points, 2, 2048),
+      "tapir/~/pips_mlp_mixer/block_causal_1": (1, num_points, 2, 512),
+      "tapir/~/pips_mlp_mixer/block_causal_2": (1, num_points, 2, 2048),
+  }
+  fake_ret = {
+      k: jnp.zeros(v, dtype=jnp.float32) for k, v in value_shapes.items()
+  }
+  return [fake_ret] * num_resolutions * 4
+
+
+def convert_select_points_to_query_points(frame, points):
+  """Convert select points to query points.
+
+  Args:
+    points: [num_points, 2], [t, y, x]
+  Returns:
+    query_points: [num_points, 3], [t, y, x]
+  """
+  points = np.stack(points)
+  query_points = np.zeros(shape=(points.shape[0], 3), dtype=np.float32)
+  query_points[:, 0] = frame
+  query_points[:, 1] = points[:, 1]
+  query_points[:, 2] = points[:, 0]
+  return query_points
 
 
 def closest_node(node, nodes):
@@ -30,23 +159,15 @@ def closest_node(node, nodes):
     return np.argmin(dist_2)
 
 
-def create_c3d_file(marker_sets, save_path: str, fps=60):
+def create_c3d_file(marker_pos, marker_names, save_path: str, fps=60):
     """
     Write data to a c3d file
     """
-    marker_names = []
-    marker_positions = None
-    for marker_set in marker_sets:
-        marker_names += marker_set.marker_names
-        if marker_positions is None:
-            marker_positions = np.array(marker_set.get_markers_pos())[:, :, np.newaxis]
-        else:
-            marker_positions = np.concatenate((marker_positions, np.array(marker_set.get_markers_pos())[:, :, np.newaxis]), axis=1)
     c3d = ezc3d.c3d()
     # Fill it with random data
     c3d["parameters"]["POINT"]["RATE"]["value"] = [fps]
     c3d["parameters"]["POINT"]["LABELS"]["value"] = marker_names
-    c3d["data"]["points"] = marker_positions
+    c3d["data"]["points"] = marker_pos
 
     # Write the data
     c3d.write(save_path)
@@ -61,28 +182,38 @@ def find_closest_node(point, node_list):
             closest_node = node
             smallest_distance = distance
     if closest_node is not None:
-        return closest_node[0], closest_node[1]
+        return closest_node[0], closest_node[1], smallest_distance
     else:
-        return None, None
+        return None, None, None
 
 
-def find_closest_blob(center, blobs, delta=10):
+def find_closest_blob(center, blobs, delta=10, return_distance=False):
     """
     Find the closest blob to the center
     """
     delta = delta
+    # delta = 15
     center = np.array(center).astype(int)
-    cx, cy = find_closest_node(center, blobs)
+    if len(center.shape) == 2:
+        center = center[:, 0]
+    cx, cy, distance = find_closest_node(center, blobs)
     if cx and cy:
-        if cx in range(center[0] - delta, center[0] + delta) and cy in range(center[1] - delta, center[1] + delta):
+        if distance <= delta:
+        # if center[0] - delta <= cx <= center[0] + delta and center[1] - delta <= cy <= center[1] + delta:
             final_centers = [cx, cy]
             is_visible = True
         else:
             final_centers = center
             is_visible = False
-        return final_centers, is_visible
+        if return_distance:
+            return final_centers, is_visible, distance
+        else:
+            return final_centers, is_visible
     else:
-        return center, False
+        if return_distance:
+            return center, False, -1
+        else:
+            return center, False
 
 
 def RT(angleX):
@@ -176,7 +307,7 @@ def check_and_attribute_depth(pos_2d, depth_image, depth_scale=0.01):
         pos_2d = np.array(pos_2d)
     pos_2d = pos_2d.astype(int)
     if depth_image[pos_2d[1], pos_2d[0]] <= 0:
-        pos = np.mean(depth_image[pos_2d[1] - delta : pos_2d[1] + delta,
+        pos = np.median(depth_image[pos_2d[1] - delta : pos_2d[1] + delta,
                            pos_2d[0]-delta:pos_2d[0]+delta]) * depth_scale
         is_visible = False
     else:
@@ -200,6 +331,7 @@ def distribute_pos_markers(pos_markers_dic: dict, depth_image: list):
         occlusion.append(pos_markers_dic[key][1])
         c += 1
     return markers, occlusion
+
 
 def calculate_contour_distance(contour1, contour2):
     x1, y1, w1, h1 = cv2.boundingRect(contour1)
@@ -246,6 +378,9 @@ def get_blobs(
     return_centers=False,
     image_bounds=None,
     threshold_distance=2,
+    depth=None
+    , clipping_color=None,
+        depth_scale=None,
 ):
     if image_bounds:
         bounded_frame = frame.copy()
@@ -254,72 +389,16 @@ def get_blobs(
         bounded_frame = frame.copy()
         image_bounds = (0, frame.shape[1], 0, frame.shape[0])
     im_from_init = bounded_frame.copy()
-    # if params["hist_hsv"] == 0:
-    #     # im_from_init = cv2.cvtColor(bounded_frame, cv2.COLOR_RGB2Lab)
-    #     im_from_init = cv2.cvtColor(bounded_frame, cv2.COLOR_BGR2GRAY)
-    # else:
-    #     hsv = cv2.cvtColor(bounded_frame, cv2.COLOR_BGR2HSV)
-        # im_from_init = hsv[:, :, :]
     centers = []
     blobs = []
     im_from = None
-    merged_center = []
-    n_blob_steps = params["n_step"]
-    blob_threshold_step = 10
-    for i in range(n_blob_steps):
-        im_from = bounded_frame.copy()
-        # im_from = cv2.convertScaleAbs(im_from, alpha=params["alpha"], beta=params["beta"])
-        # im_from = cv2.cvtColor(im_from, cv2.COLOR_BGR2GRAY)
-        # im_from = cv2.GaussianBlur(im_from, (7, 7), 0)
-
-        if params["hist_hsv"] == 0:
-            im_from = im_from_init.copy()
-            im_from = cv2.cvtColor(im_from, cv2.COLOR_RGB2GRAY)
-            im_from = cv2.GaussianBlur(im_from, (5, 5), 0)
-
-            clahe = cv2.createCLAHE(clipLimit=params["clahe_clip_limit"],
-                                    tileGridSize=(params["clahe_autre"], params["clahe_autre"]))
-            im_from = clahe.apply(im_from)
-
-            # im_from = cv2.smooth(im_from, im_from, cv2.CV_GAUSSIAN, 5, 5)
-            # im_from = cv2.medianBlur(im_from, 5)
-            # im_from = cv2.fastNlMeansDenoising(im_from, None, 20, 7, 21)
-            # im_from = cv2.dilate(im_from, None, iterations=1)
-            # im_from = cv2.erode(im_from, None, iterations=1)
-            # im_from = cv2.cvtColor(im_from, cv2.COLOR_Lab2BGR)
-            # im_from = cv2.cvtColor(im_from, cv2.COLOR_BGR2HSV)
-            # im_from = cv2.inRange(im_from, params["min_threshold"],
-            #                        params["max_threshold"] + (i * blob_threshold_step) ,
-            #                       im_from)
-            # im_from = cv2.inRange(im_from, (params["min_threshold_v"], 0, params["min_threshold"]),
-            #                       (params["max_threshold_v"] + (i * blob_threshold_step),
-            #                        255,
-            #                        params["max_threshold"] + (i * blob_threshold_step)),
-            #                       im_from)
-        else:
-            im_from_init = bounded_frame.copy()
-            im_from = bounded_frame.copy()
-            # im_from = cv2.cvtColor(im_from, cv2.COLOR_BGR2RGB)
-            im_from = cv2.inRange(im_from, (params["min_threshold_v"], 0, params["min_threshold"]),
-                                  (params["max_threshold_v"] + (i * blob_threshold_step),
-                                   255,
-                                   params["max_threshold"] + (i * blob_threshold_step)),
-                                  im_from)
-            # im_from = hsv[:, :, 0]
-            # im_from = cv2.GaussianBlur(im_from, (3, 3), 0)
-            # im_from = cv2.inRange(im_from, params["min_threshold"], params["max_threshold"], im_from)
-            # im_from = cv2.bitwise_and(im_from_init, im_from_init, mask=im_from)
-            # im_from = cv2.equalizeHist(im_from)
-            # im_from = cv2.threshold(im_from, params["min_threshold"], 255,
-            #                              cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-            # im = cv2.inRange(im_from, params["min_threshold"],
-            #                        params["max_threshold"] + (i * blob_threshold_step) ,
-            #                       im_from)
-            # im_from = cv2.inRange(im_from, (params["min_threshold_v"], 0, params["min_threshold"]),
-            #                       (params["max_threshold_v"] + (i * blob_threshold_step),
-            #                        255,
-            #                        params["max_threshold"] + (i * blob_threshold_step)),
-            #                       im_from)
+    for i in range(1):
+        im_from = background_remover(im_from_init, depth, params["clipping_distance_in_meters"], depth_scale, clipping_color)
+        im_from = cv2.cvtColor(im_from, cv2.COLOR_RGB2GRAY)
+        im_from = cv2.GaussianBlur(im_from, (5, 5), 0)
+        clahe = cv2.createCLAHE(clipLimit=params["clahe_clip_limit"],
+                                tileGridSize=(params["clahe_autre"], params["clahe_autre"]))
+        im_from = clahe.apply(im_from)
 
         if method == DetectionMethod.SCIKITBlobs:
             raise RuntimeError("Method not implemented")
@@ -331,16 +410,6 @@ def get_blobs(
             clahe = cv2.createCLAHE(clipLimit=params["clahe_clip_limit"],
                                     tileGridSize=(params["clahe_autre"], params["clahe_autre"]))
             im_from = clahe.apply(im_from)
-            # im_from = cv2.smooth(im_from, im_from, cv2.CV_GAUSSIAN, 5, 5)
-            # im_from = cv2.medianBlur(im_from, 5)
-            # im_from = cv2.GaussianBlur(im_from, (3, 3), 0)
-            # im_from = cv2.Canny(im_from, 20, 150)
-            # define a (3, 3) structuring element
-            # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
-
-            # apply the dilation operation to the edged image
-            # im_from = cv2.dilate(im_from, kernel, iterations=1)
-            # im_from = cv2.threshold(im_from, 0, 255, cv2.THRESH_BINARY_INV)[1]
             contours, _ = cv2.findContours(image=im_from, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
             # contours = merge_cluster(list(contours), threshold_distance=3)
             # circles = cv2.HoughCircles(im_from, cv2.HOUGH_GRADIENT, dp=1.5,
@@ -361,23 +430,8 @@ def get_blobs(
             if return_centers:
                 if len(contours) != 0:
                     for c in contours:
-                        # if params["min_area"] < cv2.contourArea(c) < params["max_area"]:
-
-                        # convex_hull = cv2.convexHull(c)
-                        # x, y, w, h = cv2.boundingRect(convex_hull)
-                        # # cv2.contourArea(convex_hull)
-                        # if cv2.contourArea(convex_hull) != 0:
-                        #     solidity = cv2.contourArea(c) / cv2.contourArea(convex_hull)
-                        # else:
-                        #     solidity = 0
-                        # ratio = float(w) / h
-                        # if solidity >0.8:
-                        # print("area", cv2.contourArea(c), "circle", np.sqrt(4*cv2.contourArea(c)/np.pi))
                         M = cv2.moments(c)
-                        # x, y, w, h = cv2.boundingRect(c)
-                        # ratio = float(w) / h
                         print(c)
-                        # print("area", cv2.contourArea(c), "ratio", ratio)
                         if M["m00"] == 0:
                             pass
                         else:
@@ -398,34 +452,19 @@ def get_blobs(
             params_detector.minDistBetweenBlobs = 10
             params_detector.filterByArea = True
             params_detector.minArea = params["min_area"]
-            params_detector.maxArea = params["max_area"]
+            # params_detector.maxArea = params["max_area"]
             params_detector.filterByCircularity = True
             params_detector.minCircularity = params["circularity"]
             params_detector.filterByConvexity = True
             params_detector.minConvexity = params["convexity"]
-            params_detector.filterByInertia = True
-            params_detector.minInertiaRatio = 0.1
+            params_detector.filterByInertia = False
+            # params_detector.minInertiaRatio = 0.1
             # Create the detector object
             detector = cv2.SimpleBlobDetector_create(params_detector)
             keypoints = detector.detect(im_from)
             for blob in keypoints:
                 blobs.append(blob)
                 if return_centers:
-                    # if i != 0:
-                    #     merged_center_tmp = centers.copy()
-                    #     for center in merged_center_tmp:
-                    #         if np.linalg.norm(np.array([center[0], center[1]]) -
-                    #                           np.array([int(blob.pt[0] + image_bounds[0]),
-                    #                                         int(blob.pt[1] + image_bounds[2])])
-                    #                           ) < threshold_distance:
-                    #             centers.append((int(center[0] + int(blob.pt[0] + image_bounds[0]) / 2),
-                    #                                     int(center[1] + int(blob.pt[1] + image_bounds[2]) / 2)))
-                    #         else:
-                    #             if center not in centers:
-                    #                 centers.append(center)
-                    #             if (int(blob.pt[0] + image_bounds[0]), int(blob.pt[1] + image_bounds[2])) not in centers:
-                    #                 centers.append((int(blob.pt[0] + image_bounds[0]), int(blob.pt[1] + image_bounds[2])))
-                    # else:
                     centers.append((int(blob.pt[0] + image_bounds[0]), int(blob.pt[1] + image_bounds[2])))
     if return_image:
         if return_centers:
@@ -471,6 +510,29 @@ def set_conf_file_from_camera(pipeline, device):
         json.dump(dic, outfile, indent=4)
 
 
+def background_remover(frame, depth, clipping_distance, depth_scale, clipping_color):
+    white_frame = np.ones_like(frame) * 255
+    depth_image_3d = np.dstack((depth, depth, depth))
+    im_for_mask = np.where(
+        (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= 0),
+        clipping_color,
+        white_frame,
+    )
+    gray = cv2.cvtColor(im_for_mask, cv2.COLOR_BGR2GRAY)
+    ret, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+    contours, hierarchy = cv2.findContours(image=thresh, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+    c = max(contours, key=cv2.contourArea)
+    mask = np.ones_like(frame) * clipping_color
+    cv2.drawContours(mask, [c], contourIdx=-1, color=(255, 255, 255), thickness=-1)
+    final = np.where(mask == (255, 255, 255), frame, clipping_color)
+    # final = np.where(
+    #     (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= 0),
+    #     clipping_color,
+    #     frame,
+    # )
+    return final
+
+
 def draw_blobs(frame, blobs, color=(255, 0, 0), scale=5):
     if blobs is not None:
         for blob in blobs:
@@ -484,8 +546,9 @@ def draw_markers(frame,
                  markers_names=None,
                  is_visible=None,
                  scaling_factor=1.0,
-                 frame_idx=None,
+                 circle_scaling_factor=5,
                  markers_reliability_index=None,
+                 thickness = 1
                  ):
     frame = frame.copy()
     if markers_pos is not None:
@@ -494,7 +557,7 @@ def draw_markers(frame,
             if np.isfinite(markers_pos[0, i]) and np.isfinite(markers_pos[1, i]):
                 color = (0, 255, 0) if bool(is_visible[i]) else (0, 0, 255)
                 x, y = int(markers_pos[0, i]), int(markers_pos[1, i])
-                frame = cv2.circle(frame, (int(markers_pos[0, i]), int(markers_pos[1, i])), 5, color, 1)
+                frame = cv2.circle(frame, (int(markers_pos[0, i]), int(markers_pos[1, i])), int(circle_scaling_factor), color, thickness)
             # else:
             #     if markers_filtered_pos is not None:
             #         if np.isfinite(markers_filtered_pos[0, i]) and np.isfinite(markers_filtered_pos[1, i]):
@@ -514,12 +577,12 @@ def draw_markers(frame,
                         color,
                         1,
                     )
-            if frame_idx:
+            if markers_reliability_index is not None:
                 if x and y:
                     frame = cv2.putText(
                         frame,
                         str(markers_reliability_index[i]),
-                        (x + 30, y + 20),
+                        (x - 30, y + 20),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         scaling_factor,
                         color,
@@ -571,3 +634,18 @@ def check_filtered_or_true_pos(pos, filtered, occlusions):
         if idx not in occlusions_idx:
             merged_pose[:, idx] = filtered[:, idx]
     return merged_pose
+
+
+def rotate_frame(color, depth, rotation):
+    if rotation == 90 or rotation == Rotation.ROTATE_90:
+        color = cv2.rotate(color, cv2.ROTATE_90_CLOCKWISE)
+        depth = cv2.rotate(depth, cv2.ROTATE_90_CLOCKWISE)
+    elif rotation == 180 or rotation == Rotation.ROTATE_180:
+        color = cv2.rotate(color, cv2.ROTATE_180)
+        depth = cv2.rotate(depth, cv2.ROTATE_180)
+    elif rotation == 270 or rotation == Rotation.ROTATE_270:
+        color = cv2.rotate(color, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        depth = cv2.rotate(depth, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    elif rotation != 0 and rotation != Rotation.ROTATE_0:
+        raise ValueError("Rotation value not supported")
+    return color, depth
