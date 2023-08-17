@@ -39,6 +39,7 @@ class Synchronizer:
             self.queue_depth = mp.Manager().Queue()
             self.reccording_event = mp.Event()
             self.queue_frame = mp.Manager().Queue()
+            self.last_frame_queue = mp.Manager().Queue()
 
         if from_qualysis:
             self.queue_trigger_qualysis = mp.Manager().Queue()
@@ -191,14 +192,15 @@ class Synchronizer:
             #     print("frame lost jump {} frame".format(frame_number - last_frame_number))
             # last_frame_number = frame_number
             if not save_data:
-                # if self.use_trigger:
-                #     try:
-                #         data_trigger = self.queue_trigger_rgbd.get_nowait()
-                #     except:
-                #         data_trigger = 0
-                #     if data_trigger > 1.5:
-                #         save_data = True
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                cv2.waitKey(1)
+                if self.use_trigger:
+                    try:
+                        data_trigger = self.queue_trigger_rgbd.get_nowait()
+                    except:
+                        data_trigger = 0
+                    if data_trigger > 1.5:
+                        save_data = True
+                elif 0xFF == ord('q'):
                     save_data = True
 
                     # if 1 / np.mean(loop_time_list) < 58:
@@ -226,7 +228,7 @@ class Synchronizer:
                 self.queue_color.put_nowait(color_image_to_save)
                 self.queue_frame.put_nowait(frame_number)
                 if self.use_trigger:
-                    if i >= 500:
+                    if i >= 80:
                         try:
                             data_trigger = self.queue_trigger_rgbd.get_nowait()
                         except:
@@ -254,19 +256,23 @@ class Synchronizer:
 
         print("stop recording..."
               "wait until all data are saved")
+        self.last_frame_queue.put_nowait(frame_number)
         self.pipeline.stop()
-        self.reccording_event.set()
 
     def save_rgbd_from_buffer(self):
         # while True:
         last_frame_number = 0
-        while True:
+        final_frame = -1
+        frame_number = 0
+        while frame_number != final_frame:
             try:
                 color_image_to_save = self.queue_color.get()
                 depth_image_to_save = self.queue_depth.get()
                 frame_number = self.queue_frame.get()
-                if frame_number - last_frame_number > 1:
-                    print("frame lost jump {} frame".format(frame_number - last_frame_number))
+                # print(frame_number)
+                # print(final_frame)
+                # if frame_number - last_frame_number > 1:
+                #     print("frame lost jump {} frame".format(frame_number - last_frame_number))
                 # print(frame_number)
                 last_frame_number = frame_number
                 if not os.path.exists(
@@ -274,18 +280,16 @@ class Synchronizer:
                     os.makedirs(
                         f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}')
                 cv2.imwrite(
-                    f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\depth_{frame_number}.jpeg',
+                    f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\depth_{frame_number}.png',
                     depth_image_to_save)
                 cv2.imwrite(
-                    f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\color_{frame_number}.jpeg',
+                    f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\color_{frame_number}.png',
                     color_image_to_save)
+                final_frame = self.last_frame_queue.get_nowait()
             except:
-                if not self.reccording_event.is_set():
-                    print("no data to save")
-                break
-            else:
-                if self.reccording_event.is_set():
-                    raise RuntimeError("all data are saved")
+                pass
+        print("all data are saved"
+              "DO NOT FORGET TO SAVE DELAY")
 
     def start(self):
         processes = []
@@ -303,18 +307,14 @@ class Synchronizer:
         if self.with_motomed:
             p = mp.Process(target=Synchronizer.start_motomed, args=(self,))
             processes.append(p)
-
-
         for p in processes:
             p.start()
-
         for p in processes:
             p.join()
 
 
 if __name__ == "__main__":
-    sync = Synchronizer(from_rgbd=True, from_qualysis=False, use_trigger=False, with_motomed=False)
-    sync.file_name = "test"
-    sync.participant = "test"
-    # sync.motomed_gear = 5
+    sync = Synchronizer(from_rgbd=True, from_qualysis=True, use_trigger=True, with_motomed=False)
+    sync.file_name = "gear_20"
+    sync.participant = "P4_session2"
     sync.start()

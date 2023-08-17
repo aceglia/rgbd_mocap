@@ -1,23 +1,29 @@
 import biorbd
 import pickle
-import bioviz
-from pyomeca import Markers
+try:
+    import bioviz
+    from pyomeca import Markers
+except:
+    pass
 import time
 import numpy as np
 from c3dtotrc import WriteTrcFromMarkersData
 from biosiglive import MskFunctions, InverseKinematicsMethods, PlotType, LivePlot, load
 
 suffix = "06-07-2023_18_17_59"
+
 # marker_names=["C7", "Scap_AA", "Scap_IA", "Acrom", "Clav_AC", "delt", "arm_l", "epic_l", "styl_u", "styl_r", "h_up", "h_down"]
-data = load(f"markers_{suffix}.bio")
+file_name = "markers_gear_20_09-08-2023_17_07_42.bio"
+participant = "P2_session2"
+data = load(f"data_files\{participant}\{file_name}")
 markers_pos = data["markers_in_meters"]
 markers_names = data["markers_names"]
-markers_names = ['test:T5', 'test:C7', 'test:Ribs', 'test:clav_ac',
-       'test:scapaa','test:scapia', 'test:acrom', 'test:delt', 'test:larm', 'test:epicl',
-       'test:larm_l', 'test:styl_r', 'test:styl_l']
-suffix = "06-07-2023_18_17_59"
-markers_vicon = Markers.from_c3d(filename=f"Pedalage_{suffix}.c3d", usecols=markers_names)
-markers_vicon = markers_vicon.values[:, :, 70:-80] * 0.001
+# markers_names = ['test:T5', 'test:C7', 'test:Ribs', 'test:clav_ac',
+#        'test:scapaa','test:scapia', 'test:acrom', 'test:delt', 'test:larm', 'test:epicl',
+#        'test:larm_l', 'test:styl_r', 'test:styl_l']
+# suffix = "06-07-2023_18_17_59"
+# markers_vicon = Markers.from_c3d(filename=f"Pedalage_{suffix}.c3d", usecols=markers_names)
+# markers_vicon = markers_vicon.values[:, :, 70:-80] * 0.001
 #
 markers_names = ["T5", "C7",
                  'RIBS_r',
@@ -33,23 +39,23 @@ markers_names = ["T5", "C7",
                  "STYLr",
                  "STYLu"]
 #
-# WriteTrcFromMarkersData(output_file_path =f"markers_depth_{suffix}.trc",
-#                         markers= markers_pos,
-#                         marker_names=markers_names,
-#                         data_rate=60,
-#                         cam_rate=60,
-#                         n_frames=markers_pos.shape[2],
-#                         start_frame=1,
-#                         units="m").write()
-#
-WriteTrcFromMarkersData(output_file_path =f"markers_vicon_{suffix}.trc",
-                        markers=markers_vicon,
+WriteTrcFromMarkersData(output_file_path =f"data_files\{participant}\{file_name[:-4]}.trc",
+                        markers = markers_pos,
                         marker_names=markers_names,
-                        data_rate=100,
-                        cam_rate=100,
-                        n_frames=markers_vicon.shape[2],
+                        data_rate=60,
+                        cam_rate=60,
+                        n_frames=markers_pos.shape[2],
                         start_frame=1,
                         units="m").write()
+
+# WriteTrcFromMarkersData(output_file_path =f"markers_vicon_{suffix}.trc",
+#                         markers=markers_vicon,
+#                         marker_names=markers_names,
+#                         data_rate=100,
+#                         cam_rate=100,
+#                         n_frames=markers_vicon.shape[2],
+#                         start_frame=1,
+#                         units="m").write()
 
 raise ValueError
 # markers_in_meters = np.asarray(np.concatenate((

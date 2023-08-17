@@ -93,6 +93,7 @@ class RgbdImages:
         self.kinematics_functions = None
         self.kinematic_model = None
         self.is_kinematic_model = False
+        self.tracking_file_loaded = False
 
         # Camera extrinsic
         self.depth_to_color = None
@@ -133,6 +134,8 @@ class RgbdImages:
         self.start_index = start_index
         self.stop_index = stop_index
         self.clipping_color = 0
+        self.ik_method = "least_squares"
+        self.markers_to_exclude_for_ik = []
 
         if self.conf_file:
             self.conf_data = get_conf_data(self.conf_file)
@@ -188,22 +191,12 @@ class RgbdImages:
     @staticmethod
     def _load_from_dir(path, start_index=None, end_index=None, down_sampling=None) -> np.ndarray or tuple:
         all_color_files = glob.glob(path + "/color*.png")
-        if not end_index:
-            end_index = len(all_color_files)
-        if not start_index:
-            start_index = 0
-        color_images, depth_images = [], []
-        if down_sampling:
-            down_sampling_factor = int(down_sampling)
-        else:
-            down_sampling_factor = 1
-        count = 0
-        for i in range(start_index, end_index):
-            if count % down_sampling_factor == 0:
-                color_images.append(cv2.imread(path + f"/color_{i}.png"))
-                depth_images.append(cv2.imread(path + f"/depth_{i}.png", cv2.IMREAD_ANYDEPTH))
-            count += 1
-
+        all_depth_files = glob.glob(path + "/depth*.png")
+        end_index = len(all_color_files) if not end_index else int(end_index)
+        start_index = 0 if not start_index else int(start_index)
+        down_sampling_factor = 1 if not down_sampling else int(down_sampling)
+        color_images = [cv2.imread(file) for file in all_color_files[start_index:end_index:down_sampling_factor]]
+        depth_images = [cv2.imread(file, cv2.IMREAD_ANYDEPTH) for file in all_depth_files[start_index:end_index:down_sampling_factor]]
         return color_images, depth_images
 
     def init_camera(self, color_size: Union[tuple, ColorResolution], depth_size: Union[tuple, DepthResolution],
@@ -578,15 +571,17 @@ class RgbdImages:
             raise ValueError("The model file does not exist. Please initialize the model creation before.")
         if self.kinematics_functions is None or self.frame_idx == 0:
             self.kinematics_functions = MskFunctions(model_name, 1)
-        markers, _, is_visible, _ = self.get_global_markers_pos()
+        markers, names, is_visible, _ = self.get_global_markers_pos()
         markers, _, _, _ = self.get_global_markers_pos_in_meter(markers)
         final_markers = np.full((markers.shape[0], markers.shape[1], 1), np.nan)
         for m in range(final_markers.shape[1]):
             # if is_visible[m]:
-            final_markers[:, m, 0] = markers[:, m]
+            if names[m] not in self.markers_to_exclude_for_ik:
+                final_markers[:, m, 0] = markers[:, m]
+        _method = InverseKinematicsMethods.BiorbdLeastSquare if self.ik_method == "least_squares" else InverseKinematicsMethods.BiorbdKalman
         q, _ = self.kinematics_functions.compute_inverse_kinematics(
             final_markers,
-            InverseKinematicsMethods.BiorbdLeastSquare,
+            _method,
             kalman_freq=100
         )
         markers = self.kinematics_functions.compute_direct_kinematics(q)
@@ -603,6 +598,8 @@ class RgbdImages:
                 _in_pixel[:, i], [self.start_crop[0][idx], self.start_crop[1][idx]]))
             markers_kalman.append(markers_local)
             # if not is_visible[i]:
+            if markers_local[0] > 1000:
+                print(markers_local)
             blob_center, is_visible_tmp, dist = find_closest_blob(markers_local, self.blobs[idx],
                                                             delta=10, return_distance=True)
             dist_list.append(dist)
@@ -1022,23 +1019,35 @@ class RgbdImages:
                 cv2.createTrackbar("clahe tile Grid Size", "Trackbars", 8, 40, nothing)
 
             elif method == DetectionMethod.CV2Blobs:
+                default_values = {"min_area": 3, "min_threshold": 150, "max_threshold": 255,
+                                  "clahe_clip_limit": 1, "clahe_autre": 3, "circularity": 1,
+                                  "convexity": 1, "n_step": 1, "clipping_distance_in_meters": 140,
+                                  "use_contour": 0, "use_bg_remover": 0}
+                if self.tracking_file_loaded:
+                    default_values = self.mask_params[i]
+                    default_values["clipping_distance_in_meters"] = int(default_values["clipping_distance_in_meters"] * 100)
+                    default_values["convexity"] = int(default_values["convexity"] * 100)
+                    default_values["circularity"] = int(default_values["circularity"] * 100)
                 cv2.namedWindow("Trackbars", cv2.WINDOW_NORMAL)
-                cv2.createTrackbar("min area", "Trackbars", 3, 255, nothing)
+                cv2.createTrackbar("min area", "Trackbars", default_values["min_area"], 255, nothing)
                 # cv2.createTrackbar("max area", "Trackbars", 500, 5000, nothing)
                 # cv2.createTrackbar("min threshold V", "Trackbars", 30, 255, nothing)
                 # cv2.createTrackbar("max threshold V", "Trackbars", 111, 255, nothing)
-                cv2.createTrackbar("min threshold", "Trackbars", 150, 255, nothing)
-                # cv2.createTrackbar("max threshold", "Trackbars", 255, 255, nothing)
-                cv2.createTrackbar("clahe clip limit", "Trackbars", 1, 40, nothing)
-                cv2.createTrackbar("clahe tile grid size", "Trackbars", 3, 40, nothing)
-                cv2.createTrackbar("circularity", "Trackbars", 1, 100, nothing)
-                cv2.createTrackbar("convexity", "Trackbars", 1, 100, nothing)
+                cv2.createTrackbar("min threshold", "Trackbars", default_values["min_threshold"], 255, nothing)
+                cv2.createTrackbar("max threshold", "Trackbars", default_values["max_threshold"], 255, nothing)
+                cv2.createTrackbar("clahe clip limit", "Trackbars", default_values["clahe_clip_limit"], 40, nothing)
+                cv2.createTrackbar("clahe tile grid size", "Trackbars", default_values["clahe_autre"], 40, nothing)
+                cv2.createTrackbar("circularity", "Trackbars", default_values["circularity"], 100, nothing)
+                cv2.createTrackbar("convexity", "Trackbars", default_values["convexity"], 100, nothing)
                 # cv2.createTrackbar("n_step", "Trackbars", 1, 8, nothing)
                 # cv2.createTrackbar("alpha", "Trackbars", 0, 200, nothing)
                 # cv2.createTrackbar("beta", "Trackbars", -200, 200, nothing)
                 # cv2.createTrackbar("hist or hsv", "Trackbars", 0, 1, nothing)
                 # cv2.createTrackbar("blob color", "Trackbars", 255, 255, nothing)
-                cv2.createTrackbar("clipping distance in meters", "Trackbars", 140, 800, nothing)
+                cv2.createTrackbar("clipping distance in meters", "Trackbars",
+                                   default_values["clipping_distance_in_meters"], 800, nothing)
+                cv2.createTrackbar("use contour", "Trackbars", default_values["use_contour"], 1, nothing)
+                cv2.createTrackbar("use bg remover", "Trackbars", default_values["use_bg_remover"], 1, nothing)
 
             elif method == DetectionMethod.SCIKITBlobs:
                 cv2.namedWindow("Trackbars", cv2.WINDOW_NORMAL)
@@ -1093,13 +1102,15 @@ class RgbdImages:
                     # min_threshold_v = cv2.getTrackbarPos("min threshold V", "Trackbars")
                     # max_threshold_v = cv2.getTrackbarPos("max threshold V", "Trackbars")
                     min_threshold = cv2.getTrackbarPos("min threshold", "Trackbars")
-                    # max_threshold = cv2.getTrackbarPos("max threshold", "Trackbars")
+                    max_threshold = cv2.getTrackbarPos("max threshold", "Trackbars")
                     clahe_clip_limit = cv2.getTrackbarPos("clahe clip limit", "Trackbars")
                     clahe_autre = cv2.getTrackbarPos("clahe tile grid size", "Trackbars")
                     # alpha = cv2.getTrackbarPos("alpha", "Trackbars") / 100
                     # beta = cv2.getTrackbarPos("beta", "Trackbars")
                     circularity = cv2.getTrackbarPos("circularity", "Trackbars") / 100
                     convexity = cv2.getTrackbarPos("convexity", "Trackbars") / 100
+                    use_contour = cv2.getTrackbarPos("use contour", "Trackbars") == 0
+                    use_bg_remover = cv2.getTrackbarPos("use bg remover", "Trackbars") == 0
                     # blob_color = cv2.getTrackbarPos("blob color", "Trackbars")
                     # n_step = cv2.getTrackbarPos("n_step", "Trackbars")
 
@@ -1112,8 +1123,8 @@ class RgbdImages:
                     #     max_area = min_area + 1
                     if min_threshold == 0:
                         min_threshold = 1
-                    # if max_threshold == 0:
-                    #     max_threshold = 1
+                    if max_threshold == 0:
+                        max_threshold = 1
                     # if max_threshold < min_threshold:
                     #     max_threshold = min_threshold + 1
                     # if min_threshold_v == 0:
@@ -1142,7 +1153,7 @@ class RgbdImages:
                         "min_area": min_area,
                         # "max_area": max_area,
                         "min_threshold": min_threshold,
-                        "max_threshold": 255,
+                        "max_threshold": max_threshold,
                         "convexity": convexity,
                         "circularity": circularity,
                         # "alpha": alpha,
@@ -1154,6 +1165,8 @@ class RgbdImages:
                         "clahe_clip_limit": clahe_clip_limit,
                         "clahe_autre": clahe_autre,
                         "blob_color": 255,
+                        "use_contour": use_contour,
+                        "use_bg_remover": use_bg_remover,
                     }
                     # depth_image_3d = np.dstack((depth, depth, depth))
                     # color_frame = np.where(
@@ -1227,8 +1240,9 @@ class RgbdImages:
         if self.first_frame_markers:
             for i in range(len(self.first_frame_markers)):
                 self._distribute_pos_markers(i)
+        self.tracking_file_loaded = True
 
-    def _distribute_pos_markers(self, i:int):
+    def _distribute_pos_markers(self, i: int):
         """
         Distribute the markers in a dictionary of markers
         :param pos_markers_dic: dictionary of markers
@@ -1373,6 +1387,7 @@ class RgbdImages:
         if self.color_frame is None:
             self.color_frame = self.color_images[0]
             self.depth_frame = self.depth_images[0]
+
         marker_pos_in_meter, names, _, _ = self.get_global_markers_pos_in_meter()
         create_c3d_file(marker_pos_in_meter[:, :, np.newaxis], names, '_tmp_markers_data.c3d')
         kinematic_model = BiomechanicalModel()
@@ -1427,7 +1442,8 @@ class RgbdImages:
         with open(model_name, 'r') as file:
             data = file.read()
         kalman = MskFunctions(model_name, 1)
-        q, _ = kalman.compute_inverse_kinematics(marker_pos_in_meter[:, :, np.newaxis], InverseKinematicsMethods.BiorbdKalman)
+        q, _ = kalman.compute_inverse_kinematics(marker_pos_in_meter[:, :, np.newaxis],
+                                                 InverseKinematicsMethods.BiorbdKalman)
 
         # replace the target string
         data = data.replace('shoulder\n\tRT -0.000 0.000 -0.000 xyz 0.000 0.000 0.000',
@@ -1435,7 +1451,8 @@ class RgbdImages:
         with open(model_name, 'w') as file:
             file.write(data)
         kalman = MskFunctions(model_name, 1)
-        q, _ = kalman.compute_inverse_kinematics(marker_pos_in_meter[:, :, np.newaxis], InverseKinematicsMethods.BiorbdKalman)
+        q, _ = kalman.compute_inverse_kinematics(marker_pos_in_meter[:, :, np.newaxis],
+                                                 InverseKinematicsMethods.BiorbdKalman)
         # import bioviz
         # b = bioviz.Viz(model_name)
         # b.load_movement(np.repeat(q, 2, axis=1))
@@ -1506,7 +1523,6 @@ class RgbdImages:
             else:
                 open(tracking_conf_file, "w").close()
 
-
         if crop_frame:
             self.start_crop, self.end_crop = self.select_cropping()
 
@@ -1516,7 +1532,27 @@ class RgbdImages:
 
         if label_first_frame:
             self.first_frame_markers = self.label_first_frame(**kwargs)
+
             self.is_tracking_init = True
+
+        if label_first_frame + mask_parameters + crop_frame > 0:
+            dic = {
+                "start_crop": self.start_crop,
+                "end_crop": self.end_crop,
+                "mask_params": self.mask_params,
+                "first_frame_markers": self.first_frame_markers,
+                "start_frame": self.start_index,
+            }
+            if not tracking_conf_file:
+                tracking_conf_file = f"tracking_conf_{dt_string}.json"
+            with open(tracking_conf_file, "w") as f:
+                json.dump(dic, f, indent=4)
+
+        if tracking_conf_file:
+            if os.path.isfile(tracking_conf_file):
+                self.load_tracking_conf_file(tracking_conf_file)
+            else:
+                open(tracking_conf_file, "w").close()
 
         if with_tapir:
             self.use_tapir = True
@@ -1532,18 +1568,7 @@ class RgbdImages:
             maxLevel=2,
             criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
         )
-        if label_first_frame + mask_parameters + crop_frame > 0:
-            dic = {
-                "start_crop": self.start_crop,
-                "end_crop": self.end_crop,
-                "mask_params": self.mask_params,
-                "first_frame_markers": self.first_frame_markers,
-                "start_frame": self.start_index,
-            }
-            if not tracking_conf_file:
-                tracking_conf_file = f"tracking_conf_{dt_string}.json"
-            with open(tracking_conf_file, "w") as f:
-                json.dump(dic, f, indent=4)
+
 
         if build_kinematic_model:
             if not self.first_frame_markers:
@@ -1554,9 +1579,4 @@ class RgbdImages:
             self._create_kinematic_model(model_name=model_name, marker_sets=marker_sets)
             self.is_kinematic_model = True
 
-        if tracking_conf_file:
-            if os.path.isfile(tracking_conf_file):
-                self.load_tracking_conf_file(tracking_conf_file)
-            else:
-                open(tracking_conf_file, "w").close()
 

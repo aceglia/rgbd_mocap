@@ -20,17 +20,19 @@ except ModuleNotFoundError:
     pass
 
 import functools
+try:
+    import haiku as hk
+    import jax
+    import jax.numpy as jnp
+    import mediapy as media
+    from tqdm import tqdm
+    import tree
 
-import haiku as hk
-import jax
-import jax.numpy as jnp
-import mediapy as media
-from tqdm import tqdm
-import tree
-
-import tapir_model
-from utils import transforms
-from utils import viz_utils
+    import tapir_model
+    from utils import transforms
+    from utils import viz_utils
+except:
+    pass
 
 
 def build_online_model_init(frames, query_points):
@@ -177,6 +179,8 @@ def find_closest_node(point, node_list):
     closest_node = None
     smallest_distance = float("inf")
     for node in node_list:
+        if point[0] > 1000:
+            print(1)
         distance = math.sqrt((node[0] - point[0]) ** 2 + (node[1] - point[1]) ** 2)
         if distance < smallest_distance:
             closest_node = node
@@ -302,7 +306,7 @@ def check_and_attribute_depth(pos_2d, depth_image, depth_scale=0.01):
     :param depth_scale: depth scale
     :return: depth value
     """
-    delta = 2
+    delta = 8
     if isinstance(pos_2d, list):
         pos_2d = np.array(pos_2d)
     pos_2d = pos_2d.astype(int)
@@ -393,7 +397,10 @@ def get_blobs(
     blobs = []
     im_from = None
     for i in range(1):
-        im_from = background_remover(im_from_init, depth, params["clipping_distance_in_meters"], depth_scale, clipping_color)
+        im_from = im_from_init
+        if params["use_bg_remover"]:
+            im_from = background_remover(im_from_init, depth, params["clipping_distance_in_meters"], depth_scale,
+                                         clipping_color, params["use_contour"])
         im_from = cv2.cvtColor(im_from, cv2.COLOR_RGB2GRAY)
         im_from = cv2.GaussianBlur(im_from, (5, 5), 0)
         clahe = cv2.createCLAHE(clipLimit=params["clahe_clip_limit"],
@@ -510,26 +517,31 @@ def set_conf_file_from_camera(pipeline, device):
         json.dump(dic, outfile, indent=4)
 
 
-def background_remover(frame, depth, clipping_distance, depth_scale, clipping_color):
-    white_frame = np.ones_like(frame) * 255
+def background_remover(frame, depth, clipping_distance, depth_scale, clipping_color, use_contour=True):
     depth_image_3d = np.dstack((depth, depth, depth))
-    im_for_mask = np.where(
-        (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= 0),
-        clipping_color,
-        white_frame,
-    )
-    gray = cv2.cvtColor(im_for_mask, cv2.COLOR_BGR2GRAY)
-    ret, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
-    contours, hierarchy = cv2.findContours(image=thresh, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
-    c = max(contours, key=cv2.contourArea)
-    mask = np.ones_like(frame) * clipping_color
-    cv2.drawContours(mask, [c], contourIdx=-1, color=(255, 255, 255), thickness=-1)
-    final = np.where(mask == (255, 255, 255), frame, clipping_color)
-    # final = np.where(
-    #     (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= 0),
-    #     clipping_color,
-    #     frame,
-    # )
+    if use_contour:
+        white_frame = np.ones_like(frame) * 255
+        im_for_mask = np.where(
+            (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= 0),
+            clipping_color,
+            white_frame,
+        )
+        gray = cv2.cvtColor(im_for_mask, cv2.COLOR_BGR2GRAY)
+        ret, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+        contours, hierarchy = cv2.findContours(image=thresh, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+        try:
+            c = max(contours, key=cv2.contourArea)
+        except ValueError:
+            c = []
+        mask = np.ones_like(frame) * clipping_color
+        cv2.drawContours(mask, [c], contourIdx=-1, color=(255, 255, 255), thickness=-1)
+        final = np.where(mask == (255, 255, 255), frame, clipping_color)
+    else:
+        final = np.where(
+            (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= 0),
+            clipping_color,
+            frame,
+        )
     return final
 
 

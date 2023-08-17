@@ -2,7 +2,7 @@ import numpy as np
 from biosiglive import load
 from pyomeca import Markers
 import matplotlib.pyplot as plt
-from biosiglive import OfflineProcessing, OfflineProcessingMethod
+from biosiglive import OfflineProcessing, OfflineProcessingMethod, load
 import casadi as ca
 from scipy.interpolate import interp1d
 
@@ -15,64 +15,11 @@ markers_names = ["T5", "C7", "Ribs", "clavAC", "scapAA", "scapia", "acrom", "del
 markers_names = ['test:T5', 'test:C7', 'test:Ribs', 'test:clav_ac','test:scapaa', 'test:scapia'
        , 'test:acrom', 'test:delt', 'test:larm', 'test:epicl',
        'test:larm_l', 'test:styl_r', 'test:styl_l']
-suffix = "06-07-2023_18_17_59"
 markers_vicon = Markers.from_c3d(filename=f"Pedalage_{suffix}.c3d", usecols=markers_names)
 markers_vicon = markers_vicon.values[:, :, 72:-80] * 0.001
 markers_depth = load(f"markers_{suffix}.bio")
 marker_depth_names = markers_depth["markers_names"][0]
 markers_depth = markers_depth["markers_in_meters"]
-calib_suffix = "11-07-2023_09_16_59"
-markers_calib_names = ["wand1", "wand2", "wand3", "wand4"]
-markers_vicon_calib = Markers.from_c3d(filename=f"calib_wide.c3d", usecols=markers_calib_names)
-markers_depth_calib = load(f"markers_{calib_suffix}.bio")
-
-
-def homogeneous_transform_optimization(points1, points2):
-    assert len(points1) == len(points2), "Point sets must have the same number of points."
-
-    num_points = points1.shape[1]
-    # Create optimization variables
-    x = ca.MX.sym("x", 12)  # [t_x, t_y, t_z, R11, R12, R13, R21, R22, R23, R31, R32, R33]
-    # Extract translation and rotation components
-    t = x[:3]
-    R = ca.MX(3, 3)
-    R[0, 0] = x[3]
-    R[0, 1] = x[4]
-    R[0, 2] = x[5]
-    R[1, 0] = x[6]
-    R[1, 1] = x[7]
-    R[1, 2] = x[8]
-    R[2, 0] = x[9]
-    R[2, 1] = x[10]
-    R[2, 2] = x[11]
-
-    # Create objective function to minimize distance
-    distance = 0
-    for i in range(num_points):
-        transformed_point = ca.mtimes(R, points1[:, i]) + t
-        distance += ca.sumsqr(transformed_point[:] - points2[:, i])
-
-    # Create optimization problem
-    nlp = {'x': x, 'f': distance}
-    opts = {'ipopt.print_level': 5, 'ipopt.tol': 1e-9}
-    solver = ca.nlpsol('solver', 'ipopt', nlp, opts)
-
-    # Solve the optimization problem
-    solution = solver()
-    # Extract the optimal translation and rotation
-    optimal_t = solution["x"][:3]
-    optimal_R = np.ndarray((3, 3))
-    optimal_R[0, 0] = solution["x"][3]
-    optimal_R[0, 1] = solution["x"][4]
-    optimal_R[0, 2] = solution["x"][5]
-    optimal_R[1, 0] = solution["x"][6]
-    optimal_R[1, 1] = solution["x"][7]
-    optimal_R[1, 2] = solution["x"][8]
-    optimal_R[2, 0] = solution["x"][9]
-    optimal_R[2, 1] = solution["x"][10]
-    optimal_R[2, 2] = solution["x"][11]
-    return optimal_R, optimal_t
-
 
 # point_test_calib_vicon = np.concatenate((markers_vicon_calib.values[:3, :, 0:1] * 0.001, markers_vicon[:3, :3, 0:1]), axis=1)
 # point_test_calib = np.concatenate((markers_depth_calib["markers_in_meters"][:, :, 0:1], markers_depth[:3, :3, 0:1]), axis=1)

@@ -9,15 +9,21 @@ import matplotlib.pyplot as plt
 from biosiglive import save
 import pyrealsense2 as rs
 import cv2
+import glob
 
 if __name__ == "__main__":
     with_camera = False
     suffix = "11-07-2023_09_16_59"
+    participant = "p3_session2"
 
     if not with_camera:
-        images_dir = f"data_{suffix}"
+        images_dir = f"data_files\{participant}"
+        files = os.listdir(images_dir)
+        file = [file for file in files if file[:5] == "calib"][0]
+        file = images_dir + "\\" + file
         # image_file = r"D:\Documents\Programmation\vision\image_camera_trial_1_800.bio.gzip"
-        camera = RgbdImages(conf_file=f"config_camera_{suffix}.json", images_dir=images_dir)
+        camera = RgbdImages(conf_file=f"config_camera_files\config_camera_{participant}.json",
+                            images_dir=file)
         # camera = RgbdImages(conf_file=r"config_camera_mod.json", merged_images=image_file)
     else:
         camera = RgbdImages()
@@ -28,12 +34,13 @@ if __name__ == "__main__":
             FrameRate.FPS_60,
             align=True,
         )
+
     camera.clipping_color = 20
     camera.is_frame_aligned = False
-    markers_wand = MarkerSet(marker_set_name="wand", marker_names=["wand_1", "wand_2", "wand_3", "wand_4"], image_idx=0)
+    markers_wand = MarkerSet(marker_set_name="wand", marker_names=["wand_1", "wand_2", "wand_3", "wand_4", "wand_5"], image_idx=0)
     camera.add_marker_set([markers_wand])
     camera.initialize_tracking(
-        tracking_conf_file=f"tracking_conf_{suffix}.json",
+        tracking_conf_file=fr"{file}\tracking_config.json",
         crop_frame=True,
         mask_parameters=True,
         label_first_frame=True,
@@ -74,7 +81,7 @@ if __name__ == "__main__":
         markers_in_meters, _, _, _ = camera.get_global_markers_pos_in_meter(markers_pos)
 
         dic = {"markers_in_meters": markers_in_meters[:, :, np.newaxis], "markers_names": markers_names}
-        save(dic, f"markers_{suffix}.bio")
+        save(dic, f"{file}\markers.bio")
 
         color = draw_markers(
             color,
@@ -87,4 +94,4 @@ if __name__ == "__main__":
         # from biosiglive import MskFunctions, InverseKinematicsMethods
         cv2.namedWindow("color", cv2.WINDOW_NORMAL)
         cv2.imshow("color", color)
-        cv2.waitKey(100)
+        cv2.waitKey(1)
