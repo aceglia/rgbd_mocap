@@ -297,7 +297,15 @@ class MarkerSet:
         for m, mark in enumerate(self.markers):
             mark.init_kalman(points[:, m])
 
-    def init_filtered_pos(self, points):
+    def init_filtered_pos(self, points: np.ndarray) -> None:
+        """
+        Set the position of the markers
+        Parameters
+        ----------
+        points: np.ndarray
+            position of the markers
+
+        """
         for m, mark in enumerate(self.markers):
             mark.filtered_pos = points[:, m]
 

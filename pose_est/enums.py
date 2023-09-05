@@ -60,6 +60,7 @@ class FrameRate(Enum):
     FPS_60 = 60
     FPS_90 = 90
 
+
 class Rotation(Enum):
     """
     The different types of frame rotation using opencv that can be used.
