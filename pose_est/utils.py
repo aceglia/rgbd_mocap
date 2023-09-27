@@ -27,10 +27,9 @@ try:
     import mediapy as media
     from tqdm import tqdm
     import tree
-
-    import tapir_model
-    from utils import transforms
-    from utils import viz_utils
+    from .tapnet import tapir_model
+    from .tapnet.utils import transforms
+    from .tapnet.utils import viz_utils
 except:
     pass
 
