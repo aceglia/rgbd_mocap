@@ -407,6 +407,75 @@ class RgbdImages:
             self.marker_sets[i].set_global_markers_pos(self.marker_sets[i].get_markers_pos(),
                                                        [self.start_crop[0][i], self.start_crop[1][i]])
 
+    def _partial_get_frame(self, detect_blobs, color_list, i, depth, kwargs, label_markers, filter_with_kalman,
+                            adjust_with_blobs, fit_model):
+        if detect_blobs:
+            # if bounds_from_marker_pos:
+            #     if np.all(self.marker_sets[i].get_markers_pos() == 0):
+            #         markers_values = self.marker_sets[i].get_markers_pos()
+            #     else:
+            #         markers_values = np.concatenate((self.marker_sets[i].get_markers_filtered_pos(),
+            #                             self.marker_sets[i].get_markers_pos()),
+            #                             axis=1)
+            #     color_list[i], (x_min, x_max, y_min, y_max) = bounding_rect(
+            #         color_list[i], markers_values,
+            #         color=(0, 255, 0), delta=20,
+            #     )
+            # else:
+            x_min, x_max, y_min, y_max = 0, color_list[i].shape[1], 0, color_list[i].shape[0]
+            # self._adapt_cropping(color, x_min, x_max, y_min, y_max, i)
+            self.blobs.append(
+                get_blobs(
+                    color_list[i],
+                    params=self.mask_params[i],
+                    return_centers=True,
+                    image_bounds=(x_min, x_max, y_min, y_max),
+                    depth=depth[i], clipping_color=self.clipping_color, depth_scale=self.depth_scale,
+                    **kwargs,
+                )
+            )
+
+        if label_markers:
+            old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)
+            if len(old_markers_pos) != 0:
+                error_threshold = 10
+                current_color = background_remover(self.color_cropped[i],
+                                                   self.depth_cropped[i],
+                                                   1.9,
+                                                   self.depth_scale,
+                                                   100)
+
+                previous_color = background_remover(self.last_color_cropped[i],
+                                                    self.last_depth_cropped[i],
+                                                    1.9,
+                                                    self.depth_scale,
+                                                    100)
+                self._run_optical_flow(
+                    i,
+                    current_color,
+                    previous_color,
+                    old_markers_pos,
+                    filter_with_kalman,
+                    adjust_with_blobs,
+                    markers_visible_names,
+                    error_threshold,
+                    use_tapir=self.use_tapir,
+                    # markers_pos_tapir=markers_pos_tapir,
+                )
+            if not fit_model:
+                color_list[i] = draw_markers(
+                    self.color_cropped[i],
+                    # markers_filtered_pos=self.marker_sets[i].get_markers_filtered_pos(),
+                    markers_pos=self.marker_sets[i].get_markers_pos(),
+                    markers_names=self.marker_sets[i].marker_names,
+                    is_visible=self.marker_sets[i].get_markers_occlusion(),
+                    scaling_factor=0.5,
+                    markers_reliability_index=self.marker_sets[i].get_markers_reliability_index(self.frame_idx),
+                )
+                if len(self.blobs) != 0:
+                    if len(self.blobs[i]) != 0:
+                        color_list[i] = draw_blobs(color_list[i], self.blobs[i])
+
     def get_frames(
         self,
         aligned: bool = False,
@@ -466,72 +535,74 @@ class RgbdImages:
             self._distribute_pos_markers_tapir(markers_pos_tapir)
         for i, color in enumerate(self.color_cropped):
             color_list.append(color.copy())
-            if detect_blobs:
-                # if bounds_from_marker_pos:
-                #     if np.all(self.marker_sets[i].get_markers_pos() == 0):
-                #         markers_values = self.marker_sets[i].get_markers_pos()
-                #     else:
-                #         markers_values = np.concatenate((self.marker_sets[i].get_markers_filtered_pos(),
-                #                             self.marker_sets[i].get_markers_pos()),
-                #                             axis=1)
-                #     color_list[i], (x_min, x_max, y_min, y_max) = bounding_rect(
-                #         color_list[i], markers_values,
-                #         color=(0, 255, 0), delta=20,
-                #     )
-                # else:
-                x_min, x_max, y_min, y_max = 0, color_list[i].shape[1], 0, color_list[i].shape[0]
-                # self._adapt_cropping(color, x_min, x_max, y_min, y_max, i)
-                self.blobs.append(
-                    get_blobs(
-                        color_list[i],
-                        params=self.mask_params[i],
-                        return_centers=True,
-                        image_bounds=(x_min, x_max, y_min, y_max),
-                        depth=depth[i], clipping_color=self.clipping_color, depth_scale=self.depth_scale,
-                        **kwargs,
-                    )
-                )
-
-            if label_markers:
-                old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)
-                if len(old_markers_pos) != 0:
-                    error_threshold = 10
-                    current_color = background_remover(self.color_cropped[i],
-                                                       self.depth_cropped[i],
-                                                       1.9,
-                                                       self.depth_scale,
-                                                       100)
-
-                    previous_color = background_remover(self.last_color_cropped[i],
-                                                        self.last_depth_cropped[i],
-                                                        1.9,
-                                                        self.depth_scale,
-                                                        100)
-                    self._run_optical_flow(
-                                           i,
-                                           current_color,
-                                           previous_color,
-                                           old_markers_pos,
-                                           filter_with_kalman,
-                                           adjust_with_blobs,
-                                           markers_visible_names,
-                                           error_threshold,
-                                           use_tapir=self.use_tapir,
-                                           # markers_pos_tapir=markers_pos_tapir,
-                                           )
-                if not fit_model:
-                    color_list[i] = draw_markers(
-                        self.color_cropped[i],
-                        # markers_filtered_pos=self.marker_sets[i].get_markers_filtered_pos(),
-                        markers_pos=self.marker_sets[i].get_markers_pos(),
-                        markers_names=self.marker_sets[i].marker_names,
-                        is_visible=self.marker_sets[i].get_markers_occlusion(),
-                        scaling_factor=0.5,
-                        markers_reliability_index=self.marker_sets[i].get_markers_reliability_index(self.frame_idx),
-                    )
-                    if len(self.blobs) != 0:
-                        if len(self.blobs[i]) != 0:
-                            color_list[i] = draw_blobs(color_list[i], self.blobs[i])
+            self._partial_get_frame(detect_blobs, color_list, i, depth, kwargs, label_markers, filter_with_kalman,
+                            adjust_with_blobs, fit_model)
+            # if detect_blobs:
+            #     # if bounds_from_marker_pos:
+            #     #     if np.all(self.marker_sets[i].get_markers_pos() == 0):
+            #     #         markers_values = self.marker_sets[i].get_markers_pos()
+            #     #     else:
+            #     #         markers_values = np.concatenate((self.marker_sets[i].get_markers_filtered_pos(),
+            #     #                             self.marker_sets[i].get_markers_pos()),
+            #     #                             axis=1)
+            #     #     color_list[i], (x_min, x_max, y_min, y_max) = bounding_rect(
+            #     #         color_list[i], markers_values,
+            #     #         color=(0, 255, 0), delta=20,
+            #     #     )
+            #     # else:
+            #     x_min, x_max, y_min, y_max = 0, color_list[i].shape[1], 0, color_list[i].shape[0]
+            #     # self._adapt_cropping(color, x_min, x_max, y_min, y_max, i)
+            #     self.blobs.append(
+            #         get_blobs(
+            #             color_list[i],
+            #             params=self.mask_params[i],
+            #             return_centers=True,
+            #             image_bounds=(x_min, x_max, y_min, y_max),
+            #             depth=depth[i], clipping_color=self.clipping_color, depth_scale=self.depth_scale,
+            #             **kwargs,
+            #         )
+            #     )
+            #
+            # if label_markers:
+            #     old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)
+            #     if len(old_markers_pos) != 0:
+            #         error_threshold = 10
+            #         current_color = background_remover(self.color_cropped[i],
+            #                                            self.depth_cropped[i],
+            #                                            1.9,
+            #                                            self.depth_scale,
+            #                                            100)
+            #
+            #         previous_color = background_remover(self.last_color_cropped[i],
+            #                                             self.last_depth_cropped[i],
+            #                                             1.9,
+            #                                             self.depth_scale,
+            #                                             100)
+            #         self._run_optical_flow(
+            #                                i,
+            #                                current_color,
+            #                                previous_color,
+            #                                old_markers_pos,
+            #                                filter_with_kalman,
+            #                                adjust_with_blobs,
+            #                                markers_visible_names,
+            #                                error_threshold,
+            #                                use_tapir=self.use_tapir,
+            #                                # markers_pos_tapir=markers_pos_tapir,
+            #                                )
+            #     if not fit_model:
+            #         color_list[i] = draw_markers(
+            #             self.color_cropped[i],
+            #             # markers_filtered_pos=self.marker_sets[i].get_markers_filtered_pos(),
+            #             markers_pos=self.marker_sets[i].get_markers_pos(),
+            #             markers_names=self.marker_sets[i].marker_names,
+            #             is_visible=self.marker_sets[i].get_markers_occlusion(),
+            #             scaling_factor=0.5,
+            #             markers_reliability_index=self.marker_sets[i].get_markers_reliability_index(self.frame_idx),
+            #         )
+            #         if len(self.blobs) != 0:
+            #             if len(self.blobs[i]) != 0:
+            #                 color_list[i] = draw_blobs(color_list[i], self.blobs[i])
         if fit_model:
             if not label_markers:
                 raise ValueError("You need to label markers before fitting the model.")
@@ -635,25 +706,39 @@ class RgbdImages:
                 _in_pixel[:, i], [self.start_crop[0][idx], self.start_crop[1][idx]]))
             markers_kalman.append(markers_local)
             blob_center, is_visible_tmp, dist = find_closest_blob(markers_local, self.blobs[idx],
-                                                            delta=10, return_distance=True)
+                                                            delta=8, return_distance=True)
             dist_list.append(dist)
             threshold = 30
             self.marker_sets[idx].markers[count].is_visible = is_visible_tmp
             if is_visible_tmp:
-                self.marker_sets[idx].markers[count].pos[:2] = blob_center
                 self.marker_sets[idx].markers[count].correct_from_kalman(blob_center)
-                marker_depth, is_depth_visible = check_and_attribute_depth(blob_center,
-                                                                           self.depth_cropped[idx],
-                                                                           depth_scale=self.depth_scale)
-                if is_depth_visible:
-                    self.marker_sets[idx].markers[count].pos[2] = marker_depth
-                    self.marker_sets[idx].markers[count].is_depth_visible = True
-                else:
-                    self.marker_sets[idx].markers[count].pos[2] = markers[2, i, 0]
-                    self.marker_sets[idx].markers[count].is_depth_visible = False
+                self.marker_sets[idx].markers[count].pos[:2] = blob_center
+
             else:
-                # self.marker_sets[idx].markers[count].correct_from_kalman(blob_center)
+                self.marker_sets[idx].markers[count].correct_from_kalman(markers_local)
                 self.marker_sets[idx].markers[count].pos[:2] = markers_local
+
+            if self.marker_sets[idx].markers[count].pos[0] and int(
+                    self.marker_sets[idx].markers[count].pos[0]) not in list(
+                    range(0, self.color_cropped[idx].shape[1] - 1)):
+                self.marker_sets[idx].markers[count].pos[0] = self.color_cropped[idx].shape[1] - 1 if \
+                self.marker_sets[idx].markers[count].pos[0] > self.color_cropped[idx].shape[1] - 1 else 0
+            if self.marker_sets[idx].markers[count].pos[1] and int(
+                    self.marker_sets[idx].markers[count].pos[1]) not in list(
+                    range(0, self.color_cropped[idx].shape[0] - 1)):
+                self.marker_sets[idx].markers[count].pos[1] = self.color_cropped[idx].shape[0] - 1 if \
+                self.marker_sets[idx].markers[count].pos[1] > self.color_cropped[idx].shape[0] - 1 else 0
+
+            marker_depth, is_depth_visible = check_and_attribute_depth(self.marker_sets[idx].markers[count].pos[:2],
+                                                                       self.depth_cropped[idx],
+                                                                       depth_scale=self.depth_scale)
+            if is_depth_visible:
+                self.marker_sets[idx].markers[count].pos[2] = marker_depth
+                self.marker_sets[idx].markers[count].is_depth_visible = True
+            else:
+                self.marker_sets[idx].markers[count].pos[2] = markers[2, i, 0]
+                self.marker_sets[idx].markers[count].is_depth_visible = False
+
             count += 1
             if count == list_nb_markers[idx]:
                 color_list[idx] = draw_markers(
@@ -737,7 +822,7 @@ class RgbdImages:
                     # marker.correct_from_kalman(new_markers_pos_optical_flow[count])
                 if blob_detector:
                     center = np.array((marker.pos[:2])).astype(int)
-                    blob_center, marker.is_visible = find_closest_blob(center, self.blobs[idx], delta=10)
+                    blob_center, marker.is_visible = find_closest_blob(center, self.blobs[idx], delta=8)
                     # check distance between blob_center and marker.pos
                     # dist = math.sqrt((marker.pos[0] - blob_center[0]) ** 2 + (marker.pos[1] - blob_center[1]) ** 2)
                     # if dist > 20:
