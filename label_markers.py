@@ -68,6 +68,7 @@ if __name__ == "__main__":
             camera.ik_method = "kalman"  # "kalman" or "least_squares"
             camera.clipping_color = 20
             camera.is_frame_aligned = False
+
             # ----------- from back ---------------- #
             # markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5", "C7", "RIBS_r", "Clavsc", "Scap_AA", "Scap_IA", "Acrom"], image_idx=0)
             # markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=1)
@@ -79,65 +80,21 @@ if __name__ == "__main__":
             # kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=['larm_l', "styl_r", "styl_u"])
 
             # ------------------ from front 3 crops -----------------#
-            # markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5", "C7", "RIBS_r",
-            #                                                                        "Clavsc", "Scap_AA",
-            #                                                                        "Scap_IA", "Acrom"], image_idx=0)
             # markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["xiph", "ster", "clavsc"
             #                                                                        , "M1",
             #                                                                        "M2", "M3", "Clavac"], image_idx=0)
-            markers_thorax = MarkerSet(marker_set_name="thorax", marker_names=["xiph", "ster", "clavsc"], image_idx=0)
-            markers_shoulder = MarkerSet(
-                marker_set_name="cluster", marker_names=["M1", "M2", "M3", "Clavac"], image_idx=1
-            )
-            markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=2)
-            # markers_arm = MarkerSet(marker_set_name="arm", marker_names=["M1", "M2", "M3"], image_idx=0)
-            markers_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"], image_idx=3)
-            # markers_shoulder = MarkerSet(marker_names=["C7", "Scap_AA", "Scap_IA", "Acrom", "clav_AC", "clav_SC"], image_idx=0)
-            # markers_arm = MarkerSet(marker_names=["delt", "arm_l", "epic_l"], image_idx=1)
-            # markers_hand = MarkerSet(marker_names=["styl_u", "styl_r", "h_up", "h_down"], image_idx=2)
-            camera.add_marker_set([markers_thorax, markers_shoulder, markers_arm, markers_hand])
-            # camera.add_marker_set([markers_arm])
-            # kinematics_marker_set_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5" ,"C7", "RIBS_r", "Clavsc"])
-            # kinematics_marker_set_scapula = MarkerSet(marker_set_name="scapula", marker_names=[ "Scap_AA", "Scap_IA", "Acrom"])
-            kinematics_marker_set_shoulder = MarkerSet(
-                marker_set_name="shoulder",
-                marker_names=[
-                    "xiph",
-                    "ster",
-                    "clavsc",
-                    "M1",
-                    "M2",
-                    "M3",
-                    "Clavac",
-                ],
-            )
-            # kinematics_marker_set_scapula = MarkerSet(marker_set_name="scapula", marker_names=["M1",
-            #                                                                        "M2", "M3"])
-            kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"])
-            # kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["M1", "M2", "M3"])
-
-            kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"])
+            # markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=2)
+            # markers_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"], image_idx=3)
+            # camera.add_marker_set([markers_shoulder, markers_arm, markers_hand])
+            #
             # ------------------ from front 4 crops -----------------#
-            # markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5", "C7", "RIBS_r",
-            #                                                                        "Clavsc", "Scap_AA",
-            #                                                                        "Scap_IA", "Acrom"], image_idx=0)
-            # markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["xiph", "ster", "clavsc"
-            #                                                                        , "M1",
-            #                                                                        "M2", "M3", "Clavac"], image_idx=0)
             markers_thorax = MarkerSet(marker_set_name="thorax", marker_names=["xiph", "ster", "clavsc"], image_idx=0)
             markers_shoulder = MarkerSet(
                 marker_set_name="cluster", marker_names=["M1", "M2", "M3", "Clavac"], image_idx=1
             )
             markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=2)
-            # markers_arm = MarkerSet(marker_set_name="arm", marker_names=["M1", "M2", "M3"], image_idx=0)
             markers_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"], image_idx=3)
-            # markers_shoulder = MarkerSet(marker_names=["C7", "Scap_AA", "Scap_IA", "Acrom", "clav_AC", "clav_SC"], image_idx=0)
-            # markers_arm = MarkerSet(marker_names=["delt", "arm_l", "epic_l"], image_idx=1)
-            # markers_hand = MarkerSet(marker_names=["styl_u", "styl_r", "h_up", "h_down"], image_idx=2)
             camera.add_marker_set([markers_thorax, markers_shoulder, markers_arm, markers_hand])
-            # camera.add_marker_set([markers_arm])
-            # kinematics_marker_set_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5" ,"C7", "RIBS_r", "Clavsc"])
-            # kinematics_marker_set_scapula = MarkerSet(marker_set_name="scapula", marker_names=[ "Scap_AA", "Scap_IA", "Acrom"])
             kinematics_marker_set_shoulder = MarkerSet(
                 marker_set_name="shoulder",
                 marker_names=[
@@ -150,27 +107,13 @@ if __name__ == "__main__":
                     "Clavac",
                 ],
             )
-            # kinematics_marker_set_scapula = MarkerSet(marker_set_name="scapula", marker_names=["M1",
-            #                                                                        "M2", "M3"])
             kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"])
-            # kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["M1", "M2", "M3"])
-
             kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"])
             kin_marker_set = [
                 kinematics_marker_set_shoulder,
-                # kinematics_marker_set_scapula,
                 kinematics_marker_set_arm,
                 kinematics_marker_set_hand,
             ]
-            if os.path.isfile(rf"{images_dir}\t" + f"racking_config.json"):
-                tracking_conf = {"crop": False, "mask": False, "label": False, "build_kinematic_model": False}
-            else:
-                if len(tracking_files) == 0:
-                    tracking_conf = {"crop": True, "mask": True, "label": True, "build_kinematic_model": True}
-                else:
-                    shutil.copy(tracking_files[0], rf"{images_dir}\t" + f"racking_config.json")
-                    tracking_conf = {"crop": False, "mask": False, "label": True, "build_kinematic_model": True}
-
             camera.initialize_tracking(
                 tracking_conf_file=rf"{images_dir}{os.sep}t" + f"racking_config.json",
                 crop_frame=tracking_conf["crop"],
@@ -184,10 +127,6 @@ if __name__ == "__main__":
                 with_tapir=False,
             )
             tracking_files.append(rf"{images_dir}{os.sep}t" + f"racking_config.json")
-            # mask_params = camera.mask_params
-            # fig = plt.figure()
-            import time
-
             camera.stop_index = 5
             count = 0
             if delete_old_data and os.path.isfile(f"{images_dir}{os.sep}markers_kalman.bio"):
