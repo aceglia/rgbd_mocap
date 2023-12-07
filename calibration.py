@@ -22,8 +22,7 @@ if __name__ == "__main__":
         file = [file for file in files if file[:5] == "calib"][0]
         file = images_dir + "\\" + file
         # image_file = r"D:\Documents\Programmation\vision\image_camera_trial_1_800.bio.gzip"
-        camera = RgbdImages(conf_file=f"config_camera_files\config_camera_{participant}.json",
-                            images_dir=file)
+        camera = RgbdImages(conf_file=f"config_camera_files\config_camera_{participant}.json", images_dir=file)
         # camera = RgbdImages(conf_file=r"config_camera_mod.json", merged_images=image_file)
     else:
         camera = RgbdImages()
@@ -37,10 +36,12 @@ if __name__ == "__main__":
 
     camera.clipping_color = 20
     camera.is_frame_aligned = False
-    markers_wand = MarkerSet(marker_set_name="wand", marker_names=["wand_1", "wand_2", "wand_3", "wand_4", "wand_5"], image_idx=0)
+    markers_wand = MarkerSet(
+        marker_set_name="wand", marker_names=["wand_1", "wand_2", "wand_3", "wand_4", "wand_5"], image_idx=0
+    )
     camera.add_marker_set([markers_wand])
     camera.initialize_tracking(
-        tracking_conf_file=fr"{file}\tracking_config.json",
+        tracking_conf_file=rf"{file}\tracking_config.json",
         crop_frame=True,
         mask_parameters=True,
         label_first_frame=True,
@@ -53,6 +54,7 @@ if __name__ == "__main__":
     mask_params = camera.mask_params
     fig = plt.figure()
     import time
+
     count = 0
     # import open3d as o3d
     camera.frame_idx = 0

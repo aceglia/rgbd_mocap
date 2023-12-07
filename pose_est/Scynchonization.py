@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime
-import qtm_rt
+
+# import qtm_rt
 import os
 import cv2
 import pyrealsense2 as rs
@@ -10,11 +11,12 @@ import datetime
 from biosiglive import ViconClient, DeviceType
 import multiprocessing as mp
 import time
-from pyScienceMode2.rehastim_interface import Stimulator
+
+# from pyScienceMode2.rehastim_interface import Stimulator
 
 
 class Synchronizer:
-    def __init__(self, from_rgbd = True, from_qualysis = True, use_trigger = True, with_motomed = True):
+    def __init__(self, from_rgbd=True, from_qualysis=True, use_trigger=True, with_motomed=True, fps=60):
         self.from_rgbd = from_rgbd
         self.from_qualysis = from_qualysis
         self.pipeline = None
@@ -31,19 +33,20 @@ class Synchronizer:
         self.with_motomed = with_motomed
         now = datetime.datetime.now()
         self.date_time = now.strftime("%d-%m-%Y_%H_%M_%S")
-
+        self.nb_save_process = 3
+        self.fps = fps
         self.motomed_gear = 5
         if from_rgbd:
             self.queue_trigger_rgbd = mp.Manager().Queue()
-            self.queue_color = mp.Manager().Queue()
-            self.queue_depth = mp.Manager().Queue()
+            self.queue_color = [mp.Manager().Queue()] * self.nb_save_process
+            self.queue_depth = [mp.Manager().Queue()] * self.nb_save_process
             self.reccording_event = mp.Event()
-            self.queue_frame = mp.Manager().Queue()
-            self.last_frame_queue = mp.Manager().Queue()
+            self.queue_frame = [mp.Manager().Queue()] * self.nb_save_process
+            self.last_frame_queue = [mp.Manager().Queue()] * self.nb_save_process
 
         if from_qualysis:
             self.queue_trigger_qualysis = mp.Manager().Queue()
-        if with_motomed :
+        if with_motomed:
             self.queue_motomed = mp.Manager().Queue()
         if use_trigger:
             self.init_trigger()
@@ -63,7 +66,7 @@ class Synchronizer:
             curr_time = datetime.datetime.now()
             await connection.start()
             await asyncio.sleep(2)
-            print(curr_time.strftime('%H:%M:%S.%f'))
+            print(curr_time.strftime("%H:%M:%S.%f"))
 
     def init_camera_pipeline(self):
         self.pipeline = rs.pipeline()
@@ -73,8 +76,8 @@ class Synchronizer:
         device = pipeline_profile.get_device()
         device_product_line = str(device.get_info(rs.camera_info.product_line))
 
-        config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 60)
-        config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 60)
+        config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, self.fps)
+        config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, self.fps)
 
         self.pipeline.start(config)
         d_profile = self.pipeline.get_active_profile().get_stream(rs.stream.depth).as_video_stream_profile()
@@ -85,27 +88,27 @@ class Synchronizer:
         deth_to_color = d_profile.get_extrinsics_to(c_profile)
         r = np.array(deth_to_color.rotation).reshape(3, 3)
         t = np.array(deth_to_color.translation)
-        self.dic_config_cam = {"camera_name": device_product_line,
-               'depth_scale': scale,
-               'depth_fx_fy': [d_intr.fx, d_intr.fy],
-               'depth_ppx_ppy': [d_intr.ppx, d_intr.ppy],
-               'color_fx_fy': [c_intr.fx, c_intr.fy],
-               'color_ppx_ppy': [c_intr.ppx, c_intr.ppy],
-               'depth_to_color_trans': t.tolist(),
-               'depth_to_color_rot': r.tolist(),
-               "model_color": c_intr.model.name,
-               "model_depth": d_intr.model.name,
-               "dist_coeffs_color": c_intr.coeffs,
-               "dist_coeffs_depth": d_intr.coeffs,
-               "size_color": [c_intr.width, c_intr.height],
-               "size_depth": [d_intr.width, d_intr.height],
-               "color_rate": c_profile.fps(),
-               "depth_rate": d_profile.fps()
-               }
+        self.dic_config_cam = {
+            "camera_name": device_product_line,
+            "depth_scale": scale,
+            "depth_fx_fy": [d_intr.fx, d_intr.fy],
+            "depth_ppx_ppy": [d_intr.ppx, d_intr.ppy],
+            "color_fx_fy": [c_intr.fx, c_intr.fy],
+            "color_ppx_ppy": [c_intr.ppx, c_intr.ppy],
+            "depth_to_color_trans": t.tolist(),
+            "depth_to_color_rot": r.tolist(),
+            "model_color": c_intr.model.name,
+            "model_depth": d_intr.model.name,
+            "dist_coeffs_color": c_intr.coeffs,
+            "dist_coeffs_depth": d_intr.coeffs,
+            "size_color": [c_intr.width, c_intr.height],
+            "size_depth": [d_intr.width, d_intr.height],
+            "color_rate": c_profile.fps(),
+            "depth_rate": d_profile.fps(),
+        }
         # self.config_file_name = f"config_camera_files\config_camera_{self.date_time}.json"
         align_to = rs.stream.color
         self.align = rs.align(align_to)
-
 
     def init_trigger(self):
         self.interface = ViconClient(ip="192.168.1.211", system_rate=120, init_now=False)
@@ -121,7 +124,9 @@ class Synchronizer:
                 trigger = 0
                 time.sleep(0.001)
             if trigger > 1.5:
-                motomed.start_phase(speed=60, gear=self.motomed_gear, active=True, go_forward=True, spasm_detection=False)
+                motomed.start_phase(
+                    speed=60, gear=self.motomed_gear, active=True, go_forward=True, spasm_detection=False
+                )
                 break
 
     def get_trigger(self):
@@ -173,6 +178,9 @@ class Synchronizer:
         self.config_file_name = f"config_camera_files\config_camera_{self.participant}.json"
         i = 0
         last_frame_number = 0
+        nb_process = 0
+        all_frame_saved = [0] * self.nb_save_process
+        tic_init = -1
         while True:
             tic = time.time()
             aligned_frames = self.pipeline.wait_for_frames()
@@ -188,45 +196,59 @@ class Synchronizer:
             depth_image_to_save = depth_image.copy()
             color_image_to_save = color_image.copy()
             frame_number = color_frame.frame_number
-            # if frame_number - last_frame_number > 1:
-            #     print("frame lost jump {} frame".format(frame_number - last_frame_number))
-            # last_frame_number = frame_number
             if not save_data:
-                cv2.waitKey(1)
-                if self.use_trigger:
+                if cv2.waitKey(1) & self.use_trigger:
                     try:
                         data_trigger = self.queue_trigger_rgbd.get_nowait()
                     except:
                         data_trigger = 0
                     if data_trigger > 1.5:
                         save_data = True
-                elif 0xFF == ord('q'):
+                elif cv2.waitKey(1) & 0xFF == ord("q"):
                     save_data = True
-
-                    # if 1 / np.mean(loop_time_list) < 58:
-                    #     print(f"FPS = {1 / np.mean(loop_time_list)} not enought FPS pleas wait ...")
-
                 color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
                 depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
                 cv2.addWeighted(depth_colormap, 0.8, color_image, 0.8, 0, color_image)
                 if len(loop_time_list) > 20:
-                    cv2.putText(color_image,
-                                f"FPS = {1 / np.mean(loop_time_list[-20:])}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                                (0, 0, 0), 2,
-                                cv2.LINE_AA)
+                    cv2.putText(
+                        color_image,
+                        f"FPS = {1 / np.mean(loop_time_list[-20:])}",
+                        (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (0, 0, 0),
+                        2,
+                        cv2.LINE_AA,
+                    )
                 elif len(loop_time_list) > 0:
-                    cv2.putText(color_image,
-                                f"FPS = {1 / np.mean(loop_time_list)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                                (0, 0, 0), 2,
-                                cv2.LINE_AA)
-                cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-                cv2.imshow('RealSense', color_image)
+                    cv2.putText(
+                        color_image,
+                        f"FPS = {1 / np.mean(loop_time_list)}",
+                        (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (0, 0, 0),
+                        2,
+                        cv2.LINE_AA,
+                    )
+                cv2.namedWindow("RealSense", cv2.WINDOW_AUTOSIZE)
+                cv2.imshow("RealSense", color_image)
                 if save_data:
+                    tic_init = time.time()
+                    print("start recording...")
                     cv2.destroyAllWindows()
             if save_data:
-                self.queue_depth.put_nowait(depth_image_to_save)
-                self.queue_color.put_nowait(color_image_to_save)
-                self.queue_frame.put_nowait(frame_number)
+                if all_frame_saved[0] % 500 == 0:
+                    print("time: ", time.time() - tic_init)
+                self.queue_depth[nb_process].put_nowait(depth_image_to_save)
+                self.queue_color[nb_process].put_nowait(color_image_to_save)
+                self.queue_frame[nb_process].put_nowait(frame_number)
+                all_frame_saved[nb_process] += 1
+                if nb_process == self.nb_save_process - 1:
+                    nb_process = 0
+                else:
+                    nb_process += 1
+
                 if self.use_trigger:
                     if i >= 80:
                         try:
@@ -236,60 +258,69 @@ class Synchronizer:
                         if data_trigger > 1.5:
                             break
                 else:
-                    if cv2.waitKey(1) & 0xFF == ord('q') or frame_number >= 550:
-                        print(frame_number)
+                    if i >= 7200:
                         break
 
                 if i == 0:
-                    with open(f"D:\Documents\Programmation\pose_estimation\{self.config_file_name}", 'w') as outfile:
+                    with open(f"D:\Documents\Programmation\pose_estimation\{self.config_file_name}", "w") as outfile:
                         json.dump(self.dic_config_cam, outfile, indent=4)
-                # if not os.path.exists(f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}'):
-                #     os.makedirs(f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}')
-                # cv2.imwrite(
-                #     f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\depth_{i}.png',
-                #     depth_image_to_save)
-                # cv2.imwrite(
-                #     f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\color_{i}.png',
-                #     color_image_to_save)
                 i += 1
             loop_time_list.append(time.time() - tic)
-
-        print("stop recording..."
-              "wait until all data are saved")
-        self.last_frame_queue.put_nowait(frame_number)
+        print("stop recording..." "wait until all data are saved")
+        for i in range(self.nb_save_process):
+            print(all_frame_saved[i])
+            self.last_frame_queue[i].put_nowait(all_frame_saved[i])
         self.pipeline.stop()
 
-    def save_rgbd_from_buffer(self):
+    def save_rgbd_from_buffer(self, nb_process):
         # while True:
         last_frame_number = 0
         final_frame = -1
         frame_number = 0
-        while frame_number != final_frame:
+        tic_init = time.time()
+        if not os.path.exists(
+            f"D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}"
+        ):
+            os.makedirs(
+                f"D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}"
+            )
+
+        nb_frame = 0
+        init_count = 0
+        while nb_frame != final_frame or init_count == 0:
             try:
-                color_image_to_save = self.queue_color.get()
-                depth_image_to_save = self.queue_depth.get()
-                frame_number = self.queue_frame.get()
-                # print(frame_number)
-                # print(final_frame)
-                # if frame_number - last_frame_number > 1:
-                #     print("frame lost jump {} frame".format(frame_number - last_frame_number))
-                # print(frame_number)
-                last_frame_number = frame_number
-                if not os.path.exists(
-                        f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}'):
-                    os.makedirs(
-                        f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}')
+                color_image_to_save = self.queue_color[nb_process].get()
+                depth_image_to_save = self.queue_depth[nb_process].get()
+                frame_number = self.queue_frame[nb_process].get()
                 cv2.imwrite(
-                    f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\depth_{frame_number}.png',
-                    depth_image_to_save)
+                    f"D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\depth_{frame_number}.png",
+                    depth_image_to_save,
+                )
                 cv2.imwrite(
-                    f'D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\color_{frame_number}.png',
-                    color_image_to_save)
-                final_frame = self.last_frame_queue.get_nowait()
+                    f"D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\color_{frame_number}.png",
+                    color_image_to_save,
+                )
+                try:
+                    final_frame = self.last_frame_queue[nb_process].get_nowait()
+                except:
+                    pass
+                nb_frame += 1
+                if init_count == 0:
+                    init_count += 1
+                if final_frame != -1:
+                    if nb_frame % 60 == 0:
+                        print(f"remaining frame to save for process {nb_process}: {final_frame - nb_frame}")
             except:
                 pass
-        print("all data are saved"
-              "DO NOT FORGET TO SAVE DELAY")
+        print(
+            len(
+                os.listdir(
+                    f"D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}"
+                )
+            )
+        )
+        print("saving time: {}".format(time.time() - tic_init))
+        print("all data are saved" "DO NOT FORGET TO SAVE DELAY")
 
     def start(self):
         processes = []
@@ -299,8 +330,9 @@ class Synchronizer:
         if self.from_rgbd:
             p = mp.Process(target=Synchronizer.get_rgbd, args=(self,))
             processes.append(p)
-            p = mp.Process(target=Synchronizer.save_rgbd_from_buffer, args=(self,))
-            processes.append(p)
+            for i in range(self.nb_save_process):
+                p = mp.Process(target=Synchronizer.save_rgbd_from_buffer, args=(self, i))
+                processes.append(p)
         if self.use_trigger:
             p = mp.Process(target=Synchronizer.get_trigger, args=(self,))
             processes.append(p)
@@ -314,7 +346,8 @@ class Synchronizer:
 
 
 if __name__ == "__main__":
-    sync = Synchronizer(from_rgbd=True, from_qualysis=True, use_trigger=True, with_motomed=False)
-    sync.file_name = "gear_20"
-    sync.participant = "P4_session2"
+    sync = Synchronizer(from_rgbd=True, from_qualysis=False, use_trigger=True, with_motomed=False)
+    sync.fps = 60
+    sync.file_name = "random"
+    sync.participant = "P8"
     sync.start()

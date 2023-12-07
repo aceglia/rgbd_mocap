@@ -1,5 +1,6 @@
-import numpy as np
 import datetime
+from biosiglive import save
+
 try:
     import pyrealsense2 as rs
 except ImportError:
@@ -17,6 +18,7 @@ from .utils import *
 
 try:
     import biorbd
+
     is_biorbd_package = True
 except ImportError:
     is_biorbd_package = False
@@ -31,7 +33,7 @@ from .model_creation import (
     Translations,
     Rotations,
     Axis,
-    Mesh
+    Mesh,
 )
 
 
@@ -39,7 +41,7 @@ class RgbdImages:
     def __init__(
         self,
         merged_images: str = None,
-        images_dir = None,
+        images_dir=None,
         color_images: Union[np.ndarray, str] = None,
         depth_images: Union[np.ndarray, str] = None,
         conf_file: str = None,
@@ -97,6 +99,8 @@ class RgbdImages:
         self.is_kinematic_model = False
         self.tracking_file_loaded = False
         self.time_to_get_frame = -1
+        self.camera_frame_numbers = []
+        self.last_pos = []
 
         # Camera extrinsic
         self.depth_to_color = None
@@ -161,9 +165,10 @@ class RgbdImages:
             self.depth_images = self.depth_images[:200]
         self.load_all_dir = load_all_dir
         self.stop_index = stop_index
-        self.color_images, self.depth_images = self._load_from_dir(images_dir, self.start_index, self.stop_index,
-                                                                   self.downsampled,
-                                                                   load_all_dir)
+        self.image_dir = images_dir
+        self.color_images, self.depth_images = self._load_from_dir(
+            images_dir, self.start_index, self.stop_index, self.downsampled, load_all_dir
+        )
 
     @staticmethod
     def _load(path, data_type: str = "both") -> np.ndarray or tuple:
@@ -193,17 +198,23 @@ class RgbdImages:
                 raise ValueError("The data type must be 'color', 'depth' or 'both'.")
         return data_end
 
-    def _load_from_dir(self, path=None, start_index=None, end_index=None, down_sampling=None,
-                       load_all_dir=False,
-                       all_color_files=None,
-                       all_depth_files=None) -> np.ndarray or tuple:
-
+    def _load_from_dir(
+        self,
+        path=None,
+        start_index=None,
+        end_index=None,
+        down_sampling=None,
+        load_all_dir=False,
+        all_color_files=None,
+        all_depth_files=None,
+    ) -> np.ndarray or tuple:
         if path:
             all_color_files_tmp = glob.glob(path + "/color*.png")
             idx = []
             for file in all_color_files_tmp:
                 idx.append(int(file.split("\\")[-1].split("_")[-1].removesuffix(".png")))
             idx.sort()
+            self.camera_frame_numbers = idx[start_index:]
         if all_color_files is None:
             self.all_color_files = [path + f"/color_{i}.png" for i in idx]
         if all_depth_files is None:
@@ -216,12 +227,23 @@ class RgbdImages:
         else:
             end_index_tmp = start_index + 1
         down_sampling_factor = 1 if not down_sampling else int(down_sampling)
-        color_images = [cv2.imread(file) for file in self.all_color_files[start_index:end_index_tmp:down_sampling_factor]]
-        depth_images = [cv2.imread(file, cv2.IMREAD_ANYDEPTH) for file in self.all_depth_files[start_index:end_index_tmp:down_sampling_factor]]
+        color_images = [
+            cv2.imread(file) for file in self.all_color_files[start_index:end_index_tmp:down_sampling_factor]
+        ]
+        depth_images = [
+            cv2.imread(file, cv2.IMREAD_ANYDEPTH)
+            for file in self.all_depth_files[start_index:end_index_tmp:down_sampling_factor]
+        ]
         return color_images, depth_images
 
-    def init_camera(self, color_size: Union[tuple, ColorResolution], depth_size: Union[tuple, DepthResolution],
-                    color_fps: Union[int, FrameRate], depth_fps: Union[int, FrameRate], align: bool = False):
+    def init_camera(
+        self,
+        color_size: Union[tuple, ColorResolution],
+        depth_size: Union[tuple, DepthResolution],
+        color_fps: Union[int, FrameRate],
+        depth_fps: Union[int, FrameRate],
+        align: bool = False,
+    ):
         """
         Initialize the camera and the images parameters
 
@@ -362,20 +384,25 @@ class RgbdImages:
                 return None, None
             self.depth_frame = np.asanyarray(self.depth_frame.get_data())
             self.color_frame = np.asanyarray(self.color_frame.get_data())
+            self.camera_frame_numbers.append(self.color_frame.get_frame_number())
         elif self.color_images and self.depth_images:
             if self.load_all_dir:
                 if self.frame_idx == len(self.all_color_files) - 1:
                     self.frame_idx = 0
                     print("starting over...")
-                self.color_frame, self.depth_frame = self.color_images[self.frame_idx], self.depth_images[self.frame_idx]
+                self.color_frame, self.depth_frame = (
+                    self.color_images[self.frame_idx],
+                    self.depth_images[self.frame_idx],
+                )
             else:
                 if self.frame_idx == self.stop_index - 1:
                     self.frame_idx = 0
                     print("starting over...")
-                self.color_frame, self.depth_frame = self._load_from_dir(start_index=self.start_index + self.frame_idx,
-                                                                         all_color_files=self.all_color_files,
-                                                                         all_depth_files=self.all_depth_files
-                                                                         )
+                self.color_frame, self.depth_frame = self._load_from_dir(
+                    start_index=self.start_index + self.frame_idx,
+                    all_color_files=self.all_color_files,
+                    all_depth_files=self.all_depth_files,
+                )
                 self.color_frame = self.color_frame[0]
                 self.depth_frame = self.depth_frame[0]
 
@@ -400,29 +427,44 @@ class RgbdImages:
         count = 0
         for i in range(len(self.marker_sets)):
             for m in range(self.marker_sets[i].nb_markers):
-                self.marker_sets[i].markers[m].pos[:2] = self.express_in_local([pos_markers[0, count],
-                                                                            pos_markers[1, count]],
-                                                                           [self.start_crop[0][i], self.start_crop[1][i]])
+                self.marker_sets[i].markers[m].pos[:2] = self.express_in_local(
+                    [pos_markers[0, count], pos_markers[1, count]], [self.start_crop[0][i], self.start_crop[1][i]]
+                )
                 count += 1
-            self.marker_sets[i].set_global_markers_pos(self.marker_sets[i].get_markers_pos(),
-                                                       [self.start_crop[0][i], self.start_crop[1][i]])
+            self.marker_sets[i].set_global_markers_pos(
+                self.marker_sets[i].get_markers_pos(), [self.start_crop[0][i], self.start_crop[1][i]]
+            )
 
-    def _partial_get_frame(self, detect_blobs, color_list, i, depth, kwargs, label_markers, filter_with_kalman,
-                            adjust_with_blobs, fit_model):
+    def _partial_get_frame(
+        self,
+        detect_blobs,
+        color_list,
+        i,
+        depth,
+        kwargs,
+        label_markers,
+        filter_with_kalman,
+        adjust_with_blobs,
+        fit_model,
+        use_optical_flow,
+    ):
+        bounds_from_marker_pos = True
         if detect_blobs:
-            # if bounds_from_marker_pos:
-            #     if np.all(self.marker_sets[i].get_markers_pos() == 0):
-            #         markers_values = self.marker_sets[i].get_markers_pos()
-            #     else:
-            #         markers_values = np.concatenate((self.marker_sets[i].get_markers_filtered_pos(),
-            #                             self.marker_sets[i].get_markers_pos()),
-            #                             axis=1)
-            #     color_list[i], (x_min, x_max, y_min, y_max) = bounding_rect(
-            #         color_list[i], markers_values,
-            #         color=(0, 255, 0), delta=20,
-            #     )
-            # else:
-            x_min, x_max, y_min, y_max = 0, color_list[i].shape[1], 0, color_list[i].shape[0]
+            if bounds_from_marker_pos:
+                if np.all(self.marker_sets[i].get_markers_pos() == 0):
+                    markers_values = self.marker_sets[i].get_markers_pos()
+                else:
+                    markers_values = np.concatenate(
+                        (self.marker_sets[i].get_markers_filtered_pos(), self.marker_sets[i].get_markers_pos()), axis=1
+                    )
+                color_list[i], (x_min, x_max, y_min, y_max) = bounding_rect(
+                    color_list[i],
+                    markers_values,
+                    color=(0, 255, 0),
+                    delta=20,
+                )
+            else:
+                x_min, x_max, y_min, y_max = 0, color_list[i].shape[1], 0, color_list[i].shape[0]
             # self._adapt_cropping(color, x_min, x_max, y_min, y_max, i)
             self.blobs.append(
                 get_blobs(
@@ -430,7 +472,9 @@ class RgbdImages:
                     params=self.mask_params[i],
                     return_centers=True,
                     image_bounds=(x_min, x_max, y_min, y_max),
-                    depth=depth[i], clipping_color=self.clipping_color, depth_scale=self.depth_scale,
+                    depth=depth[i],
+                    clipping_color=self.clipping_color,
+                    depth_scale=self.depth_scale,
                     **kwargs,
                 )
             )
@@ -439,17 +483,17 @@ class RgbdImages:
             old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)
             if len(old_markers_pos) != 0:
                 error_threshold = 10
-                current_color = background_remover(self.color_cropped[i],
-                                                   self.depth_cropped[i],
-                                                   1.9,
-                                                   self.depth_scale,
-                                                   100)
+                if use_optical_flow:
+                    current_color = background_remover(
+                        self.color_cropped[i], self.depth_cropped[i], 1.9, self.depth_scale, 100
+                    )
 
-                previous_color = background_remover(self.last_color_cropped[i],
-                                                    self.last_depth_cropped[i],
-                                                    1.9,
-                                                    self.depth_scale,
-                                                    100)
+                    previous_color = background_remover(
+                        self.last_color_cropped[i], self.last_depth_cropped[i], 1.9, self.depth_scale, 100
+                    )
+                else:
+                    current_color = self.color_cropped[i]
+                    previous_color = self.last_color_cropped[i]
                 self._run_optical_flow(
                     i,
                     current_color,
@@ -459,22 +503,22 @@ class RgbdImages:
                     adjust_with_blobs,
                     markers_visible_names,
                     error_threshold,
+                    use_optical_flow,
                     use_tapir=self.use_tapir,
-                    # markers_pos_tapir=markers_pos_tapir,
                 )
+
             if not fit_model:
                 color_list[i] = draw_markers(
                     self.color_cropped[i],
-                    # markers_filtered_pos=self.marker_sets[i].get_markers_filtered_pos(),
                     markers_pos=self.marker_sets[i].get_markers_pos(),
                     markers_names=self.marker_sets[i].marker_names,
                     is_visible=self.marker_sets[i].get_markers_occlusion(),
                     scaling_factor=0.5,
                     markers_reliability_index=self.marker_sets[i].get_markers_reliability_index(self.frame_idx),
                 )
-                if len(self.blobs) != 0:
-                    if len(self.blobs[i]) != 0:
-                        color_list[i] = draw_blobs(color_list[i], self.blobs[i])
+            if len(self.blobs) != 0:
+                if len(self.blobs[i]) != 0:
+                    color_list[i] = draw_blobs(color_list[i], self.blobs[i])
 
     def get_frames(
         self,
@@ -487,6 +531,9 @@ class RgbdImages:
         fit_model=False,
         model_name=None,
         rotation_angle: Rotation = None,
+        use_optical_flow=True,
+        show_images=False,
+        save_data=False,
         **kwargs,
     ):
         """
@@ -504,6 +551,8 @@ class RgbdImages:
         depth_frame: np.ndarray
             Depth frame
         """
+        self.show_images = show_images
+        self.save_data = save_data
         tic = time.time()
         self.rotation_angle = rotation_angle
         if adjust_with_blobs and not label_markers:
@@ -535,94 +584,70 @@ class RgbdImages:
             self._distribute_pos_markers_tapir(markers_pos_tapir)
         for i, color in enumerate(self.color_cropped):
             color_list.append(color.copy())
-            self._partial_get_frame(detect_blobs, color_list, i, depth, kwargs, label_markers, filter_with_kalman,
-                            adjust_with_blobs, fit_model)
-            # if detect_blobs:
-            #     # if bounds_from_marker_pos:
-            #     #     if np.all(self.marker_sets[i].get_markers_pos() == 0):
-            #     #         markers_values = self.marker_sets[i].get_markers_pos()
-            #     #     else:
-            #     #         markers_values = np.concatenate((self.marker_sets[i].get_markers_filtered_pos(),
-            #     #                             self.marker_sets[i].get_markers_pos()),
-            #     #                             axis=1)
-            #     #     color_list[i], (x_min, x_max, y_min, y_max) = bounding_rect(
-            #     #         color_list[i], markers_values,
-            #     #         color=(0, 255, 0), delta=20,
-            #     #     )
-            #     # else:
-            #     x_min, x_max, y_min, y_max = 0, color_list[i].shape[1], 0, color_list[i].shape[0]
-            #     # self._adapt_cropping(color, x_min, x_max, y_min, y_max, i)
-            #     self.blobs.append(
-            #         get_blobs(
-            #             color_list[i],
-            #             params=self.mask_params[i],
-            #             return_centers=True,
-            #             image_bounds=(x_min, x_max, y_min, y_max),
-            #             depth=depth[i], clipping_color=self.clipping_color, depth_scale=self.depth_scale,
-            #             **kwargs,
-            #         )
-            #     )
-            #
-            # if label_markers:
-            #     old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)
-            #     if len(old_markers_pos) != 0:
-            #         error_threshold = 10
-            #         current_color = background_remover(self.color_cropped[i],
-            #                                            self.depth_cropped[i],
-            #                                            1.9,
-            #                                            self.depth_scale,
-            #                                            100)
-            #
-            #         previous_color = background_remover(self.last_color_cropped[i],
-            #                                             self.last_depth_cropped[i],
-            #                                             1.9,
-            #                                             self.depth_scale,
-            #                                             100)
-            #         self._run_optical_flow(
-            #                                i,
-            #                                current_color,
-            #                                previous_color,
-            #                                old_markers_pos,
-            #                                filter_with_kalman,
-            #                                adjust_with_blobs,
-            #                                markers_visible_names,
-            #                                error_threshold,
-            #                                use_tapir=self.use_tapir,
-            #                                # markers_pos_tapir=markers_pos_tapir,
-            #                                )
-            #     if not fit_model:
-            #         color_list[i] = draw_markers(
-            #             self.color_cropped[i],
-            #             # markers_filtered_pos=self.marker_sets[i].get_markers_filtered_pos(),
-            #             markers_pos=self.marker_sets[i].get_markers_pos(),
-            #             markers_names=self.marker_sets[i].marker_names,
-            #             is_visible=self.marker_sets[i].get_markers_occlusion(),
-            #             scaling_factor=0.5,
-            #             markers_reliability_index=self.marker_sets[i].get_markers_reliability_index(self.frame_idx),
-            #         )
-            #         if len(self.blobs) != 0:
-            #             if len(self.blobs[i]) != 0:
-            #                 color_list[i] = draw_blobs(color_list[i], self.blobs[i])
+            self._partial_get_frame(
+                detect_blobs,
+                color_list,
+                i,
+                depth,
+                kwargs,
+                label_markers,
+                filter_with_kalman,
+                adjust_with_blobs,
+                fit_model,
+                use_optical_flow,
+            )
         if fit_model:
             if not label_markers:
                 raise ValueError("You need to label markers before fitting the model.")
             color_list = self._fit_kinematics_model(model_name, color_list)
+
+        markers_pos = np.ndarray((13, 1))
         for marker_set in self.marker_sets:
             for marker in marker_set.markers:
                 if marker.is_visible:
                     marker.reliability_index += 0.5
                 if marker.is_depth_visible:
                     marker.reliability_index += 0.5
-        self.frame_idx += 1
+        markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
         self.time_to_get_frame = (time.time() - tic) + _time_to_rotate
+        color = draw_markers(
+            self.color_frame,
+            markers_pos=markers_pos,
+            # markers_names=markers_names,
+            is_visible=occlusions,
+            scaling_factor=0.4,
+            circle_scaling_factor=2,
+            # markers_reliability_index=reliability_idx,
+            thickness=-1,
+        )
+        self.frame_idx += 1
+        if self.show_images:
+            cv2.namedWindow("color", cv2.WINDOW_NORMAL)
+            cv2.imshow("color", color)
+            cv2.waitKey(int(1 / self.conf_data["color_rate"] * 1000))
+        if self.save_data:
+            markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
+            markers_in_meters, _, _, _ = self.get_global_markers_pos_in_meter(markers_pos)
+            dic = {
+                "markers_in_meters": markers_in_meters[:, :, np.newaxis],
+                "markers_in_pixel": markers_pos[:, :, np.newaxis],
+                "markers_names": markers_names,
+                "occlusions": occlusions,
+                "reliability_idx": reliability_idx,
+                "time_to_process": self.time_to_get_frame,
+                "frame_idx": self.camera_frame_numbers[self.frame_idx],
+            }
+            save(dic, self.image_dir + os.sep + "markers_pos.bio", add_data=True)
         return color_list, depth
 
     def _run_tapir_tracker(self):
         if not self.is_tapir_init:
             self.is_tapir_init = True
-            checkpoint_path = r'D:\Documents\Programmation\pose_estimation\pose_est\tapnet\checkpoints\causal_tapir_checkpoint.npy'
+            checkpoint_path = (
+                r"D:\Documents\Programmation\pose_estimation\pose_est\tapnet\checkpoints\causal_tapir_checkpoint.npy"
+            )
             ckpt_state = np.load(checkpoint_path, allow_pickle=True).item()
-            params, state = ckpt_state['params'], ckpt_state['state']
+            params, state = ckpt_state["params"], ckpt_state["state"]
             online_init = hk.transform_with_state(build_online_model_init)
             online_init_apply = jax.jit(online_init.apply)
 
@@ -630,18 +655,15 @@ class RgbdImages:
             online_predict_apply = jax.jit(online_predict.apply)
 
             rng = jax.random.PRNGKey(42)
-            online_init_apply = functools.partial(
-                online_init_apply, params=params, state=state, rng=rng
-            )
-            self.online_predict_apply = functools.partial(
-                online_predict_apply, params=params, state=state, rng=rng
-            )
+            online_init_apply = functools.partial(online_init_apply, params=params, state=state, rng=rng)
+            self.online_predict_apply = functools.partial(online_predict_apply, params=params, state=state, rng=rng)
             if self.color_frame is None:
                 self.color_frame = self.color_images[0]
                 self.depth_frame = self.depth_images[0]
 
-            self.video_empty_tapir = np.ndarray((1, self.color_frame.shape[0], self.color_frame.shape[1], self.color_frame.shape[2]),
-                               dtype=np.uint8)
+            self.video_empty_tapir = np.ndarray(
+                (1, self.color_frame.shape[0], self.color_frame.shape[1], self.color_frame.shape[2]), dtype=np.uint8
+            )
             self.height, self.width = self.video_empty_tapir.shape[1:3]
             self.video_empty_tapir[0] = self.color_frame
             self.resize_height_tapir, self.resize_width_tapir = 256, 256
@@ -652,12 +674,18 @@ class RgbdImages:
             # select_points = self._prepare_data_optical_flow(0)
             query_points = convert_select_points_to_query_points(0, select_points)
             query_points = transforms.convert_grid_coordinates(
-                query_points, (1, self.height, self.width),
-                (1, self.resize_height_tapir, self.resize_width_tapir), coordinate_format='tyx')
+                query_points,
+                (1, self.height, self.width),
+                (1, self.resize_height_tapir, self.resize_width_tapir),
+                coordinate_format="tyx",
+            )
 
-            self.query_features, _ = online_init_apply(frames=preprocess_frames(frames[None, None, 0]),
-                                                  query_points=query_points[None])
-            self.causal_state = construct_initial_causal_state(query_points.shape[0], len(self.query_features.resolutions) - 1)
+            self.query_features, _ = online_init_apply(
+                frames=preprocess_frames(frames[None, None, 0]), query_points=query_points[None]
+            )
+            self.causal_state = construct_initial_causal_state(
+                query_points.shape[0], len(self.query_features.resolutions) - 1
+            )
         self.video_empty_tapir[0] = self.color_frame
         frames = media.resize_video(self.video_empty_tapir, (self.resize_height_tapir, self.resize_width_tapir))
 
@@ -668,8 +696,9 @@ class RgbdImages:
             causal_context=self.causal_state,
         )
         prediction = prediction["tracks"][0]
-        prediction = transforms.convert_grid_coordinates(prediction, (self.resize_width_tapir, self.resize_height_tapir)
-                                                         , (self.width, self.height))
+        prediction = transforms.convert_grid_coordinates(
+            prediction, (self.resize_width_tapir, self.resize_height_tapir), (self.width, self.height)
+        )
         return prediction
 
     def _fit_kinematics_model(self, model_name, color_list):
@@ -686,12 +715,12 @@ class RgbdImages:
             # if is_visible[m]:
             if names[m] not in self.markers_to_exclude_for_ik:
                 final_markers[:, m, 0] = markers[:, m]
-        _method = InverseKinematicsMethods.BiorbdLeastSquare if self.ik_method == "least_squares" else InverseKinematicsMethods.BiorbdKalman
-        q, _ = self.kinematics_functions.compute_inverse_kinematics(
-            final_markers,
-            _method,
-            kalman_freq=100
+        _method = (
+            InverseKinematicsMethods.BiorbdLeastSquare
+            if self.ik_method == "least_squares"
+            else InverseKinematicsMethods.BiorbdKalman
         )
+        q, _ = self.kinematics_functions.compute_inverse_kinematics(final_markers, _method, kalman_freq=100)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
         list_nb_markers = []
         for i in range(len(self.marker_sets)):
@@ -701,15 +730,21 @@ class RgbdImages:
         markers_kalman = []
         dist_list = []
         _in_pixel = self.express_in_pixel(markers[:, :, 0])
+        nb_past_markers = 0
+        all_markers_local = []
+        all_pos = []
         for i in range(markers.shape[1]):
-            markers_local = np.array(self.express_in_local(
-                _in_pixel[:, i], [self.start_crop[0][idx], self.start_crop[1][idx]]))
+            markers_local = np.array(
+                self.express_in_local(_in_pixel[:, i], [self.start_crop[0][idx], self.start_crop[1][idx]])
+            )
             markers_kalman.append(markers_local)
-            blob_center, is_visible_tmp, dist = find_closest_blob(markers_local, self.blobs[idx],
-                                                            delta=8, return_distance=True)
+            blob_center, is_visible_tmp, dist = find_closest_blob(
+                markers_local, self.blobs[idx], delta=8, return_distance=True
+            )
             dist_list.append(dist)
             threshold = 30
             self.marker_sets[idx].markers[count].is_visible = is_visible_tmp
+            all_markers_local.append(markers_local)
             if is_visible_tmp:
                 self.marker_sets[idx].markers[count].correct_from_kalman(blob_center)
                 self.marker_sets[idx].markers[count].pos[:2] = blob_center
@@ -718,21 +753,64 @@ class RgbdImages:
                 self.marker_sets[idx].markers[count].correct_from_kalman(markers_local)
                 self.marker_sets[idx].markers[count].pos[:2] = markers_local
 
-            if self.marker_sets[idx].markers[count].pos[0] and int(
-                    self.marker_sets[idx].markers[count].pos[0]) not in list(
-                    range(0, self.color_cropped[idx].shape[1] - 1)):
-                self.marker_sets[idx].markers[count].pos[0] = self.color_cropped[idx].shape[1] - 1 if \
-                self.marker_sets[idx].markers[count].pos[0] > self.color_cropped[idx].shape[1] - 1 else 0
-            if self.marker_sets[idx].markers[count].pos[1] and int(
-                    self.marker_sets[idx].markers[count].pos[1]) not in list(
-                    range(0, self.color_cropped[idx].shape[0] - 1)):
-                self.marker_sets[idx].markers[count].pos[1] = self.color_cropped[idx].shape[0] - 1 if \
-                self.marker_sets[idx].markers[count].pos[1] > self.color_cropped[idx].shape[0] - 1 else 0
+            # curent_pos = self.marker_sets[idx].markers[count].pos[:2]
+            # all_pos = self.marker_sets[idx].get_markers_pos()[:, :count]
+            # for p in range(all_pos.shape[1]):
+            #     pos = all_pos[:, p]
+            #     if int(pos[0]) == int(curent_pos[0]) and int(pos[1]) == int(curent_pos[1]):
+            #         show = True
+            #         if self.frame_idx == 12:
+            #             if idx == 3:
+            #                 print(1)
+            #         marker_depth, is_depth_visible = check_and_attribute_depth(
+            #             self.marker_sets[idx].markers[count].pos[:2],
+            #             self.depth_cropped[idx],
+            #             depth_scale=self.depth_scale)
+            #         marker_global = self.express_in_global(curent_pos, [self.start_crop[0][idx], self.start_crop[1][idx]])
+            #         marker_global.append(marker_depth)
+            #         markers_in_meter, _, _, _ = self.get_global_markers_pos_in_meter(np.array(marker_global)[:, np.newaxis])
+            #         idx_tmp = find_closest_markers_in_model(markers_in_meter, markers, p, self.kinematic_model)
+            #         if idx_tmp != i:
+            #             # self.marker_sets[idx].markers[p].correct_from_kalman(markers_local)
+            #             # self.marker_sets[idx].markers[p].pos[:2] = markers_local
+            #             marker_local = np.array(self.express_in_local(
+            #             _in_pixel[:, count], [self.start_crop[0][idx], self.start_crop[1][idx]]))
+            #             self.marker_sets[idx].markers[count].correct_from_kalman(marker_local)
+            #             self.marker_sets[idx].markers[count].pos[:2] = marker_local
+            #         else:
+            #             marker_local = np.array(self.express_in_local(
+            #                 _in_pixel[:, nb_past_markers + p], [self.start_crop[0][idx], self.start_crop[1][idx]]))
+            #             self.marker_sets[idx].markers[p].correct_from_kalman(marker_local)
+            #             self.marker_sets[idx].markers[p].pos[:2] = marker_local
 
-            marker_depth, is_depth_visible = check_and_attribute_depth(self.marker_sets[idx].markers[count].pos[:2],
-                                                                       self.depth_cropped[idx],
-                                                                       depth_scale=self.depth_scale)
-            if is_depth_visible:
+            if self.marker_sets[idx].markers[count].pos[0] and int(
+                self.marker_sets[idx].markers[count].pos[0]
+            ) not in list(range(0, self.color_cropped[idx].shape[1] - 1)):
+                self.marker_sets[idx].markers[count].pos[0] = (
+                    self.color_cropped[idx].shape[1] - 1
+                    if self.marker_sets[idx].markers[count].pos[0] > self.color_cropped[idx].shape[1] - 1
+                    else 0
+                )
+            if self.marker_sets[idx].markers[count].pos[1] and int(
+                self.marker_sets[idx].markers[count].pos[1]
+            ) not in list(range(0, self.color_cropped[idx].shape[0] - 1)):
+                self.marker_sets[idx].markers[count].pos[1] = (
+                    self.color_cropped[idx].shape[0] - 1
+                    if self.marker_sets[idx].markers[count].pos[1] > self.color_cropped[idx].shape[0] - 1
+                    else 0
+                )
+
+            marker_depth, is_depth_visible = check_and_attribute_depth(
+                self.marker_sets[idx].markers[count].pos[:2], self.depth_cropped[idx], depth_scale=self.depth_scale
+            )
+            if abs(marker_depth - self.marker_sets[idx].markers[count].pos[2]) > 0.08:
+                marker_depth = self.marker_sets[idx].markers[count].pos[2]
+                self.marker_sets[idx].markers[count].is_depth_visible = False
+            if (
+                is_depth_visible
+                and marker_depth > self.mask_params[idx]["min_dist"]
+                and marker_depth < self.mask_params[idx]["clipping_distance_in_meters"]
+            ):
                 self.marker_sets[idx].markers[count].pos[2] = marker_depth
                 self.marker_sets[idx].markers[count].is_depth_visible = True
             else:
@@ -741,33 +819,11 @@ class RgbdImages:
 
             count += 1
             if count == list_nb_markers[idx]:
-                color_list[idx] = draw_markers(
-                    # self.color_cropped[idx],
-                    self.color_cropped[idx],
-                    markers_pos=self.marker_sets[idx].get_markers_pos(),
-                    markers_names=self.marker_sets[idx].marker_names,
-                    is_visible=self.marker_sets[idx].get_markers_occlusion(),
-                    scaling_factor=0.5,
-                    circle_scaling_factor=10,
-                    # markers_reliability_index=self.marker_sets[idx].get_markers_reliability_index(self.frame_idx),
-                    markers_reliability_index=np.array(dist_list).astype(int),
-
-                )
-
-                # color_list[idx] = draw_markers(
-                #     color_list[idx],
-                #     # markers_filtered_pos=self.marker_sets[idx].get_markers_filtered_pos(),
-                #     markers_pos=np.array(markers_kalman).T,
-                #     # markers_names=self.marker_sets[idx].marker_names,
-                #     is_visible=self.marker_sets[idx].get_markers_occlusion(),
-                #     circle_scaling_factor=3,
-                #     thickness=-1,
-                #     # markers_reliability_index=self.marker_sets[idx].get_markers_reliability_index(self.frame_idx),
-                # )
-                if len(self.blobs[idx]) != 0:
-                    color_list[idx] = draw_blobs(color_list[idx], self.blobs[idx])
+                # if len(self.blobs[idx]) != 0:
+                #     color_list[idx] = draw_blobs(color_list[idx], self.blobs[idx])
                 markers_kalman = []
                 count = 0
+                nb_past_markers += self.marker_sets[idx].nb_markers
                 idx += 1
                 if idx == len(self.color_cropped):
                     break
@@ -782,25 +838,38 @@ class RgbdImages:
             marker_names.append(marker.name)
         return markers_pos_optical_flow, marker_names
 
-    def _run_optical_flow(self,
-                          idx, color, prev_color, prev_pos, kalman_filter, blob_detector, markers_visible_names,
-                          error_threshold=10, use_tapir=False):
-        if not use_tapir:
-            prev_gray = cv2.cvtColor(prev_color, cv2.COLOR_RGB2GRAY)
-            prev_gray = cv2.GaussianBlur(prev_gray, (9, 9), 0)
-            color_gray = cv2.cvtColor(color, cv2.COLOR_RGB2GRAY)
-            color_gray = cv2.GaussianBlur(color_gray, (9, 9), 0)
-            if isinstance(prev_pos, list):
-                prev_pos = np.array(prev_pos, dtype=np.float32)
-            if isinstance(prev_pos, np.ndarray):
-                prev_pos = prev_pos.astype(np.float32)
-            new_markers_pos_optical_flow, st, err = cv2.calcOpticalFlowPyrLK(
-                prev_gray,
-                color_gray,
-                prev_pos,
-                None,
-                **self.optical_flow_params,
-            )
+    def _run_optical_flow(
+        self,
+        idx,
+        color,
+        prev_color,
+        prev_pos,
+        kalman_filter,
+        blob_detector,
+        markers_visible_names,
+        use_optical_flow,
+        error_threshold=10,
+        use_tapir=False,
+    ):
+        if use_optical_flow:
+            if not use_tapir:
+                prev_gray = cv2.cvtColor(prev_color, cv2.COLOR_RGB2GRAY)
+                prev_gray = cv2.GaussianBlur(prev_gray, (9, 9), 0)
+                color_gray = cv2.cvtColor(color, cv2.COLOR_RGB2GRAY)
+                color_gray = cv2.GaussianBlur(color_gray, (9, 9), 0)
+                if isinstance(prev_pos, list):
+                    prev_pos = np.array(prev_pos, dtype=np.float32)
+                if isinstance(prev_pos, np.ndarray):
+                    prev_pos = prev_pos.astype(np.float32)
+                new_markers_pos_optical_flow, st, err = cv2.calcOpticalFlowPyrLK(
+                    prev_gray,
+                    color_gray,
+                    prev_pos,
+                    None,
+                    **self.optical_flow_params,
+                )
+            else:
+                new_markers_pos_optical_flow = []
         else:
             new_markers_pos_optical_flow = []
         count = 0
@@ -808,53 +877,103 @@ class RgbdImages:
         last_pos = []
         for m, marker in enumerate(self.marker_sets[idx].markers):
             last_pos.append(marker.pos[:2])
+            pos_optical_flow = []
+            pos_kalman = []
             if marker.name in markers_visible_names:
-                if not use_tapir:
-                    if st[count] == 1 and err[count] < error_threshold:
-                        marker.pos[:2] = new_markers_pos_optical_flow[count]
-                        marker.is_visible = False
-                    # else:
-                    #     marker.pos = [None, None, None]
-                else:
-                    new_markers_pos_optical_flow.append(marker.pos[:2])
-                if kalman_filter:
-                    marker.predict_from_kalman()
-                    # marker.correct_from_kalman(new_markers_pos_optical_flow[count])
-                if blob_detector:
-                    center = np.array((marker.pos[:2])).astype(int)
-                    blob_center, marker.is_visible = find_closest_blob(center, self.blobs[idx], delta=8)
-                    # check distance between blob_center and marker.pos
-                    # dist = math.sqrt((marker.pos[0] - blob_center[0]) ** 2 + (marker.pos[1] - blob_center[1]) ** 2)
-                    # if dist > 20:
-                    #     blob_center = last_pos[-1]
-                    #     marker.correct_from_kalman(blob_center)
-                    if marker.is_visible:
-                        if kalman_filter:
-                            marker.correct_from_kalman(blob_center)
-                        else:
-                            marker.pos[:2] = blob_center
+                if use_optical_flow:
+                    if not use_tapir:
+                        # if st[count] == 1 and err[count] < error_threshold:
+                        pos_optical_flow.append(new_markers_pos_optical_flow[count])
+                        center = np.array((pos_optical_flow[-1])).astype(int)
+                        blob_center, optical_flow_visible = find_closest_blob(center, self.blobs[idx], delta=8)
+                        if optical_flow_visible:
+                            pos_optical_flow[-1] = blob_center
+                        optical_flow_visible = False
+                        # else:
+                        #     marker.pos = [None, None, None]
                     else:
-                        if kalman_filter:
-                            marker.correct_from_kalman(new_markers_pos_optical_flow[count])
+                        new_markers_pos_optical_flow.append(marker.pos[:2])
+                else:
+                    optical_flow_visible = False
+                if kalman_filter:
+                    pos_kalman.append(marker.predict_from_kalman())
+                    if blob_detector:
+                        center = np.array((marker.pos[:2])).astype(int)
+                        blob_center, kalman_visible = find_closest_blob(center, self.blobs[idx], delta=8)
+                    else:
+                        kalman_visible = False
+
+                    if kalman_visible and optical_flow_visible:
+                        marker.pos[:2] = [
+                            (blob_center[j] + pos_optical_flow[-1][j]) / 2 for j in range(len(blob_center))
+                        ]
+                    elif kalman_visible and not optical_flow_visible:
+                        marker.pos[:2] = blob_center
+                    elif not kalman_visible and optical_flow_visible:
+                        marker.pos[:2] = pos_optical_flow[-1]
+                    elif not kalman_visible and not optical_flow_visible:
+                        if use_optical_flow:
+                            marker.pos[:2] = new_markers_pos_optical_flow[count]
+                        else:
+                            marker.pos[:2] = center
+
+                    curent_pos = self.marker_sets[idx].markers[count].pos[:2]
+                    all_pos = self.marker_sets[idx].get_markers_pos()[:, :count]
+                    # if idx == 0:
+                    for p in range(all_pos.shape[1]):
+                        pos = all_pos[:, p]
+                        if int(pos[0]) == int(curent_pos[0]) and int(pos[1]) == int(curent_pos[1]):
+                            dist_p = math.sqrt(
+                                (pos[0] - self.last_pos[idx][p][0]) ** 2 + (pos[1] - self.last_pos[idx][p][1]) ** 2
+                            )
+                            dist_current = math.sqrt(
+                                (curent_pos[0] - self.last_pos[idx][m][0]) ** 2
+                                + (curent_pos[1] - self.last_pos[idx][m][1]) ** 2
+                            )
+                            if dist_p < dist_current:
+                                # self.marker_sets[idx].markers[p].correct_from_kalman(markers_local)
+                                # self.marker_sets[idx].markers[p].pos[:2] = markers_local
+                                marker.correct_from_kalman(self.last_pos[idx][m])
+                                marker.pos[:2] = self.last_pos[idx][m]
+                            else:
+                                self.marker_sets[idx].markers[p].correct_from_kalman(self.last_pos[idx][p])
+                                self.marker_sets[idx].markers[p].pos[:2] = self.last_pos[idx][p]
+                                self.marker_sets[idx].markers[p].set_global_pos(
+                                    self.marker_sets[idx].markers[p].pos,
+                                    [self.start_crop[0][idx], self.start_crop[1][idx]],
+                                )
                 count += 1
             markers_pos_list.append(marker.pos[:2])
             # for j, marker_pos in enumerate(marker.pos[:2]):
             #     j_bis = 0 if j == 1 else 1
             #     if marker_pos is not None and marker_pos > self.color_cropped[idx].shape[j_bis] - 1:
             #         marker.pos[j] = self.color_cropped[idx].shape[j_bis] - 1
-            if marker.pos[0] and int(marker.pos[0]) not in list(range(0, self.color_cropped[idx].shape[1]-1)):
-                marker.pos[0] = self.color_cropped[idx].shape[1] - 1 if marker.pos[0] > self.color_cropped[idx].shape[1] - 1 else 0
-            if marker.pos[1] and int(marker.pos[1]) not in list(range(0, self.color_cropped[idx].shape[0]-1)):
-                marker.pos[1] = self.color_cropped[idx].shape[0] - 1 if marker.pos[1] > self.color_cropped[idx].shape[0] - 1 else 0
+            if marker.pos[0] and int(marker.pos[0]) not in list(range(0, self.color_cropped[idx].shape[1] - 1)):
+                marker.pos[0] = (
+                    self.color_cropped[idx].shape[1] - 1 if marker.pos[0] > self.color_cropped[idx].shape[1] - 1 else 0
+                )
+            if marker.pos[1] and int(marker.pos[1]) not in list(range(0, self.color_cropped[idx].shape[0] - 1)):
+                marker.pos[1] = (
+                    self.color_cropped[idx].shape[0] - 1 if marker.pos[1] > self.color_cropped[idx].shape[0] - 1 else 0
+                )
 
             if marker.pos[0] is not None:
-                marker_depth, marker.is_depth_visible = check_and_attribute_depth(marker.pos[:2],
-                                                         self.depth_cropped[idx],
-                                                         depth_scale=self.depth_scale)
-                if marker.is_depth_visible:
+                marker_depth, marker.is_depth_visible = check_and_attribute_depth(
+                    marker.pos[:2], self.depth_cropped[idx], depth_scale=self.depth_scale
+                )
+
+                if abs(marker_depth - marker.pos[2]) > 0.08:
+                    marker_depth = marker.pos[2]
+                    marker.is_depth_visible = False
+                # elif marker.is_depth_visible and \
+                elif (
+                    marker_depth > self.mask_params[idx]["min_dist"]
+                    and marker_depth < self.mask_params[idx]["clipping_distance_in_meters"]
+                ):
                     marker.pos[2] = marker_depth
 
             marker.set_global_pos(marker.pos, [self.start_crop[0][idx], self.start_crop[1][idx]])
+        self.last_pos[idx] = last_pos
 
     @staticmethod
     def _apply_transformation(markers, rt, t, sub):
@@ -880,7 +999,7 @@ class RgbdImages:
         if y_min < delta:
             self.start_crop[1][idx] = self.start_crop[1][idx] - delta
         if color.shape[0] - y_max < delta:
-            self.end_crop[1][idx] = self.end_crop[1][idx] + (delta- (color.shape[0] - y_max))
+            self.end_crop[1][idx] = self.end_crop[1][idx] + (delta - (color.shape[0] - y_max))
 
     @staticmethod
     def express_in_global(points, start_crop):
@@ -903,10 +1022,9 @@ class RgbdImages:
 
         markers_in_pixels = np.zeros_like(marker_pos_in_meters)
         for m in range(marker_pos_in_meters.shape[1]):
-            markers_in_pixels[:2, m] = rs.rs2_project_point_to_pixel(_intrinsics,
-                                                                    [marker_pos_in_meters[0, m],
-                                                                       marker_pos_in_meters[1, m],
-                                                                      marker_pos_in_meters[2, m]])
+            markers_in_pixels[:2, m] = rs.rs2_project_point_to_pixel(
+                _intrinsics, [marker_pos_in_meters[0, m], marker_pos_in_meters[1, m], marker_pos_in_meters[2, m]]
+            )
         return markers_in_pixels
 
     def get_global_markers_pos(self):
@@ -933,9 +1051,8 @@ class RgbdImages:
         for i, marker_set in enumerate(self.marker_sets):
             occlusion_tmp = marker_set.get_markers_occlusion()
             marker_pos_temp = check_filtered_or_true_pos(
-                marker_set.get_markers_global_pos(),
-                marker_set.get_markers_global_filtered_pos(),
-                occlusion_tmp)
+                marker_set.get_markers_global_pos(), marker_set.get_markers_global_filtered_pos(), occlusion_tmp
+            )
             if markers_pos is not None:
                 markers_pos = np.append(markers_pos, marker_pos_temp, axis=1)
             else:
@@ -955,9 +1072,8 @@ class RgbdImages:
         for i, marker_set in enumerate(self.marker_sets):
             occlusion_tmp = marker_set.get_markers_occlusion()
             marker_pos_temp = check_filtered_or_true_pos(
-                marker_set.get_markers_pos(),
-                marker_set.get_markers_filtered_pos(),
-                occlusion_tmp)
+                marker_set.get_markers_pos(), marker_set.get_markers_filtered_pos(), occlusion_tmp
+            )
             if markers_pos is not None:
                 markers_pos = np.append(markers_pos, marker_pos_temp, axis=1)
             else:
@@ -975,7 +1091,12 @@ class RgbdImages:
             markers_names, occlusions = None, None
 
         if self.is_camera_init:
-            _intrinsics = self.pipeline.get_active_profile().get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
+            _intrinsics = (
+                self.pipeline.get_active_profile()
+                .get_stream(rs.stream.depth)
+                .as_video_stream_profile()
+                .get_intrinsics()
+            )
         else:
             _intrinsics = rs.intrinsics()
             _intrinsics.width = self.depth_frame.shape[1]
@@ -990,10 +1111,9 @@ class RgbdImages:
 
         markers_in_meters = np.zeros_like(marker_pos_in_pixel)
         for m in range(marker_pos_in_pixel.shape[1]):
-            markers_in_meters[:, m] = rs.rs2_deproject_pixel_to_point(_intrinsics,
-                                                                      [marker_pos_in_pixel[0, m],
-                                                                       marker_pos_in_pixel[1, m]],
-                                                                      marker_pos_in_pixel[2, m])
+            markers_in_meters[:, m] = rs.rs2_deproject_pixel_to_point(
+                _intrinsics, [marker_pos_in_pixel[0, m], marker_pos_in_pixel[1, m]], marker_pos_in_pixel[2, m]
+            )
 
         return markers_in_meters, markers_names, occlusions
 
@@ -1004,7 +1124,12 @@ class RgbdImages:
             markers_names, occlusions, reliability = None, None, 0
 
         if self.is_camera_init:
-            _intrinsics = self.pipeline.get_active_profile().get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
+            _intrinsics = (
+                self.pipeline.get_active_profile()
+                .get_stream(rs.stream.depth)
+                .as_video_stream_profile()
+                .get_intrinsics()
+            )
         else:
             _intrinsics = rs.intrinsics()
             _intrinsics.width = self.depth_frame.shape[1]
@@ -1017,10 +1142,9 @@ class RgbdImages:
 
         markers_in_meters = np.zeros_like(marker_pos_in_pixel)
         for m in range(marker_pos_in_pixel.shape[1]):
-            markers_in_meters[:, m] = rs.rs2_deproject_pixel_to_point(_intrinsics,
-                                                                      [marker_pos_in_pixel[0, m],
-                                                                       marker_pos_in_pixel[1, m]],
-                                                                      marker_pos_in_pixel[2, m])
+            markers_in_meters[:, m] = rs.rs2_deproject_pixel_to_point(
+                _intrinsics, [marker_pos_in_pixel[0, m], marker_pos_in_pixel[1, m]], marker_pos_in_pixel[2, m]
+            )
 
         return markers_in_meters, markers_names, occlusions, reliability
 
@@ -1114,18 +1238,22 @@ class RgbdImages:
             self.cropping = False  # cropping is finished
 
     def select_mask(self, method: DetectionMethod = DetectionMethod.CV2Blobs, filter: Union[str, list] = "hsv"):
-        self.mask_params = self._find_bounds_color(method=method,
-                                                   filter=filter,
-                                                   depth_scale=self.depth_scale,
-                                                   is_aligned=self.is_frame_aligned,
-                                                   is_cropped=self.is_cropped)
+        self.mask_params = self._find_bounds_color(
+            method=method,
+            filter=filter,
+            depth_scale=self.depth_scale,
+            is_aligned=self.is_frame_aligned,
+            is_cropped=self.is_cropped,
+        )
 
     def _find_bounds_color(self, method, filter, depth_scale=1, is_cropped=True, is_aligned=True):
         """
         Find the bounds of the image
         """
+
         def nothing(x):
             pass
+
         self.is_cropped = is_cropped
         self.is_frame_aligned = is_aligned
         mask_params = []
@@ -1142,18 +1270,37 @@ class RgbdImages:
                 cv2.createTrackbar("clahe tile Grid Size", "Trackbars", 8, 40, nothing)
 
             elif method == DetectionMethod.CV2Blobs:
-                default_values = {"min_area": 3, "min_threshold": 150, "max_threshold": 255,
-                                  "clahe_clip_limit": 1, "clahe_autre": 3, "circularity": 1,
-                                  "convexity": 1, "n_step": 1, "clipping_distance_in_meters": 140,
-                                  "use_contour": 0, "use_bg_remover": 0}
+                default_values = {
+                    "min_area": 3,
+                    "min_threshold": 150,
+                    "max_threshold": 255,
+                    "clahe_clip_limit": 1,
+                    "clahe_autre": 3,
+                    "circularity": 1,
+                    "convexity": 1,
+                    "n_step": 1,
+                    "clipping_distance_in_meters": 140,
+                    "use_contour": 0,
+                    "use_bg_remover": 0,
+                    "blur": 5,
+                    "min_dist": 0,
+                }
                 if self.tracking_file_loaded:
                     default_values = self.mask_params[i]
-                    default_values["clipping_distance_in_meters"] = int(default_values["clipping_distance_in_meters"] * 100)
+                    default_values["clipping_distance_in_meters"] = int(
+                        default_values["clipping_distance_in_meters"] * 100
+                    )
                     default_values["convexity"] = int(default_values["convexity"] * 100)
                     default_values["circularity"] = int(default_values["circularity"] * 100)
+                    default_values["blur"] = int(default_values["blur"])
+                    default_values["min_dist"] = int(default_values["min_dist"] * 100)
+
                 cv2.namedWindow("Trackbars", cv2.WINDOW_NORMAL)
                 cv2.createTrackbar("min area", "Trackbars", default_values["min_area"], 255, nothing)
-                # cv2.createTrackbar("max area", "Trackbars", 500, 5000, nothing)
+                cv2.createTrackbar("max area", "Trackbars", 500, 5000, nothing)
+                cv2.createTrackbar("blur", "Trackbars", default_values["blur"], 50, nothing)
+                cv2.createTrackbar("min dist", "Trackbars", default_values["min_dist"], 140, nothing)
+
                 # cv2.createTrackbar("min threshold V", "Trackbars", 30, 255, nothing)
                 # cv2.createTrackbar("max threshold V", "Trackbars", 111, 255, nothing)
                 cv2.createTrackbar("min threshold", "Trackbars", default_values["min_threshold"], 255, nothing)
@@ -1167,8 +1314,13 @@ class RgbdImages:
                 # cv2.createTrackbar("beta", "Trackbars", -200, 200, nothing)
                 # cv2.createTrackbar("hist or hsv", "Trackbars", 0, 1, nothing)
                 # cv2.createTrackbar("blob color", "Trackbars", 255, 255, nothing)
-                cv2.createTrackbar("clipping distance in meters", "Trackbars",
-                                   default_values["clipping_distance_in_meters"], 800, nothing)
+                cv2.createTrackbar(
+                    "clipping distance in meters",
+                    "Trackbars",
+                    default_values["clipping_distance_in_meters"],
+                    800,
+                    nothing,
+                )
                 cv2.createTrackbar("use contour", "Trackbars", default_values["use_contour"], 1, nothing)
                 cv2.createTrackbar("use bg remover", "Trackbars", default_values["use_bg_remover"], 1, nothing)
 
@@ -1213,15 +1365,22 @@ class RgbdImages:
                     #     color_frame_init,
                     # )
                     im_from, contours = get_blobs(
-                        color_frame, method=method, params=params, return_image=True, return_centers=True, depth=depth
-                        , clipping_color=self.clipping_color
+                        color_frame,
+                        method=method,
+                        params=params,
+                        return_image=True,
+                        return_centers=True,
+                        depth=depth,
+                        clipping_color=self.clipping_color,
                     )
                     draw_blobs(color_frame, contours)
 
                 elif method == DetectionMethod.CV2Blobs:
                     # hist_hsv = cv2.getTrackbarPos("hist or hsv", "Trackbars")
                     min_area = cv2.getTrackbarPos("min area", "Trackbars")
-                    # max_area = cv2.getTrackbarPos("max area", "Trackbars")
+                    max_area = cv2.getTrackbarPos("max area", "Trackbars")
+                    min_dist = cv2.getTrackbarPos("min dist", "Trackbars") / 100
+                    blur = cv2.getTrackbarPos("blur", "Trackbars")
                     # min_threshold_v = cv2.getTrackbarPos("min threshold V", "Trackbars")
                     # max_threshold_v = cv2.getTrackbarPos("max threshold V", "Trackbars")
                     min_threshold = cv2.getTrackbarPos("min threshold", "Trackbars")
@@ -1232,18 +1391,18 @@ class RgbdImages:
                     # beta = cv2.getTrackbarPos("beta", "Trackbars")
                     circularity = cv2.getTrackbarPos("circularity", "Trackbars") / 100
                     convexity = cv2.getTrackbarPos("convexity", "Trackbars") / 100
-                    use_contour = cv2.getTrackbarPos("use contour", "Trackbars") == 0
-                    use_bg_remover = cv2.getTrackbarPos("use bg remover", "Trackbars") == 0
+                    use_contour = cv2.getTrackbarPos("use contour", "Trackbars") == 1
+                    use_bg_remover = cv2.getTrackbarPos("use bg remover", "Trackbars") == 1
                     # blob_color = cv2.getTrackbarPos("blob color", "Trackbars")
                     # n_step = cv2.getTrackbarPos("n_step", "Trackbars")
 
                     clipping_distance = cv2.getTrackbarPos("clipping distance in meters", "Trackbars") / 100
                     if min_area == 0:
                         min_area = 1
-                    # if max_area == 0:
-                    #     max_area = 1
-                    # if max_area < min_area:
-                    #     max_area = min_area + 1
+                    if max_area == 0:
+                        max_area = 1
+                    if max_area < min_area:
+                        max_area = min_area + 1
                     if min_threshold == 0:
                         min_threshold = 1
                     if max_threshold == 0:
@@ -1270,11 +1429,14 @@ class RgbdImages:
                         clahe_autre = 1
 
                     # Set up the detector parameters
-
+                    if blur % 2 == 0:
+                        blur += 1
                     params = {
                         # "hist_hsv": hist_hsv,
+                        "min_dist": min_dist,
                         "min_area": min_area,
-                        # "max_area": max_area,
+                        "max_area": max_area,
+                        "blur": blur,
                         "min_threshold": min_threshold,
                         "max_threshold": max_threshold,
                         "convexity": convexity,
@@ -1298,9 +1460,15 @@ class RgbdImages:
                     #     color_frame_init,
                     # )
                     im_from, contours = get_blobs(
-                        color_frame, method=method, params=params, return_image=True, return_centers=True,depth=depth
-                        , clipping_color=self.clipping_color, depth_scale=depth_scale,
-                        )
+                        color_frame,
+                        method=method,
+                        params=params,
+                        return_image=True,
+                        return_centers=True,
+                        depth=depth,
+                        clipping_color=self.clipping_color,
+                        depth_scale=depth_scale,
+                    )
                     draw_blobs(color_frame, contours)
 
                 elif method == DetectionMethod.SCIKITBlobs:
@@ -1316,8 +1484,14 @@ class RgbdImages:
                         "min_threshold": min_threshold,
                         "max_threshold": max_threshold,
                     }
-                    im_from, blobs = get_blobs(color_frame, method, params, return_image=True,
-                                               n_blob_steps=5, blob_threshold_step=10,)
+                    im_from, blobs = get_blobs(
+                        color_frame,
+                        method,
+                        params,
+                        return_image=True,
+                        n_blob_steps=5,
+                        blob_threshold_step=10,
+                    )
                     result = color_frame.copy()
                     for blob in blobs:
                         y, x, area = blob
@@ -1380,6 +1554,7 @@ class RgbdImages:
             occlusion.append(self.first_frame_markers[i][key][1])
             depth_occlusion.append(self.first_frame_markers[i][key][2])
             c += 1
+        self.last_pos[i] = markers[:2, :].T.tolist()
         self.marker_sets[i].set_markers_pos(markers)
         self.marker_sets[i].init_kalman(markers)
         # self.marker_sets[i].init_filtered_pos(markers)
@@ -1420,8 +1595,15 @@ class RgbdImages:
             #     self.clipping_color,
             #     color_frame[i],
             # )
-            blobs = get_blobs(color_frame[i], method=method, params=self.mask_params[i], return_centers=True,
-            depth=depth_frame[i], clipping_color=self.clipping_color, depth_scale=self.depth_scale)
+            blobs = get_blobs(
+                color_frame[i],
+                method=method,
+                params=self.mask_params[i],
+                return_centers=True,
+                depth=depth_frame[i],
+                clipping_color=self.clipping_color,
+                depth_scale=self.depth_scale,
+            )
 
             for idx in range(len(self.marker_sets)):
                 if i == self.marker_sets[idx].image_idx:
@@ -1489,15 +1671,18 @@ class RgbdImages:
             m = 0
             dic.append({})
             for x, y in zip(x_tmp, y_tmp):
-                self.marker_sets[idx].markers[m].pos[:2],\
-                self.marker_sets[idx].markers[m].is_visible = find_closest_blob(
-                    [x, y], blobs, delta=2
-                )
+                (
+                    self.marker_sets[idx].markers[m].pos[:2],
+                    self.marker_sets[idx].markers[m].is_visible,
+                ) = find_closest_blob([x, y], blobs, delta=2)
                 if not self.marker_sets[idx].markers[m].is_visible:
                     self.marker_sets[idx].markers[m].pos[:2] = [x, y]
-                self.marker_sets[idx].markers[m].pos[2:],\
-                self.marker_sets[idx].markers[m].is_depth_visible = check_and_attribute_depth(
-                    self.marker_sets[idx].markers[m].pos[:2], depth_frame[i], self.depth_scale)
+                (
+                    self.marker_sets[idx].markers[m].pos[2:],
+                    self.marker_sets[idx].markers[m].is_depth_visible,
+                ) = check_and_attribute_depth(
+                    self.marker_sets[idx].markers[m].pos[:2], depth_frame[i], self.depth_scale
+                )
                 dic[-1][marker_names[m]] = [
                     self.marker_sets[idx].markers[m].pos.tolist(),
                     self.marker_sets[idx].markers[m].is_visible,
@@ -1506,13 +1691,13 @@ class RgbdImages:
                 m += 1
         return dic
 
-    def _create_kinematic_model(self, model_name: str = 'kinematic_model.bioMod', marker_sets: list = None):
+    def _create_kinematic_model(self, model_name: str = "kinematic_model.bioMod", marker_sets: list = None):
         if self.color_frame is None:
             self.color_frame = self.color_images[0]
             self.depth_frame = self.depth_images[0]
 
         marker_pos_in_meter, names, _, _ = self.get_global_markers_pos_in_meter()
-        create_c3d_file(marker_pos_in_meter[:, :, np.newaxis], names, '_tmp_markers_data.c3d')
+        create_c3d_file(marker_pos_in_meter[:, :, np.newaxis], names, "_tmp_markers_data.c3d")
         kinematic_model = BiomechanicalModel()
         self.model_name = model_name
         for i, marker_set in enumerate(marker_sets):
@@ -1532,13 +1717,12 @@ class RgbdImages:
                         axis_to_keep=Axis.Name.X,
                     ),
                     mesh=Mesh(tuple([m.name for m in marker_set.markers])),
-
                 )
                 for m in marker_set.markers:
                     kinematic_model[marker_set.name].add_marker(Marker(m.name))
             else:
                 if marker_set.nb_markers <= 2:
-                    raise ValueError('number of markers in marker set must be greater than 1')
+                    raise ValueError("number of markers in marker set must be greater than 1")
                 # origin, first_axis, second_axis = build_axis(marker_set)
                 origin = marker_sets[i - 1].markers[-1].name
                 # origin = marker_set.markers[0].name
@@ -1546,36 +1730,40 @@ class RgbdImages:
                 second_marker = marker_set.markers[0].name
                 third_marker = marker_set.markers[1].name
                 kinematic_model[marker_set.name] = Segment(
-                        name=marker_set.name,
-                        rotations=Rotations.XYZ,
-                        # translations=Translations.XYZ,
-                        parent_name=marker_sets[i - 1].name,
-                        segment_coordinate_system=SegmentCoordinateSystem(
-                            origin=origin,
-                            first_axis=Axis(name=Axis.Name.X, start=origin, end=second_marker),
-                            second_axis=Axis(name=Axis.Name.Y, start=origin, end=third_marker),
-                            axis_to_keep=Axis.Name.X,
-                        ),
-                        mesh=Mesh(tuple([m.name for m in marker_set.markers])),
+                    name=marker_set.name,
+                    rotations=Rotations.XYZ,
+                    # translations=Translations.XYZ,
+                    parent_name=marker_sets[i - 1].name,
+                    segment_coordinate_system=SegmentCoordinateSystem(
+                        origin=origin,
+                        first_axis=Axis(name=Axis.Name.X, start=origin, end=second_marker),
+                        second_axis=Axis(name=Axis.Name.Y, start=origin, end=third_marker),
+                        axis_to_keep=Axis.Name.X,
+                    ),
+                    mesh=Mesh(tuple([m.name for m in marker_set.markers])),
                 )
                 for m in marker_set.markers:
                     kinematic_model[marker_set.name].add_marker(Marker(m.name))
-        kinematic_model.write(model_name, C3dData('_tmp_markers_data.c3d'))
+        kinematic_model.write(model_name, C3dData("_tmp_markers_data.c3d"))
         # read txt file
-        with open(model_name, 'r') as file:
+        with open(model_name, "r") as file:
             data = file.read()
         kalman = MskFunctions(model_name, 1)
-        q, _ = kalman.compute_inverse_kinematics(marker_pos_in_meter[:, :, np.newaxis],
-                                                 InverseKinematicsMethods.BiorbdKalman)
+        q, _ = kalman.compute_inverse_kinematics(
+            marker_pos_in_meter[:, :, np.newaxis], InverseKinematicsMethods.BiorbdKalman
+        )
 
         # replace the target string
-        data = data.replace('shoulder\n\tRT -0.000 0.000 -0.000 xyz 0.000 0.000 0.000',
-                            f'shoulder\n\tRT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]}')
-        with open(model_name, 'w') as file:
+        data = data.replace(
+            "shoulder\n\tRT -0.000 0.000 -0.000 xyz 0.000 0.000 0.000",
+            f"shoulder\n\tRT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]}",
+        )
+        with open(model_name, "w") as file:
             file.write(data)
         kalman = MskFunctions(model_name, 1)
-        q, _ = kalman.compute_inverse_kinematics(marker_pos_in_meter[:, :, np.newaxis],
-                                                 InverseKinematicsMethods.BiorbdKalman)
+        q, _ = kalman.compute_inverse_kinematics(
+            marker_pos_in_meter[:, :, np.newaxis], InverseKinematicsMethods.BiorbdKalman
+        )
         # import bioviz
         # b = bioviz.Viz(model_name)
         # b.load_movement(np.repeat(q, 2, axis=1))
@@ -1584,12 +1772,14 @@ class RgbdImages:
         # b.load_experimental_markers(marker_pos_in_meter[:, :, np.newaxis])
 
         # b.exec()
-        os.remove('_tmp_markers_data.c3d')
+        os.remove("_tmp_markers_data.c3d")
 
     def _init_tapir_tracker(self):
-        checkpoint_path = r'D:\Documents\Programmation\pose_estimation\pose_est\tapnet\checkpoints\causal_tapir_checkpoint.npy'
+        checkpoint_path = (
+            r"D:\Documents\Programmation\pose_estimation\pose_est\tapnet\checkpoints\causal_tapir_checkpoint.npy"
+        )
         ckpt_state = np.load(checkpoint_path, allow_pickle=True).item()
-        params, state = ckpt_state['params'], ckpt_state['state']
+        params, state = ckpt_state["params"], ckpt_state["state"]
         self.online_init = hk.transform_with_state(build_online_model_init)
         self.online_init_apply = jax.jit(self.online_init.apply)
 
@@ -1597,18 +1787,15 @@ class RgbdImages:
         self.online_predict_apply = jax.jit(self.online_predict.apply)
 
         rng = jax.random.PRNGKey(42)
-        self.online_init_apply = functools.partial(
-            self.online_init_apply, params=params, state=state, rng=rng
-        )
-        self.online_predict_apply = functools.partial(
-            self.online_predict_apply, params=params, state=state, rng=rng
-        )
+        self.online_init_apply = functools.partial(self.online_init_apply, params=params, state=state, rng=rng)
+        self.online_predict_apply = functools.partial(self.online_predict_apply, params=params, state=state, rng=rng)
         if self.color_frame is None:
             self.color_frame = self.color_images[0]
             self.depth_frame = self.depth_images[0]
 
-        self.video_empty_tapir = np.ndarray((1, self.color_frame.shape[0], self.color_frame.shape[1], self.color_frame.shape[2]),
-                           dtype=np.uint8)
+        self.video_empty_tapir = np.ndarray(
+            (1, self.color_frame.shape[0], self.color_frame.shape[1], self.color_frame.shape[2]), dtype=np.uint8
+        )
         self.height, self.width = self.video_empty_tapir.shape[1:3]
         self.video_empty_tapir[0] = self.color_frame
         self.resize_height_tapir, self.resize_width_tapir = 256, 256
@@ -1619,27 +1806,37 @@ class RgbdImages:
         # select_points = self._prepare_data_optical_flow(0)
         query_points = convert_select_points_to_query_points(0, select_points)
         query_points = transforms.convert_grid_coordinates(
-            query_points, (1, self.height, self.width),
-            (1, self.resize_height_tapir, self.resize_width_tapir), coordinate_format='tyx')
+            query_points,
+            (1, self.height, self.width),
+            (1, self.resize_height_tapir, self.resize_width_tapir),
+            coordinate_format="tyx",
+        )
 
-        self.query_features, _ = self.online_init_apply(frames=preprocess_frames(frames[None, None, 0]),
-                                              query_points=query_points[None])
-        self.causal_state = construct_initial_causal_state(query_points.shape[0], len(self.query_features.resolutions) - 1)
+        self.query_features, _ = self.online_init_apply(
+            frames=preprocess_frames(frames[None, None, 0]), query_points=query_points[None]
+        )
+        self.causal_state = construct_initial_causal_state(
+            query_points.shape[0], len(self.query_features.resolutions) - 1
+        )
 
     def initialize_tracking(
-        self, tracking_conf_file: str = None,
-            crop_frame=False, mask_parameters=False, label_first_frame=False,
-            build_kinematic_model=False,
-            model_name: str = None,
-            marker_sets: list = None,
-            rotation_angle: Rotation = None,
-            with_tapir=False,
-            **kwargs
+        self,
+        tracking_conf_file: str = None,
+        crop_frame=False,
+        mask_parameters=False,
+        label_first_frame=False,
+        build_kinematic_model=False,
+        model_name: str = None,
+        marker_sets: list = None,
+        rotation_angle: Rotation = None,
+        with_tapir=False,
+        **kwargs,
     ):
         self.rotation_angle = rotation_angle
         now = datetime.datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M")
         self.use_tapir = False
+        self.last_pos = [None] * len(self.marker_sets)
         if tracking_conf_file:
             if os.path.isfile(tracking_conf_file):
                 self.load_tracking_conf_file(tracking_conf_file)
@@ -1681,15 +1878,15 @@ class RgbdImages:
             self.use_tapir = True
             self.is_tapir_init = False
 
-            print("WARNING: "
-                  "You have selected with Tapir. Please be aware that it could take a lot of GPU or CPU ressources."
-                  "If you have a GPU, please make sure that you have installed the GPU requirements to be in realtime."
-                  "If not just be aware that the program will work slowly.")
+            print(
+                "WARNING: "
+                "You have selected with Tapir. Please be aware that it could take a lot of GPU or CPU ressources."
+                "If you have a GPU, please make sure that you have installed the GPU requirements to be in realtime."
+                "If not just be aware that the program will work slowly."
+            )
             # self._init_tapir_tracker()
         self.optical_flow_params = dict(
-            winSize=(15, 15),
-            maxLevel=2,
-            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
+            winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
         )
 
         if build_kinematic_model:
@@ -1700,5 +1897,3 @@ class RgbdImages:
             model_name = f"kinematic_model_{dt_string}.bioMod" if not model_name else model_name
             self._create_kinematic_model(model_name=model_name, marker_sets=marker_sets)
             self.is_kinematic_model = True
-
-

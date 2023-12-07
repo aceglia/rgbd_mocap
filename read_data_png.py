@@ -12,6 +12,7 @@ frame_height = 480
 windows_destroyed = False
 
 import time
+
 # out = cv2.VideoWriter('data_02-08-2023_09_18_39.avi', cv2.VideoWriter_fourcc('M','J','P','G'),
 # 50, (frame_width, frame_height))
 for i in range(0, int(len(all_color_files))):
@@ -28,8 +29,8 @@ for i in range(0, int(len(all_color_files))):
     #     windows_destroyed = True
     # out.write(color)
     if not windows_destroyed:
-        cv2.putText(color,
-                    f"FPS = {1 / (time.time() - tic)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2,
-                    cv2.LINE_AA)
-        cv2.imshow('RealSense', color)
+        cv2.putText(
+            color, f"FPS = {1 / (time.time() - tic)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA
+        )
+        cv2.imshow("RealSense", color)
     cv2.waitKey(16)

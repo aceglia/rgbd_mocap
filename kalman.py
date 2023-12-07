@@ -1,5 +1,6 @@
 import biorbd
 import pickle
+
 try:
     import bioviz
     from pyomeca import Markers
@@ -25,28 +26,33 @@ markers_names = data["markers_names"]
 # markers_vicon = Markers.from_c3d(filename=f"Pedalage_{suffix}.c3d", usecols=markers_names)
 # markers_vicon = markers_vicon.values[:, :, 70:-80] * 0.001
 #
-markers_names = ["T5", "C7",
-                 'RIBS_r',
-                 "CLAV_AC",
-                  # 'RIBS_l',
-                 "SCAP_AA",
-                 "SCAP_IA",
-                 "Acrom",
-                 "DELT",
-                 "ARMl",
-                 "EPICl",
-                 "larm_l",
-                 "STYLr",
-                 "STYLu"]
+markers_names = [
+    "T5",
+    "C7",
+    "RIBS_r",
+    "CLAV_AC",
+    # 'RIBS_l',
+    "SCAP_AA",
+    "SCAP_IA",
+    "Acrom",
+    "DELT",
+    "ARMl",
+    "EPICl",
+    "larm_l",
+    "STYLr",
+    "STYLu",
+]
 #
-WriteTrcFromMarkersData(output_file_path =f"data_files\{participant}\{file_name[:-4]}.trc",
-                        markers = markers_pos,
-                        marker_names=markers_names,
-                        data_rate=60,
-                        cam_rate=60,
-                        n_frames=markers_pos.shape[2],
-                        start_frame=1,
-                        units="m").write()
+WriteTrcFromMarkersData(
+    output_file_path=f"data_files\{participant}\{file_name[:-4]}.trc",
+    markers=markers_pos,
+    marker_names=markers_names,
+    data_rate=60,
+    cam_rate=60,
+    n_frames=markers_pos.shape[2],
+    start_frame=1,
+    units="m",
+).write()
 
 # WriteTrcFromMarkersData(output_file_path =f"markers_vicon_{suffix}.trc",
 #                         markers=markers_vicon,
@@ -70,7 +76,7 @@ markers_in_meters_ordered[:, 10, :] = markers_in_meters[:, 12, :]
 markers_in_meters_ordered[:, 11, :] = markers_in_meters[:, 10, :]
 markers_in_meters_ordered[:, 12, :] = markers_in_meters[:, 11, :]
 
-#repeat the same marker 3 times to have a 3D marker
+# repeat the same marker 3 times to have a 3D marker
 # markers_in_meters = np.repeat(markers_in_meters, 20, axis=2)
 #
 #
@@ -82,7 +88,9 @@ markers_in_meters_ordered[:, 12, :] = markers_in_meters[:, 11, :]
 # biomod_model = "kinematic_model_07-06-2023_14_47_31.bioMod"
 biomod_model = "wu_left_est_pos.bioMod"
 funct = MskFunctions(model=biomod_model, data_buffer_size=markers_in_meters_ordered.shape[2])
-q_recons, _ = funct.compute_inverse_kinematics(markers_in_meters_ordered[:, :, :], method=InverseKinematicsMethods.BiorbdLeastSquare, kalman_freq=100)
+q_recons, _ = funct.compute_inverse_kinematics(
+    markers_in_meters_ordered[:, :, :], method=InverseKinematicsMethods.BiorbdLeastSquare, kalman_freq=100
+)
 q_mean = q_recons[:, 0]
 print(q_mean[3], q_mean[4], q_mean[5], " xyz ", q_mean[0], q_mean[1], q_mean[2])
 # with open(biomod_model, 'r') as file:
@@ -97,4 +105,3 @@ b = bioviz.Viz(model_path=biomod_model, show_floor=False)
 b.load_movement(q_recons)  # Q from kalman array(nq, nframes)
 b.load_experimental_markers(markers_in_meters_ordered)  # experimental markers array(3, nmarkers, nframes)
 b.exec()
-

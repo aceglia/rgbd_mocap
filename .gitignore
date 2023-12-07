@@ -17,6 +17,7 @@ __pycache__/
 .Python
 build/
 data_files/
+config_camera_files/
 kinematic_model/
 develop-eggs/
 dist/
