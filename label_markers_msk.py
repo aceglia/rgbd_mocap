@@ -1,13 +1,13 @@
 import numpy as np
 
-from pose_est.marker_class import MarkerSet
+from rgbd_mocap.marker_class import MarkerSet
 from scipy import linalg
-from pose_est.RgbdImages import RgbdImages
-from pose_est.msk_utils import *
+from rgbd_mocap.RgbdImages import RgbdImages
+from rgbd_mocap.msk_utils import *
 from vtk import *
 from biosiglive import MskFunctions, PlotType, LivePlot, InverseKinematicsMethods
-from pose_est.msk_utils import _init_casadi_function, perform_biomechanical_pipeline
-from pose_est.utils import *
+from rgbd_mocap.msk_utils import _init_casadi_function, perform_biomechanical_pipeline
+from rgbd_mocap.utils import *
 import shutil
 from scipy.interpolate import CubicSpline
 import biorbd

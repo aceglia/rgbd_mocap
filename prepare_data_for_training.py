@@ -4,7 +4,7 @@ import numpy as np
 from biosiglive import load
 import glob
 import json
-from pose_est.utils import draw_markers
+from rgbd_mocap.utils import draw_markers
 import os
 from pathlib import Path
 

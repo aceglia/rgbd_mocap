@@ -1,6 +1,6 @@
-from pose_est.marker_class import MarkerSet
-from pose_est.RgbdImages import RgbdImages
-from pose_est.utils import *
+from rgbd_mocap.marker_class import MarkerSet
+from rgbd_mocap.RgbdImages import RgbdImages
+from rgbd_mocap.utils import *
 from biosiglive import save
 import time
 import shutil
