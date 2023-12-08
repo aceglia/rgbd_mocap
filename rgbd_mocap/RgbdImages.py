@@ -1,4 +1,6 @@
 import datetime
+import numpy as np
+
 from biosiglive import save
 
 try:
@@ -447,8 +449,8 @@ class RgbdImages:
         adjust_with_blobs,
         fit_model,
         use_optical_flow,
+        bounds_from_marker_pos
     ):
-        bounds_from_marker_pos = True
         if detect_blobs:
             if bounds_from_marker_pos:
                 color_list[i], (x_min, x_max, y_min, y_max) = bounding_rect(
@@ -588,6 +590,7 @@ class RgbdImages:
                 adjust_with_blobs,
                 fit_model,
                 use_optical_flow,
+                bounds_from_marker_pos
             )
         if fit_model:
             if not label_markers:
@@ -869,6 +872,7 @@ class RgbdImages:
         last_pos = []
         for m, marker in enumerate(self.marker_sets[idx].markers):
             last_pos.append(marker.pos[:2])
+            past_last_pos = np.copy(self.last_pos[idx])
             pos_optical_flow = []
             pos_kalman = []
             if marker.name in markers_visible_names:
@@ -916,18 +920,30 @@ class RgbdImages:
                         pos = all_pos[:, p]
                         if int(pos[0]) == int(curent_pos[0]) and int(pos[1]) == int(curent_pos[1]):
                             dist_p = math.sqrt(
-                                (pos[0] - self.last_pos[idx][p][0]) ** 2 + (pos[1] - self.last_pos[idx][p][1]) ** 2
+                                (pos[0] - past_last_pos[p][0]) ** 2 + (pos[1] - past_last_pos[p][1]) ** 2
                             )
                             dist_current = math.sqrt(
-                                (curent_pos[0] - self.last_pos[idx][m][0]) ** 2
-                                + (curent_pos[1] - self.last_pos[idx][m][1]) ** 2
+                                (curent_pos[0] - past_last_pos[m][0]) ** 2
+                                + (curent_pos[1] - past_last_pos[m][1]) ** 2
                             )
                             if dist_p < dist_current:
-                                marker.correct_from_kalman(self.last_pos[idx][m])
-                                marker.pos[:2] = self.last_pos[idx][m]
+                                marker.correct_from_kalman(past_last_pos[m])
+                                marker.pos[:2] = past_last_pos[m]
                             else:
-                                self.marker_sets[idx].markers[p].correct_from_kalman(self.last_pos[idx][p])
-                                self.marker_sets[idx].markers[p].pos[:2] = self.last_pos[idx][p]
+                                self.marker_sets[idx].markers[p].correct_from_kalman(past_last_pos[p])
+                                self.marker_sets[idx].markers[p].pos[:2] = past_last_pos[p]
+                                marker_depth, self.marker_sets[idx].markers[p].is_depth_visible = check_and_attribute_depth(
+                                    self.marker_sets[idx].markers[p].pos[:2], self.depth_cropped[idx], depth_scale=self.depth_scale
+                                )
+                                if abs(marker_depth - self.marker_sets[idx].markers[p].pos[2]) > 0.08:
+                                    marker_depth = self.marker_sets[idx].markers[p].pos[2]
+                                    self.marker_sets[idx].markers[p].is_depth_visible = False
+                                # elif marker.is_depth_visible and \
+                                elif (
+                                        marker_depth > self.mask_params[idx]["min_dist"]
+                                        and marker_depth < self.mask_params[idx]["clipping_distance_in_meters"]
+                                ):
+                                    self.marker_sets[idx].markers[p].pos[2] = marker_depth
                                 self.marker_sets[idx].markers[p].set_global_pos(
                                     self.marker_sets[idx].markers[p].pos,
                                     [self.start_crop[0][idx], self.start_crop[1][idx]],

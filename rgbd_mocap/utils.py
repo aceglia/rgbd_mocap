@@ -470,7 +470,12 @@ def get_blobs(
                 params["min_dist"],
                 params["use_contour"],
             )
-        im_from = cv2.cvtColor(im_from, cv2.COLOR_RGB2GRAY)
+        if im_from is None:
+            continue
+        try:
+            im_from = cv2.cvtColor(im_from, cv2.COLOR_RGB2GRAY)
+        except cv2.error:
+            continue
         if "blur" not in params.keys():
             params["blur"] = 5
         clahe = cv2.createCLAHE(
