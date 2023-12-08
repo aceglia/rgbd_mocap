@@ -171,6 +171,7 @@ class RgbdImages:
         self.color_images, self.depth_images = self._load_from_dir(
             images_dir, self.start_index, self.stop_index, self.downsampled, load_all_dir
         )
+        self.static_markers = []
 
     @staticmethod
     def _load(path, data_type: str = "both") -> np.ndarray or tuple:
@@ -423,6 +424,13 @@ class RgbdImages:
                 self._distribute_pos_markers(i)
 
         # self.frame_idx += 1
+    def set_marker_as_static(self, marker_name):
+        if len(self.marker_sets) == 0:
+            raise ValueError("No marker sets are defined.")
+        for marker_set in self.marker_sets:
+            for marker in marker_set.markers:
+                if marker.name == marker_name:
+                    self.static_markers.append(marker)
 
     def _distribute_pos_markers_tapir(self, pos_markers):
         pos_markers = np.array(pos_markers[:, 0, :].T, dtype=int)
@@ -720,6 +728,13 @@ class RgbdImages:
         )
         q, _ = self.kinematics_functions.compute_inverse_kinematics(final_markers, _method, kalman_freq=100)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
+        if not self.show_images:
+            if self.frame_idx > 10:
+                import bioviz
+                b = bioviz.Viz(loaded_model=self.kinematics_functions.model)
+                b.load_movement(q.repeat(3, axis=1))
+                b.load_experimental_markers(final_markers.repeat(3, axis=2))
+                b.exec()
         list_nb_markers = []
         for i in range(len(self.marker_sets)):
             list_nb_markers.append(len(self.marker_sets[i].markers))
@@ -731,6 +746,18 @@ class RgbdImages:
         nb_past_markers = 0
         all_markers_local = []
         for i in range(markers.shape[1]):
+            if self.marker_sets[idx].markers[count] in self.static_markers:
+                count += 1
+                if count == list_nb_markers[idx]:
+                    # if len(self.blobs[idx]) != 0:
+                    #     color_list[idx] = draw_blobs(color_list[idx], self.blobs[idx])
+                    markers_kalman = []
+                    count = 0
+                    nb_past_markers += self.marker_sets[idx].nb_markers
+                    idx += 1
+                    if idx == len(self.color_cropped):
+                        break
+                continue
             markers_local = np.array(
                 self.express_in_local(_in_pixel[:, i], [self.start_crop[0][idx], self.start_crop[1][idx]])
             )
@@ -872,6 +899,9 @@ class RgbdImages:
         last_pos = []
         for m, marker in enumerate(self.marker_sets[idx].markers):
             last_pos.append(marker.pos[:2])
+            if marker in self.static_markers:
+                count += 1
+                continue
             past_last_pos = np.copy(self.last_pos[idx])
             pos_optical_flow = []
             pos_kalman = []
