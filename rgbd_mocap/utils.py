@@ -174,6 +174,12 @@ def create_c3d_file(marker_pos, marker_names, save_path: str, fps=60):
     c3d.write(save_path)
 
 
+def start_idx_from_json(json_file):
+    with open(json_file) as f:
+        data = json.load(f)
+    return data["start_frame"]
+
+
 def find_closest_node(point, node_list):
     closest_node = None
     smallest_distance = float("inf")
@@ -440,9 +446,12 @@ def get_blobs(
     if image_bounds:
         bounded_frame = frame.copy()
         bounded_frame = bounded_frame[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
+        bounded_depth = depth.copy()
+        bounded_depth = bounded_depth[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
     else:
         bounded_frame = frame.copy()
         image_bounds = (0, frame.shape[1], 0, frame.shape[0])
+        bounded_depth = depth.copy()
     im_from_init = bounded_frame.copy()
     centers = []
     blobs = []
@@ -454,7 +463,7 @@ def get_blobs(
         if params["use_bg_remover"]:
             im_from = background_remover(
                 im_from_init,
-                depth,
+                bounded_depth,
                 params["clipping_distance_in_meters"],
                 depth_scale,
                 clipping_color,
@@ -598,7 +607,6 @@ def background_remover(frame, depth, clipping_distance, depth_scale, clipping_co
             cv2.drawContours(mask, [c], contourIdx=-1, color=(255, 255, 255), thickness=-1)
             final = np.where(mask == (255, 255, 255), frame, clipping_color)
         except ValueError:
-            c = []
             final = np.where(
                 (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= min_dist / depth_scale),
                 clipping_color,

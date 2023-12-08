@@ -451,21 +451,14 @@ class RgbdImages:
         bounds_from_marker_pos = True
         if detect_blobs:
             if bounds_from_marker_pos:
-                if np.all(self.marker_sets[i].get_markers_pos() == 0):
-                    markers_values = self.marker_sets[i].get_markers_pos()
-                else:
-                    markers_values = np.concatenate(
-                        (self.marker_sets[i].get_markers_filtered_pos(), self.marker_sets[i].get_markers_pos()), axis=1
-                    )
                 color_list[i], (x_min, x_max, y_min, y_max) = bounding_rect(
                     color_list[i],
-                    markers_values,
+                    self.marker_sets[i].get_markers_pos(),
                     color=(0, 255, 0),
-                    delta=20,
+                    delta=30,
                 )
             else:
                 x_min, x_max, y_min, y_max = 0, color_list[i].shape[1], 0, color_list[i].shape[0]
-            # self._adapt_cropping(color, x_min, x_max, y_min, y_max, i)
             self.blobs.append(
                 get_blobs(
                     color_list[i],
@@ -635,7 +628,9 @@ class RgbdImages:
                 "occlusions": occlusions,
                 "reliability_idx": reliability_idx,
                 "time_to_process": self.time_to_get_frame,
-                "frame_idx": self.camera_frame_numbers[self.frame_idx],
+                "camera_frame_idx": self.camera_frame_numbers[self.frame_idx],
+                "frame_idx": self.frame_idx,
+
             }
             save(dic, self.image_dir + os.sep + "markers_pos.bio", add_data=True)
         return color_list, depth
@@ -732,7 +727,6 @@ class RgbdImages:
         _in_pixel = self.express_in_pixel(markers[:, :, 0])
         nb_past_markers = 0
         all_markers_local = []
-        all_pos = []
         for i in range(markers.shape[1]):
             markers_local = np.array(
                 self.express_in_local(_in_pixel[:, i], [self.start_crop[0][idx], self.start_crop[1][idx]])
@@ -742,7 +736,6 @@ class RgbdImages:
                 markers_local, self.blobs[idx], delta=8, return_distance=True
             )
             dist_list.append(dist)
-            threshold = 30
             self.marker_sets[idx].markers[count].is_visible = is_visible_tmp
             all_markers_local.append(markers_local)
             if is_visible_tmp:
@@ -753,35 +746,32 @@ class RgbdImages:
                 self.marker_sets[idx].markers[count].correct_from_kalman(markers_local)
                 self.marker_sets[idx].markers[count].pos[:2] = markers_local
 
-            # curent_pos = self.marker_sets[idx].markers[count].pos[:2]
-            # all_pos = self.marker_sets[idx].get_markers_pos()[:, :count]
-            # for p in range(all_pos.shape[1]):
-            #     pos = all_pos[:, p]
-            #     if int(pos[0]) == int(curent_pos[0]) and int(pos[1]) == int(curent_pos[1]):
-            #         show = True
-            #         if self.frame_idx == 12:
-            #             if idx == 3:
-            #                 print(1)
-            #         marker_depth, is_depth_visible = check_and_attribute_depth(
-            #             self.marker_sets[idx].markers[count].pos[:2],
-            #             self.depth_cropped[idx],
-            #             depth_scale=self.depth_scale)
-            #         marker_global = self.express_in_global(curent_pos, [self.start_crop[0][idx], self.start_crop[1][idx]])
-            #         marker_global.append(marker_depth)
-            #         markers_in_meter, _, _, _ = self.get_global_markers_pos_in_meter(np.array(marker_global)[:, np.newaxis])
-            #         idx_tmp = find_closest_markers_in_model(markers_in_meter, markers, p, self.kinematic_model)
-            #         if idx_tmp != i:
-            #             # self.marker_sets[idx].markers[p].correct_from_kalman(markers_local)
-            #             # self.marker_sets[idx].markers[p].pos[:2] = markers_local
-            #             marker_local = np.array(self.express_in_local(
-            #             _in_pixel[:, count], [self.start_crop[0][idx], self.start_crop[1][idx]]))
-            #             self.marker_sets[idx].markers[count].correct_from_kalman(marker_local)
-            #             self.marker_sets[idx].markers[count].pos[:2] = marker_local
-            #         else:
-            #             marker_local = np.array(self.express_in_local(
-            #                 _in_pixel[:, nb_past_markers + p], [self.start_crop[0][idx], self.start_crop[1][idx]]))
-            #             self.marker_sets[idx].markers[p].correct_from_kalman(marker_local)
-            #             self.marker_sets[idx].markers[p].pos[:2] = marker_local
+            curent_pos = self.marker_sets[idx].markers[count].pos[:2]
+            all_pos = self.marker_sets[idx].get_markers_pos()[:, :count]
+            for p in range(all_pos.shape[1]):
+                pos = all_pos[:, p]
+                if int(pos[0]) == int(curent_pos[0]) and int(pos[1]) == int(curent_pos[1]):
+                    marker_depth, is_depth_visible = check_and_attribute_depth(
+                        self.marker_sets[idx].markers[count].pos[:2],
+                        self.depth_cropped[idx],
+                        depth_scale=self.depth_scale)
+                    marker_global = self.express_in_global(curent_pos, [self.start_crop[0][idx], self.start_crop[1][idx]])
+                    marker_global.append(marker_depth)
+                    markers_in_meter, _, _, _ = self.get_global_markers_pos_in_meter(np.array(marker_global)[:, np.newaxis])
+                    idx_tmp = find_closest_markers_in_model(markers_in_meter, markers, p, self.kinematic_model)
+                    if idx_tmp != i:
+                        marker_local = np.array(self.express_in_local(
+                        _in_pixel[:, nb_past_markers + count], [self.start_crop[0][idx], self.start_crop[1][idx]]))
+                        self.marker_sets[idx].markers[count].correct_from_kalman(marker_local)
+                        self.marker_sets[idx].markers[count].pos[:2] = marker_local
+                    else:
+                        marker_local = np.array(self.express_in_local(
+                            _in_pixel[:, nb_past_markers + p], [self.start_crop[0][idx], self.start_crop[1][idx]]))
+                        self.marker_sets[idx].markers[p].correct_from_kalman(marker_local)
+                        self.marker_sets[idx].markers[p].pos[:2] = marker_local
+                        self.marker_sets[idx].markers[p].set_global_pos(
+                            self.marker_sets[idx].markers[p].pos, [self.start_crop[0][idx], self.start_crop[1][idx]]
+                        )
 
             if self.marker_sets[idx].markers[count].pos[0] and int(
                 self.marker_sets[idx].markers[count].pos[0]
@@ -816,7 +806,9 @@ class RgbdImages:
             else:
                 self.marker_sets[idx].markers[count].pos[2] = markers[2, i, 0]
                 self.marker_sets[idx].markers[count].is_depth_visible = False
-
+            self.marker_sets[idx].markers[count].set_global_pos(
+                self.marker_sets[idx].markers[count].pos, [self.start_crop[0][idx], self.start_crop[1][idx]]
+            )
             count += 1
             if count == list_nb_markers[idx]:
                 # if len(self.blobs[idx]) != 0:
@@ -931,8 +923,6 @@ class RgbdImages:
                                 + (curent_pos[1] - self.last_pos[idx][m][1]) ** 2
                             )
                             if dist_p < dist_current:
-                                # self.marker_sets[idx].markers[p].correct_from_kalman(markers_local)
-                                # self.marker_sets[idx].markers[p].pos[:2] = markers_local
                                 marker.correct_from_kalman(self.last_pos[idx][m])
                                 marker.pos[:2] = self.last_pos[idx][m]
                             else:
@@ -941,7 +931,7 @@ class RgbdImages:
                                 self.marker_sets[idx].markers[p].set_global_pos(
                                     self.marker_sets[idx].markers[p].pos,
                                     [self.start_crop[0][idx], self.start_crop[1][idx]],
-                                )
+                        )
                 count += 1
             markers_pos_list.append(marker.pos[:2])
             # for j, marker_pos in enumerate(marker.pos[:2]):
