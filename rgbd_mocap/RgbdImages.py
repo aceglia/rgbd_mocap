@@ -1333,7 +1333,7 @@ class RgbdImages:
 
                 cv2.namedWindow("Trackbars", cv2.WINDOW_NORMAL)
                 cv2.createTrackbar("min area", "Trackbars", default_values["min_area"], 255, nothing)
-                cv2.createTrackbar("max area", "Trackbars", 500, 5000, nothing)
+                cv2.createTrackbar("max area", "Trackbars", default_values["max_area"], 5000, nothing)
                 cv2.createTrackbar("blur", "Trackbars", default_values["blur"], 50, nothing)
                 cv2.createTrackbar("min dist", "Trackbars", default_values["min_dist"], 140, nothing)
 
