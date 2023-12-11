@@ -11,27 +11,31 @@ import os
 if __name__ == "__main__":
     with_camera = False
     images_dir = None
-    participants = ["P8"]  # , "P3_session2", "P4_session2", "P2_session2"]  # "P4_session2",
+    participants = ["P4_session2"]  # , "P3_session2", "P4_session2", "P2_session2"]  # "P4_session2", "P8"
     start_idx = [85] * len(participants)
     init_batch = False
     save_data = False
     delete_old_data = False
     c = 0
-    data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
+    # data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
+    data_files = "/home/user/KaelFacon/Project/rgbd_mocap/data_files"
     for participant in participants:
         tracking_files = []
         files = os.listdir(f"{data_files}{os.sep}{participant}")
-        files = [file for file in files if file[:7] == "gear_15"]
+        # files = [file for file in files if file[:7] == "gear_15"]
+        files = [file for file in files if file[:7] == "gear_20"]
         for file in files:
             suffix = file[-19:]
             trial = file[:-20]
             if not with_camera:
                 if participant:
                     images_dir = f"{data_files}{os.sep}{participant}{os.sep}{trial}_{suffix}"
-                    config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files{os.sep}config_camera_{participant}.json"
+                    # config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files{os.sep}config_camera_{participant}.json"
+                    config_file = f"/home/user/KaelFacon/Project/rgbd_mocap/config_camera_files{os.sep}config_camera_{participant}.json"
                 else:
                     images_dir = f"{file}"
-                    config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files{os.sep}config_camera_{suffix}.json"
+                    # config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files{os.sep}config_camera_{suffix}.json"
+                    config_file = f"/home/user/KaelFacon/Project/rgbd_mocap/config_camera_files{os.sep}config_camera_{suffix}.json"
                 # image_file = r"D:\Documents\Programmation\vision\image_camera_trial_1_800.bio.gzip"
                 # os.remove(fr"{images_dir}{os.sep}t" + f"racking_config.json")
                 # break
@@ -40,10 +44,10 @@ if __name__ == "__main__":
                     # start_idx[c] = start_idx_from_json(fr"{images_dir}{os.sep}t" + f"racking_config.json")
                 else:
                     if len(tracking_files) == 0:
-                        tracking_conf = {"crop": True, "mask": True, "label": True, "build_kinematic_model": True}
+                        tracking_conf = {"crop": True, "mask": True, "label": False, "build_kinematic_model": True}
                     else:
                         shutil.copy(tracking_files[0], rf"{images_dir}{os.sep}t" + f"racking_config.json")
-                        tracking_conf = {"crop": False, "mask": False, "label": True, "build_kinematic_model": True}
+                        tracking_conf = {"crop": False, "mask": False, "label": False, "build_kinematic_model": True}
 
                 print("working on : ", images_dir)
                 camera = RgbdImages(
@@ -70,14 +74,14 @@ if __name__ == "__main__":
             camera.is_frame_aligned = False
 
             # ----------- from back ---------------- #
-            # markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5", "C7", "RIBS_r", "Clavsc", "Scap_AA", "Scap_IA", "Acrom"], image_idx=0)
-            # markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=1)
-            # markers_hand = MarkerSet(marker_set_name="hand", marker_names=['larm_l', "styl_r", "styl_u"], image_idx=2)
-            # camera.add_marker_set([markers_shoulder, markers_arm, markers_hand])
-            # kinematics_marker_set_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5" ,"C7", "RIBS_r", "Clavsc"])
-            # kinematics_marker_set_scapula = MarkerSet(marker_set_name="scapula", marker_names=[ "Scap_AA", "Scap_IA", "Acrom"])
-            # kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"])
-            # kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=['larm_l', "styl_r", "styl_u"])
+            markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5", "C7", "RIBS_r", "Clavsc", "Scap_AA", "Scap_IA", "Acrom"], image_idx=0)
+            markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=1)
+            markers_hand = MarkerSet(marker_set_name="hand", marker_names=['larm_l', "styl_r", "styl_u"], image_idx=2)
+            camera.add_marker_set([markers_shoulder, markers_arm, markers_hand])
+            kinematics_marker_set_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5" ,"C7", "RIBS_r", "Clavsc"])
+            kinematics_marker_set_scapula = MarkerSet(marker_set_name="scapula", marker_names=[ "Scap_AA", "Scap_IA", "Acrom"])
+            kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"])
+            kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=['larm_l', "styl_r", "styl_u"])
 
             # ------------------ from front 3 crops -----------------#
             # markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["xiph", "ster", "clavsc"
@@ -88,27 +92,28 @@ if __name__ == "__main__":
             # camera.add_marker_set([markers_shoulder, markers_arm, markers_hand])
             #
             # ------------------ from front 4 crops -----------------#
-            markers_thorax = MarkerSet(marker_set_name="thorax", marker_names=["xiph", "ster", "clavsc"], image_idx=0)
-            markers_shoulder = MarkerSet(
-                marker_set_name="cluster", marker_names=["M1", "M2", "M3", "Clavac"], image_idx=1
-            )
-            markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=2)
-            markers_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"], image_idx=3)
-            camera.add_marker_set([markers_thorax, markers_shoulder, markers_arm, markers_hand])
-            kinematics_marker_set_shoulder = MarkerSet(
-                marker_set_name="shoulder",
-                marker_names=[
-                    "xiph",
-                    "ster",
-                    "clavsc",
-                    "M1",
-                    "M2",
-                    "M3",
-                    "Clavac",
-                ],
-            )
-            kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"])
-            kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"])
+            # markers_thorax = MarkerSet(marker_set_name="thorax", marker_names=["xiph", "ster", "clavsc"], image_idx=0)
+            # markers_shoulder = MarkerSet(
+            #     marker_set_name="cluster", marker_names=["M1", "M2", "M3", "Clavac"], image_idx=1
+            # )
+            # markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=2)
+            # markers_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"], image_idx=3)
+            # camera.add_marker_set([markers_thorax, markers_shoulder, markers_arm, markers_hand])
+
+            # kinematics_marker_set_shoulder = MarkerSet(
+            #     marker_set_name="shoulder",
+            #     marker_names=[
+            #         "xiph",
+            #         "ster",
+            #         "clavsc",
+            #         "M1",
+            #         "M2",
+            #         "M3",
+            #         "Clavac",
+            #     ],
+            # )
+            # kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"])
+            # kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"])
             kin_marker_set = [
                 kinematics_marker_set_shoulder,
                 kinematics_marker_set_arm,
