@@ -609,9 +609,9 @@ class RgbdImages:
         for marker_set in self.marker_sets:
             for marker in marker_set.markers:
                 if marker.is_visible:
-                    marker.reliability_index += 0.5
+                    marker.reliability_index.value += 0.5
                 if marker.is_depth_visible:
-                    marker.reliability_index += 0.5
+                    marker.reliability_index.value += 0.5
         markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
         self.time_to_get_frame = (time.time() - tic) + _time_to_rotate
         color = draw_markers(
@@ -628,7 +628,28 @@ class RgbdImages:
         if self.show_images:
             cv2.namedWindow("color", cv2.WINDOW_NORMAL)
             cv2.imshow("color", color)
-            cv2.waitKey(int(1 / self.conf_data["color_rate"] * 1000))
+            # cv2.waitKey(int(1 / self.conf_data["color_rate"] * 1000))
+            cv2.waitKey(1)
+
+        ## Test
+        if True:
+            markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
+            markers_in_meters, _, _, _ = self.get_global_markers_pos_in_meter(markers_pos)
+            dic = {
+                "markers_in_meters": markers_in_meters[:, :, np.newaxis],
+                "markers_in_pixel": markers_pos[:, :, np.newaxis],
+                "markers_names": markers_names,
+                "occlusions": occlusions,
+                "reliability_idx": reliability_idx,
+                "time_to_process": self.time_to_get_frame,
+                "camera_frame_idx": self.camera_frame_numbers[self.frame_idx],
+                "frame_idx": self.frame_idx,
+
+            }
+            with open('test_old', 'a') as f:
+                string = str(markers_pos)
+                f.write(string)
+
         if self.save_data:
             markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
             markers_in_meters, _, _, _ = self.get_global_markers_pos_in_meter(markers_pos)

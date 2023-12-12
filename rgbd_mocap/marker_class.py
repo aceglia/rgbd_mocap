@@ -1,19 +1,37 @@
 import numpy as np
 import cv2
+from multiprocessing import RawArray, RawValue
 
 
 class Marker:
     def __init__(self, name):
         self.name = name
-        self.pos = np.zeros((3,))
-        self.filtered_pos = np.zeros((3,))
-        self.global_filtered_pos = np.zeros((3,))
-        self.global_pos = np.zeros((3,))
-        self.is_visible = False
-        self.is_depth_visible = False
-        self._reliability_index = 0
-        self.reliability_index = 0
-        self.mean_reliability_index = 0
+
+        c_int = 'i'
+        c_bool = 'c'
+        c_float = 'd'
+        # Shared Memory
+        self.pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
+        # self.pos = np.zeros((3, ))
+        self.filtered_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
+        # self.filtered_pos = np.zeros((3, ))
+        self.global_filtered_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
+        # self.global_filtered_pos = np.zeros((3, ))
+        # self.global_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
+        self.global_pos = np.zeros((3, ))
+
+        self.is_visible = RawValue(c_bool, False)
+        # self.is_visible = False
+        self.is_depth_visible = RawValue(c_bool, False)
+        # self.is_depth_visible = False
+        self._reliability_index = RawValue(c_float, 0)
+        # self._reliability_index = 0
+        self.reliability_index = RawValue(c_float, 0)
+        # self.reliability_index = 0
+        self.mean_reliability_index = RawValue(c_float, 0)
+        # self.mean_reliability_index = 0
+
+        ### Kalman
         self.dt = 1
         self.n_states = 4
         self.n_measures = 2
@@ -26,7 +44,7 @@ class Marker:
         return self.pos[:2]
 
     def get_reliability_index(self, frame_idx):
-        return self.reliability_index / (frame_idx + 1)
+        return self.reliability_index.value / (frame_idx + 1)
 
     def correct_from_kalman(self, points):
         self.pos[:2] = np.array(points)
@@ -170,6 +188,7 @@ class MarkerSet:
         """
         self.markers = []
         self.name = marker_set_name
+
         for marker_name in marker_names:
             if marker_type == "2d":
                 marker = Marker(name=marker_name)
