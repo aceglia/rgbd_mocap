@@ -184,7 +184,12 @@ def find_closest_node(point, node_list):
     closest_node = None
     smallest_distance = float("inf")
     for node in node_list:
-        distance = math.sqrt((node[0] - point[0]) ** 2 + (node[1] - point[1]) ** 2)
+        try:
+            distance = math.sqrt((node[0] - point[0]) ** 2 + (node[1] - point[1]) ** 2)
+        except ValueError:
+            print("point", point)
+            print("node", node)
+            raise ValueError
         if distance < smallest_distance:
             closest_node = node
             smallest_distance = distance
@@ -354,15 +359,17 @@ def check_and_attribute_depth(pos_2d, depth_image, depth_scale=0.01):
     :param depth_scale: depth scale
     :return: depth value
     """
-    delta = 8
+    delta = 1
     if isinstance(pos_2d, list):
         pos_2d = np.array(pos_2d)
     pos_2d = pos_2d.astype(int)
+    pos = -1
     if depth_image[pos_2d[1], pos_2d[0]] <= 0:
-        pos = (
-            np.median(depth_image[pos_2d[1] - delta : pos_2d[1] + delta, pos_2d[0] - delta : pos_2d[0] + delta])
-            * depth_scale
-        )
+        while pos <= 0 and delta < 15:
+            d = depth_image[pos_2d[1] - delta : pos_2d[1] + delta, pos_2d[0] - delta : pos_2d[0] + delta]
+            if len(d[d > 0]) > 0:
+                pos = np.mean(d[d > 0]) * depth_scale
+            delta += 1
         if not np.isfinite(pos):
             pos = -1
         is_visible = False
@@ -481,6 +488,7 @@ def get_blobs(
         clahe = cv2.createCLAHE(
             clipLimit=params["clahe_clip_limit"], tileGridSize=(params["clahe_autre"], params["clahe_autre"])
         )
+        im_from = cv2.GaussianBlur(im_from, (5,5), 0)
         im_from = clahe.apply(im_from)
         im_from = cv2.GaussianBlur(im_from, (params["blur"], params["blur"]), 0)
         if method == DetectionMethod.SCIKITBlobs:
@@ -596,6 +604,7 @@ def set_conf_file_from_camera(pipeline, device):
 
 def background_remover(frame, depth, clipping_distance, depth_scale, clipping_color, min_dist=0, use_contour=True):
     depth_image_3d = np.dstack((depth, depth, depth))
+
     if use_contour:
         white_frame = np.ones_like(frame) * 255
         im_for_mask = np.where(

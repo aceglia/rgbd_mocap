@@ -465,7 +465,7 @@ class RgbdImages:
                     color_list[i],
                     self.marker_sets[i].get_markers_pos(),
                     color=(0, 255, 0),
-                    delta=30,
+                    delta=20,
                 )
             else:
                 x_min, x_max, y_min, y_max = 0, color_list[i].shape[1], 0, color_list[i].shape[0]
@@ -505,8 +505,8 @@ class RgbdImages:
                     filter_with_kalman,
                     adjust_with_blobs,
                     markers_visible_names,
-                    error_threshold,
                     use_optical_flow,
+                    error_threshold,
                     use_tapir=self.use_tapir,
                 )
 
@@ -625,10 +625,17 @@ class RgbdImages:
             thickness=-1,
         )
         self.frame_idx += 1
+        time_to_sleep = int(1 / self.conf_data["color_rate"] * 1000) - int(self.time_to_get_frame * 1000)
+        if time_to_sleep <= 0:
+            time_to_sleep = 1 if self.show_images else 0
         if self.show_images:
             cv2.namedWindow("color", cv2.WINDOW_NORMAL)
             cv2.imshow("color", color)
-            cv2.waitKey(int(1 / self.conf_data["color_rate"] * 1000))
+            # while cv2.waitKey(1) != ord('q'):q
+            cv2.waitKey(time_to_sleep)
+
+        else:
+            time.sleep(time_to_sleep / 1000)
         if self.save_data:
             markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
             markers_in_meters, _, _, _ = self.get_global_markers_pos_in_meter(markers_pos)
@@ -641,6 +648,9 @@ class RgbdImages:
                 "time_to_process": self.time_to_get_frame,
                 "camera_frame_idx": self.camera_frame_numbers[self.frame_idx],
                 "frame_idx": self.frame_idx,
+                "tracking_config": {"use_tapir": self.use_tapir, "use_optical_flow": use_optical_flow,
+                                    "fit_model": fit_model,
+                                    "filter_with_kalman": filter_with_kalman},
 
             }
             save(dic, self.image_dir + os.sep + "markers_pos.bio", add_data=True)
@@ -729,7 +739,7 @@ class RgbdImages:
         q, _ = self.kinematics_functions.compute_inverse_kinematics(final_markers, _method, kalman_freq=100)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
         if not self.show_images:
-            if self.frame_idx > 10:
+            if self.frame_idx > 450:
                 import bioviz
                 b = bioviz.Viz(loaded_model=self.kinematics_functions.model)
                 b.load_movement(q.repeat(3, axis=1))
@@ -1307,7 +1317,8 @@ class RgbdImages:
 
             elif method == DetectionMethod.CV2Blobs:
                 default_values = {
-                    "min_area": 3,
+                    "min_area": 0,
+                    "max_area": 64,
                     "min_threshold": 150,
                     "max_threshold": 255,
                     "clahe_clip_limit": 1,
@@ -1332,8 +1343,8 @@ class RgbdImages:
                     default_values["min_dist"] = int(default_values["min_dist"] * 100)
 
                 cv2.namedWindow("Trackbars", cv2.WINDOW_NORMAL)
-                cv2.createTrackbar("min area", "Trackbars", default_values["min_area"], 255, nothing)
-                cv2.createTrackbar("max area", "Trackbars", default_values["max_area"], 5000, nothing)
+                cv2.createTrackbar("min area", "Trackbars", default_values["min_area"], 100, nothing)
+                cv2.createTrackbar("max area", "Trackbars", default_values["max_area"], 200, nothing)
                 cv2.createTrackbar("blur", "Trackbars", default_values["blur"], 50, nothing)
                 cv2.createTrackbar("min dist", "Trackbars", default_values["min_dist"], 140, nothing)
 
@@ -1354,7 +1365,7 @@ class RgbdImages:
                     "clipping distance in meters",
                     "Trackbars",
                     default_values["clipping_distance_in_meters"],
-                    800,
+                    300,
                     nothing,
                 )
                 cv2.createTrackbar("use contour", "Trackbars", default_values["use_contour"], 1, nothing)
@@ -1625,9 +1636,9 @@ class RgbdImages:
         idx = 0
         for i in range(len(color_frame)):
             # depth_image_3d = np.dstack((depth_frame[i], depth_frame[i], depth_frame[i]))
-            # color_blobs = np.where(
+            # color_frame[i] = np.where(
             #     (depth_image_3d > self.mask_params[i]["clipping_distance_in_meters"] / self.depth_scale) | (
-            #                 depth_image_3d <= 0),
+            #                 depth_image_3d <= self.mask_params[i]["min_dist"] / self.depth_scale),
             #     self.clipping_color,
             #     color_frame[i],
             # )
@@ -1710,7 +1721,7 @@ class RgbdImages:
                 (
                     self.marker_sets[idx].markers[m].pos[:2],
                     self.marker_sets[idx].markers[m].is_visible,
-                ) = find_closest_blob([x, y], blobs, delta=2)
+                ) = find_closest_blob([x, y], blobs, delta=5)
                 if not self.marker_sets[idx].markers[m].is_visible:
                     self.marker_sets[idx].markers[m].pos[:2] = [x, y]
                 (
@@ -1719,12 +1730,15 @@ class RgbdImages:
                 ) = check_and_attribute_depth(
                     self.marker_sets[idx].markers[m].pos[:2], depth_frame[i], self.depth_scale
                 )
+                if self.marker_sets[idx].markers[m].pos[2:] == -1:
+                    raise ValueError("The depth of the marker is not visible in close neighborhood.")
                 dic[-1][marker_names[m]] = [
                     self.marker_sets[idx].markers[m].pos.tolist(),
                     self.marker_sets[idx].markers[m].is_visible,
                     self.marker_sets[idx].markers[m].is_depth_visible,
                 ]
                 m += 1
+
         return dic
 
     def _create_kinematic_model(self, model_name: str = "kinematic_model.bioMod", marker_sets: list = None):
