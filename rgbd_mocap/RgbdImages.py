@@ -1887,6 +1887,7 @@ class RgbdImages:
         marker_sets: list = None,
         rotation_angle: Rotation = None,
         with_tapir=False,
+        multiproc=True,
         **kwargs,
     ):
         self.rotation_angle = rotation_angle

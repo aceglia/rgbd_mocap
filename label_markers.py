@@ -1,12 +1,14 @@
 from rgbd_mocap.marker_class import MarkerSet
 from rgbd_mocap.RgbdImages import RgbdImages
 from rgbd_mocap.utils import *
+from multiprocessing_markers.multiprocessing import init_multiprocessing
 from biosiglive import save
 import time
 import shutil
 import matplotlib.pyplot as plt
 import cv2
 import os
+
 
 if __name__ == "__main__":
     with_camera = False
@@ -137,6 +139,12 @@ if __name__ == "__main__":
             if delete_old_data and os.path.isfile(f"{images_dir}{os.sep}markers_kalman.bio"):
                 os.remove(f"{images_dir}{os.sep}markers_kalman.bio")
             last_camera_frame = 0
+
+            multiproc = True
+            if multiproc:
+                print(camera.marker_sets)
+                crop_process = init_multiprocessing(camera.marker_sets)
+
             while True:
                 tic = time.time()
                 color_cropped, depth_cropped = camera.get_frames(
