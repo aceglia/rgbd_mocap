@@ -2,34 +2,29 @@ import numpy as np
 import cv2
 from multiprocessing import RawArray, RawValue
 
+c_int = 'i'
+c_bool = 'c'
+c_float = 'd'
+
 
 class Marker:
     def __init__(self, name):
         self.name = name
 
-        c_int = 'i'
-        c_bool = 'c'
-        c_float = 'd'
-        # Shared Memory
+        ### Shared Memory
+        # Position arrays
         self.pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
-        # self.pos = np.zeros((3, ))
         self.filtered_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
-        # self.filtered_pos = np.zeros((3, ))
         self.global_filtered_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
-        # self.global_filtered_pos = np.zeros((3, ))
         # self.global_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
-        self.global_pos = np.zeros((3, ))
+        self.global_pos = np.zeros((3,))
 
+        # Visibility and reliability
         self.is_visible = RawValue(c_bool, False)
-        # self.is_visible = False
         self.is_depth_visible = RawValue(c_bool, False)
-        # self.is_depth_visible = False
         self._reliability_index = RawValue(c_float, 0)
-        # self._reliability_index = 0
         self.reliability_index = RawValue(c_float, 0)
-        # self.reliability_index = 0
         self.mean_reliability_index = RawValue(c_float, 0)
-        # self.mean_reliability_index = 0
 
         ### Kalman
         self.dt = 1
@@ -93,6 +88,16 @@ class Marker:
         self.global_filtered_pos[0] = local_pos[0] + start_crop[0]
         self.global_filtered_pos[1] = local_pos[1] + start_crop[1]
         self.global_filtered_pos[2] = local_pos[2]
+
+    def get_shared_memory(self):
+        return (self.pos,
+                self.filtered_pos,
+                self.global_filtered_pos,
+                self.is_visible,
+                self.is_depth_visible,
+                self.reliability_index,
+                self._reliability_index,
+                self.mean_reliability_index)
 
 
 class Marker3D:
@@ -416,3 +421,11 @@ class MarkerSet:
 
     def get_markers_global_in_meters(self):
         pass
+
+    def get_shared_memories(self):
+        shared_memories = []
+
+        for marker in self.markers:
+            shared_memories.append(marker.get_shared_memory())
+
+        return shared_memories

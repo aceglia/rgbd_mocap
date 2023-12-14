@@ -1,7 +1,7 @@
 from rgbd_mocap.marker_class import MarkerSet
 from rgbd_mocap.RgbdImages import RgbdImages
 from rgbd_mocap.utils import *
-from multiprocessing_markers.multiprocessing import init_multiprocessing
+# from multiprocessing_markers.multiprocessing impor
 from biosiglive import save
 import time
 import shutil
@@ -139,12 +139,6 @@ if __name__ == "__main__":
             if delete_old_data and os.path.isfile(f"{images_dir}{os.sep}markers_kalman.bio"):
                 os.remove(f"{images_dir}{os.sep}markers_kalman.bio")
             last_camera_frame = 0
-
-            multiproc = True
-            if multiproc:
-                print(camera.marker_sets)
-                crop_process = init_multiprocessing(camera.marker_sets)
-
             while True:
                 tic = time.time()
                 color_cropped, depth_cropped = camera.get_frames(
@@ -172,7 +166,11 @@ if __name__ == "__main__":
                 if camera.frame_idx == len(camera.color_images) - 1 or camera.frame_idx == camera.stop_index - 1:
                     cv2.destroyAllWindows()
                     break
-                cv2.waitKey(1)
+
+                if cv2.waitKey(1) == ord("q"):
+                    break
+
+            camera.process_handler.end_process()
 
         # # -------- decoment these lines to see poind cloud and 3d markers --------
         # import open3d as o3d

@@ -145,6 +145,9 @@ class RgbdImages:
         self.ik_method = "least_squares"
         self.markers_to_exclude_for_ik = []
 
+        # Multiprocessing
+        self.multiprocessing = False
+
         if self.conf_file:
             self.conf_data = get_conf_data(self.conf_file)
             self._set_images_params()
@@ -445,6 +448,85 @@ class RgbdImages:
                 self.marker_sets[i].get_markers_pos(), [self.start_crop[0][i], self.start_crop[1][i]]
             )
 
+    @staticmethod
+    def partial_get_frame(
+        detect_blobs,  # bool
+        color_frame,
+        depth_frame,
+        marker_set,
+        filter,
+        last_color_frame,
+        last_depth_frame,
+        depth_scale,
+        #kwargs,
+        label_markers,  # bool
+        filter_with_kalman,  # bool
+        adjust_with_blobs,  # bool
+        fit_model,  # bool
+        use_optical_flow,  # bool
+        bounds_from_marker_pos  # bool
+    ):
+        if detect_blobs:
+            if bounds_from_marker_pos:
+                color_frame, (x_min, x_max, y_min, y_max) = bounding_rect(
+                    color_frame,
+                    marker_set.get_markers_pos(),
+                    color=(0, 255, 0),
+                    delta=30,
+                )
+            else:
+                x_min, x_max, y_min, y_max = 0, color_frame.shape[1], 0, color_frame.shape[0]
+            blobs = get_blobs(
+                    color_frame,
+                    params=filter,
+                    return_centers=True,
+                    image_bounds=(x_min, x_max, y_min, y_max),
+                    depth=depth_frame,
+                    # clipping_color=self.clipping_color,
+                    # depth_scale=self.depth_scale,
+                    # **kwargs,
+                )
+
+        if label_markers:
+            old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)  # TODO Static optical flow
+            if len(old_markers_pos) != 0:
+                error_threshold = 10
+                if use_optical_flow:
+                    current_color = background_remover(
+                        color_frame, depth_frame, 1.9, depth_scale, 100
+                    )
+
+                    previous_color = background_remover(
+                        last_color_frame, last_depth_frame, 1.9, depth_scale, 100
+                    )
+                else:
+                    current_color = color_frame
+                    previous_color = last_color_frame
+                self._run_optical_flow(  # TODO Static optical flow
+                    current_color,
+                    previous_color,
+                    old_markers_pos,
+                    filter_with_kalman,
+                    adjust_with_blobs,
+                    markers_visible_names,
+                    error_threshold,
+                    use_optical_flow,
+                    # use_tapir=self.use_tapir,
+                )
+
+            # if not fit_model:
+            #     color_frame = draw_markers(
+            #         color_frame,
+            #         markers_pos=marker_set.get_markers_pos(),
+            #         markers_names=marker_set.marker_names,
+            #         is_visible=marker_set.get_markers_occlusion(),
+            #         scaling_factor=0.5,
+            #         markers_reliability_index=marker_set.get_markers_reliability_index(self.frame_idx),
+            #     )
+            # if len(self.blobs) != 0:
+            #     if len(self.blobs[i]) != 0:
+            #         color_list[i] = draw_blobs(color_list[i], self.blobs[i])
+
     def _partial_get_frame(
         self,
         detect_blobs,
@@ -573,6 +655,11 @@ class RgbdImages:
         _time_to_rotate = time.time() - tic
 
         self._get_frame_from_source()
+
+        if self.multiprocessing:
+            self.shared_frames.set_images(self.color_frame, self.depth_frame)
+            self.process_handler.send_process()
+
         tic = time.time()
         if self.last_color_frame is None:
             self.last_color_frame = self.color_frame.copy()
@@ -630,25 +717,6 @@ class RgbdImages:
             cv2.imshow("color", color)
             # cv2.waitKey(int(1 / self.conf_data["color_rate"] * 1000))
             cv2.waitKey(1)
-
-        ## Test
-        if True:
-            markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
-            markers_in_meters, _, _, _ = self.get_global_markers_pos_in_meter(markers_pos)
-            dic = {
-                "markers_in_meters": markers_in_meters[:, :, np.newaxis],
-                "markers_in_pixel": markers_pos[:, :, np.newaxis],
-                "markers_names": markers_names,
-                "occlusions": occlusions,
-                "reliability_idx": reliability_idx,
-                "time_to_process": self.time_to_get_frame,
-                "camera_frame_idx": self.camera_frame_numbers[self.frame_idx],
-                "frame_idx": self.frame_idx,
-
-            }
-            with open('test_old', 'a') as f:
-                string = str(markers_pos)
-                f.write(string)
 
         if self.save_data:
             markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
@@ -771,7 +839,7 @@ class RgbdImages:
                 count += 1
                 if count == list_nb_markers[idx]:
                     # if len(self.blobs[idx]) != 0:
-                    #     color_list[idx] = draw_blobs(color_list[idx], self.blobs[idx])
+                     #     color_list[idx] = draw_blobs(color_list[idx], self.blobs[idx])
                     markers_kalman = []
                     count = 0
                     nb_past_markers += self.marker_sets[idx].nb_markers
@@ -1876,6 +1944,17 @@ class RgbdImages:
             query_points.shape[0], len(self.query_features.resolutions) - 1
         )
 
+    def init_multiprocessing(self):
+        self.multiprocessing = True
+        crops = []
+
+        for i in range(len(self.start_crop[0])):
+            crops.append((self.start_crop[0][i], self.start_crop[1][i], self.end_crop[0][i], self.end_crop[1][i]))
+
+        from multiprocessing_markers.multiprocessing import SharedFrames, ProcessHandler
+        self.shared_frames = SharedFrames(self.color_frame, self.depth_frame)
+        self.process_handler = ProcessHandler(self.marker_sets, self.shared_frames, crops, self._partial_get_frame)
+
     def initialize_tracking(
         self,
         tracking_conf_file: str = None,
@@ -1910,7 +1989,6 @@ class RgbdImages:
 
         if label_first_frame:
             self.first_frame_markers = self.label_first_frame(**kwargs)
-
             self.is_tracking_init = True
 
         if label_first_frame + mask_parameters + crop_frame > 0:
@@ -1955,3 +2033,8 @@ class RgbdImages:
             model_name = f"kinematic_model_{dt_string}.bioMod" if not model_name else model_name
             self._create_kinematic_model(model_name=model_name, marker_sets=marker_sets)
             self.is_kinematic_model = True
+
+        if multiproc:
+            self.init_multiprocessing()
+            self.process_handler.start_process()
+            # self.process_handler.end_process()
