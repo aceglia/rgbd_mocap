@@ -90,7 +90,8 @@ class Marker:
         self.global_filtered_pos[2] = local_pos[2]
 
     def get_shared_memory(self):
-        return (self.pos,
+        return (self.name,
+                self.pos,
                 self.filtered_pos,
                 self.global_filtered_pos,
                 self.is_visible,
@@ -98,6 +99,27 @@ class Marker:
                 self.reliability_index,
                 self._reliability_index,
                 self.mean_reliability_index)
+
+    def set_shared_memory(self,
+                          name,
+                          pos,
+                          filtered_pos,
+                          global_filtered_pos,
+                          is_visible,
+                          is_depth_visible,
+                          reliability_index,
+                          _reliability_index,
+                          mean_reliability_index):
+
+        self.name = name
+        self.pos = pos
+        self.filtered_pos = filtered_pos
+        self.global_filtered_pos = global_filtered_pos
+        self.is_visible = is_visible
+        self.is_depth_visible = is_depth_visible
+        self.reliability_index = reliability_index
+        self._reliability_index = _reliability_index
+        self.mean_reliability_index = mean_reliability_index
 
 
 class Marker3D:
@@ -429,3 +451,28 @@ class MarkerSet:
             shared_memories.append(marker.get_shared_memory())
 
         return shared_memories
+
+    def add_marker(self, marker: Marker):
+        self.markers.append(marker)
+        self.nb_markers += 1
+        self.marker_names.append(marker.name)
+
+    def __str__(self):
+        string = self.name + '['
+
+        for marker in self.markers:
+            string += f' {marker.name}'
+
+        string += ']'
+        return string
+
+    @staticmethod
+    def set_shared_memories(shared_memories):
+        ms = MarkerSet('shared_marker_set', [])
+
+        for memory in shared_memories:
+            marker = Marker('New')
+            marker.set_shared_memory(*memory)
+            ms.add_marker(marker)
+
+        return ms

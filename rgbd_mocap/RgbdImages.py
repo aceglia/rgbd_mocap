@@ -454,65 +454,72 @@ class RgbdImages:
         color_frame,
         depth_frame,
         marker_set,
-        filter,
-        last_color_frame,
-        last_depth_frame,
-        depth_scale,
+        image_filter,
+        last_color_frame=None,
+        last_depth_frame=None,
+        depth_scale=0.001,
         #kwargs,
-        label_markers,  # bool
-        filter_with_kalman,  # bool
-        adjust_with_blobs,  # bool
-        fit_model,  # bool
-        use_optical_flow,  # bool
-        bounds_from_marker_pos  # bool
+        label_markers=None,  # bool
+        filter_with_kalman=False,  # bool
+        adjust_with_blobs=False,  # bool
+        fit_model=False,  # bool
+        use_optical_flow=False,  # bool
+        bounds_from_marker_pos=False  # bool
     ):
         if detect_blobs:
             if bounds_from_marker_pos:
                 color_frame, (x_min, x_max, y_min, y_max) = bounding_rect(
                     color_frame,
-                    marker_set.get_markers_pos(),
+                    None,
+                    #marker_set.get_markers_pos(),
                     color=(0, 255, 0),
                     delta=30,
                 )
             else:
                 x_min, x_max, y_min, y_max = 0, color_frame.shape[1], 0, color_frame.shape[0]
-            blobs = get_blobs(
-                    color_frame,
-                    params=filter,
+            img, blobs = get_blobs(
+                    frame=color_frame,
+                    params=image_filter,
                     return_centers=True,
                     image_bounds=(x_min, x_max, y_min, y_max),
                     depth=depth_frame,
+                    return_image=True
                     # clipping_color=self.clipping_color,
                     # depth_scale=self.depth_scale,
                     # **kwargs,
                 )
 
-        if label_markers:
-            old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)  # TODO Static optical flow
-            if len(old_markers_pos) != 0:
-                error_threshold = 10
-                if use_optical_flow:
-                    current_color = background_remover(
-                        color_frame, depth_frame, 1.9, depth_scale, 100
-                    )
+            # test = color_frame.copy()
+            draw_blobs(img, blobs)
 
-                    previous_color = background_remover(
-                        last_color_frame, last_depth_frame, 1.9, depth_scale, 100
-                    )
-                else:
-                    current_color = color_frame
-                    previous_color = last_color_frame
-                self._run_optical_flow(  # TODO Static optical flow
-                    current_color,
-                    previous_color,
-                    old_markers_pos,
-                    filter_with_kalman,
-                    adjust_with_blobs,
-                    markers_visible_names,
-                    error_threshold,
-                    use_optical_flow,
-                    # use_tapir=self.use_tapir,
-                )
+            return img
+
+        # if label_markers:
+        #     old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)  # TODO Static optical flow
+        #     if len(old_markers_pos) != 0:
+        #         error_threshold = 10
+        #         if use_optical_flow:
+        #             current_color = background_remover(
+        #                 color_frame, depth_frame, 1.9, depth_scale, 100
+        #             )
+        #
+        #             previous_color = background_remover(
+        #                 last_color_frame, last_depth_frame, 1.9, depth_scale, 100
+        #             )
+        #         else:
+        #             current_color = color_frame
+        #             previous_color = last_color_frame
+        #         self._run_optical_flow(  # TODO Static optical flow
+        #             current_color,
+        #             previous_color,
+        #             old_markers_pos,
+        #             filter_with_kalman,
+        #             adjust_with_blobs,
+        #             markers_visible_names,
+        #             error_threshold,
+        #             use_optical_flow,
+        #             # use_tapir=self.use_tapir,
+        #         )
 
             # if not fit_model:
             #     color_frame = draw_markers(
@@ -563,6 +570,11 @@ class RgbdImages:
                     **kwargs,
                 )
             )
+
+            # img_blob = color_list[i].copy()
+            # draw_blobs(img_blob, self.blobs[-1])
+            #
+            # cv2.imshow(f'Image {i} blobs', img_blob)
 
         if label_markers:
             old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)
@@ -666,6 +678,7 @@ class RgbdImages:
             self.last_depth_frame = self.depth_frame.copy()
             self.last_depth_cropped = self.depth_cropped.copy()
             self.last_color_cropped = self.color_cropped.copy()
+
         self.blobs = []
         color_list = []
         depth = self.depth_cropped
@@ -1953,7 +1966,8 @@ class RgbdImages:
 
         from multiprocessing_markers.multiprocessing import SharedFrames, ProcessHandler
         self.shared_frames = SharedFrames(self.color_frame, self.depth_frame)
-        self.process_handler = ProcessHandler(self.marker_sets, self.shared_frames, crops, self._partial_get_frame)
+        self.process_handler = ProcessHandler(self.marker_sets, self.shared_frames, crops, self.mask_params,
+                                              self.partial_get_frame)
 
     def initialize_tracking(
         self,
@@ -2037,4 +2051,5 @@ class RgbdImages:
         if multiproc:
             self.init_multiprocessing()
             self.process_handler.start_process()
+            print(self.clipping_color, self.depth_scale)
             # self.process_handler.end_process()

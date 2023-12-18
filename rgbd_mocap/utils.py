@@ -440,19 +440,21 @@ def get_blobs(
     image_bounds=None,
     threshold_distance=2,
     depth=None,
-    clipping_color=None,
-    depth_scale=None,
+    clipping_color=20,
+    depth_scale=0.001,
 ):
-    if image_bounds:
-        bounded_frame = frame.copy()
-        bounded_frame = bounded_frame[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
-        bounded_depth = depth.copy()
-        bounded_depth = bounded_depth[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
-    else:
-        bounded_frame = frame.copy()
-        image_bounds = (0, frame.shape[1], 0, frame.shape[0])
-        bounded_depth = depth.copy()
-    im_from_init = bounded_frame.copy()
+    # if image_bounds:
+    #     bounded_frame = frame.copy()
+    #     bounded_frame = bounded_frame[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
+    #     bounded_depth = depth.copy()
+    #     bounded_depth = bounded_depth[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
+    # else:
+    #     bounded_frame = frame.copy()
+    #     image_bounds = (0, frame.shape[1], 0, frame.shape[0])
+    #     bounded_depth = depth.copy()
+    # im_from_init = bounded_frame.copy()
+    im_from_init = frame.copy()
+    bounded_depth = depth.copy()
     centers = []
     blobs = []
     im_from = None
@@ -515,7 +517,7 @@ def get_blobs(
                 if len(contours) != 0:
                     for c in contours:
                         M = cv2.moments(c)
-                        print(c)
+                        # print(c)
                         if M["m00"] == 0:
                             pass
                         else:
