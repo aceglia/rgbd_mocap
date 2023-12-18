@@ -434,7 +434,7 @@ def find_closest_markers_in_model(marker_to_check, markers_model, same_idx, mode
 def get_blobs(
     frame,
     params,
-    method=DetectionMethod.CV2Contours,
+    method=DetectionMethod.CV2Blobs,
     return_image=False,
     return_centers=False,
     image_bounds=None,
@@ -548,10 +548,13 @@ def get_blobs(
             # Create the detector object
             detector = cv2.SimpleBlobDetector_create(params_detector)
             keypoints = detector.detect(im_from)
+            # print(keypoints)
             for blob in keypoints:
                 blobs.append(blob)
                 if return_centers:
-                    centers.append((int(blob.pt[0] + image_bounds[0]), int(blob.pt[1] + image_bounds[2])))
+                    # centers.append((int(blob.pt[0] + image_bounds[0]), int(blob.pt[1] + image_bounds[2])))
+                    centers.append((int(blob.pt[0]), int(blob.pt[1])))
+
     if return_image:
         if return_centers:
             return im_from, centers

@@ -69,7 +69,7 @@ class ProcessHandler:
             mask_params = masks_params[i]
 
             # (i,
-            #  kinematics_marker_set,
+            #  marker_set,
             #  X_np_color,
             #  X_np_depth,
             #  crop_area,
@@ -135,9 +135,6 @@ def process_function(index,
     marker_set = MarkerSet.set_shared_memories(marker_set_shared_memories)
 
     print(marker_set)
-
-    # Crop filter
-    # crop_filter = mask_params
 
     while True:
         arg = queue_arg.get()

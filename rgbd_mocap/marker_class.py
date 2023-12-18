@@ -458,12 +458,12 @@ class MarkerSet:
         self.marker_names.append(marker.name)
 
     def __str__(self):
-        string = self.name + '['
+        string = self.name + ' ['
 
-        for marker in self.markers:
-            string += f' {marker.name}'
+        for marker in self.markers[:-1]:
+            string += f'{marker.name}, '
 
-        string += ']'
+        string += f'{self.markers[-1].name}]'
         return string
 
     @staticmethod
