@@ -368,7 +368,7 @@ def check_and_attribute_depth(pos_2d, depth_image, depth_scale=0.01):
         while pos <= 0 and delta < 15:
             d = depth_image[pos_2d[1] - delta : pos_2d[1] + delta, pos_2d[0] - delta : pos_2d[0] + delta]
             if len(d[d > 0]) > 0:
-                pos = np.mean(d[d > 0]) * depth_scale
+                pos = np.median(d[d > 0]) * depth_scale
             delta += 1
         if not np.isfinite(pos):
             pos = -1
@@ -488,9 +488,9 @@ def get_blobs(
         clahe = cv2.createCLAHE(
             clipLimit=params["clahe_clip_limit"], tileGridSize=(params["clahe_autre"], params["clahe_autre"])
         )
-        im_from = cv2.GaussianBlur(im_from, (5,5), 0)
+        im_from = cv2.GaussianBlur(im_from, (3, 3), 0)
         im_from = clahe.apply(im_from)
-        im_from = cv2.GaussianBlur(im_from, (params["blur"], params["blur"]), 0)
+        # im_from = cv2.GaussianBlur(im_from, (params["blur"], params["blur"]), 0)
         if method == DetectionMethod.SCIKITBlobs:
             raise RuntimeError("Method not implemented")
             # blobs = blob_log(im_from, max_sigma=area_bounds[1], min_sigma=area_bounds[0], threshold=0.3)

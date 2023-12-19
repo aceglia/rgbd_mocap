@@ -401,6 +401,9 @@ class RgbdImages:
                 if self.frame_idx == self.stop_index - 1:
                     self.frame_idx = 0
                     print("starting over...")
+                # if self.frame_idx == len(self.color_images) - 1:
+                #     self.frame_idx = 0
+                #     print("starting over...")
                 self.color_frame, self.depth_frame = self._load_from_dir(
                     start_index=self.start_index + self.frame_idx,
                     all_color_files=self.all_color_files,
@@ -624,7 +627,6 @@ class RgbdImages:
             # markers_reliability_index=reliability_idx,
             thickness=-1,
         )
-        self.frame_idx += 1
         time_to_sleep = int(1 / self.conf_data["color_rate"] * 1000) - int(self.time_to_get_frame * 1000)
         if time_to_sleep <= 0:
             time_to_sleep = 1 if self.show_images else 0
@@ -650,10 +652,12 @@ class RgbdImages:
                 "frame_idx": self.frame_idx,
                 "tracking_config": {"use_tapir": self.use_tapir, "use_optical_flow": use_optical_flow,
                                     "fit_model": fit_model,
-                                    "filter_with_kalman": filter_with_kalman},
+                                    "filter_with_kalman": filter_with_kalman,
+                                    "start_idx": self.start_index}
 
             }
             save(dic, self.image_dir + os.sep + "markers_pos.bio", add_data=True)
+        self.frame_idx += 1
         return color_list, depth
 
     def _run_tapir_tracker(self):
@@ -739,7 +743,7 @@ class RgbdImages:
         q, _ = self.kinematics_functions.compute_inverse_kinematics(final_markers, _method, kalman_freq=100)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
         if not self.show_images:
-            if self.frame_idx > 450:
+            if self.frame_idx > 50:
                 import bioviz
                 b = bioviz.Viz(loaded_model=self.kinematics_functions.model)
                 b.load_movement(q.repeat(3, axis=1))
@@ -886,9 +890,9 @@ class RgbdImages:
         if use_optical_flow:
             if not use_tapir:
                 prev_gray = cv2.cvtColor(prev_color, cv2.COLOR_RGB2GRAY)
-                prev_gray = cv2.GaussianBlur(prev_gray, (9, 9), 0)
+                prev_gray = cv2.GaussianBlur(prev_gray, (5, 5), 0)
                 color_gray = cv2.cvtColor(color, cv2.COLOR_RGB2GRAY)
-                color_gray = cv2.GaussianBlur(color_gray, (9, 9), 0)
+                color_gray = cv2.GaussianBlur(color_gray, (5, 5), 0)
                 if isinstance(prev_pos, list):
                     prev_pos = np.array(prev_pos, dtype=np.float32)
                 if isinstance(prev_pos, np.ndarray):
