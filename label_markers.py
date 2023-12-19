@@ -1,16 +1,15 @@
-from rgbd_mocap.marker_class import MarkerSet
-from rgbd_mocap.RgbdImages import RgbdImages
 from rgbd_mocap.utils import *
-# from multiprocessing_markers.multiprocessing impor
-from biosiglive import save
+from utils.kin_marker_set import KinMarkerSet
+from utils.inits import init_RgbdImages, init_tracking_conf
 import time
-import shutil
-import matplotlib.pyplot as plt
 import cv2
 import os
 
+# path_to_project = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/"
+path_to_project = "/home/user/KaelFacon/Project/rgbd_mocap/"
 
-if __name__ == "__main__":
+
+def main():
     with_camera = False
     images_dir = None
     participants = ["P4_session2"]  # , "P3_session2", "P4_session2", "P2_session2"]  # "P4_session2", "P8"
@@ -19,126 +18,52 @@ if __name__ == "__main__":
     save_data = False
     delete_old_data = False
     c = 0
-    # data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
-    data_files = "/home/user/KaelFacon/Project/rgbd_mocap/data_files"
+    data_files = f"{path_to_project}data_files"
     for participant in participants:
         tracking_files = []
-        files = os.listdir(f"{data_files}{os.sep}{participant}")
-        # files = [file for file in files if file[:7] == "gear_15"]
-        files = [file for file in files if file[:7] == "gear_20"]
+        files = [file for file in os.listdir(f"{data_files}{os.sep}{participant}") if file[:7] == "gear_20"]
         for file in files:
             suffix = file[-19:]
             trial = file[:-20]
-            if not with_camera:
-                if participant:
-                    images_dir = f"{data_files}{os.sep}{participant}{os.sep}{trial}_{suffix}"
-                    # config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files{os.sep}config_camera_{participant}.json"
-                    config_file = f"/home/user/KaelFacon/Project/rgbd_mocap/config_camera_files{os.sep}config_camera_{participant}.json"
-                else:
-                    images_dir = f"{file}"
-                    # config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files{os.sep}config_camera_{suffix}.json"
-                    config_file = f"/home/user/KaelFacon/Project/rgbd_mocap/config_camera_files{os.sep}config_camera_{suffix}.json"
-                # image_file = r"D:\Documents\Programmation\vision\image_camera_trial_1_800.bio.gzip"
-                # os.remove(fr"{images_dir}{os.sep}t" + f"racking_config.json")
-                # break
-                if os.path.isfile(rf"{images_dir}{os.sep}t" + f"racking_config.json"):
-                    tracking_conf = {"crop": False, "mask": False, "label": False, "build_kinematic_model": True}
-                    # start_idx[c] = start_idx_from_json(fr"{images_dir}{os.sep}t" + f"racking_config.json")
-                else:
-                    if len(tracking_files) == 0:
-                        tracking_conf = {"crop": True, "mask": True, "label": False, "build_kinematic_model": True}
-                    else:
-                        shutil.copy(tracking_files[0], rf"{images_dir}{os.sep}t" + f"racking_config.json")
-                        tracking_conf = {"crop": False, "mask": False, "label": False, "build_kinematic_model": True}
 
-                print("working on : ", images_dir)
-                camera = RgbdImages(
-                    conf_file=config_file,
-                    images_dir=images_dir,
-                    start_index=start_idx[c],
-                    # stop_index=10,
-                    downsampled=1,
-                    load_all_dir=False,
-                )
-                c += 1
-            else:
-                camera = RgbdImages()
-                camera.init_camera(
-                    ColorResolution.R_848x480,
-                    DepthResolution.R_848x480,
-                    FrameRate.FPS_60,
-                    FrameRate.FPS_60,
-                    align=True,
-                )
-            camera.markers_to_exclude_for_ik = ["M1", "M2", "M3"]
-            camera.ik_method = "kalman"  # "kalman" or "least_squares"
-            camera.clipping_color = 20
-            camera.is_frame_aligned = False
+            ### Dict containing various paths to init the camera
+            files_paths = {"path_to_project": path_to_project,
+                           "participant": participant,
+                           "data_files": data_files,
+                           "trial": trial,
+                           "suffix": suffix,
+                           "file": file,
+                           "start_idx": start_idx[c],
+                           }
+            c += 1
 
-            # ----------- from back ---------------- #
-            markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5", "C7", "RIBS_r", "Clavsc", "Scap_AA", "Scap_IA", "Acrom"], image_idx=0)
-            markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=1)
-            markers_hand = MarkerSet(marker_set_name="hand", marker_names=['larm_l', "styl_r", "styl_u"], image_idx=2)
-            camera.add_marker_set([markers_shoulder, markers_arm, markers_hand])
-            kinematics_marker_set_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["T5" ,"C7", "RIBS_r", "Clavsc"])
-            kinematics_marker_set_scapula = MarkerSet(marker_set_name="scapula", marker_names=[ "Scap_AA", "Scap_IA", "Acrom"])
-            kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"])
-            kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=['larm_l', "styl_r", "styl_u"])
+            ### Init camera (Rgbd_image)
+            camera = init_RgbdImages(with_camera, files_paths)
+            images_dir = files_paths['images_dir']  # Should be updated/set in the 'init_RgbdImages' function
 
-            # ------------------ from front 3 crops -----------------#
-            # markers_shoulder = MarkerSet(marker_set_name="shoulder", marker_names=["xiph", "ster", "clavsc"
-            #                                                                        , "M1",
-            #                                                                        "M2", "M3", "Clavac"], image_idx=0)
-            # markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=2)
-            # markers_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"], image_idx=3)
-            # camera.add_marker_set([markers_shoulder, markers_arm, markers_hand])
-            #
-            # ------------------ from front 4 crops -----------------#
-            # markers_thorax = MarkerSet(marker_set_name="thorax", marker_names=["xiph", "ster", "clavsc"], image_idx=0)
-            # markers_shoulder = MarkerSet(
-            #     marker_set_name="cluster", marker_names=["M1", "M2", "M3", "Clavac"], image_idx=1
-            # )
-            # markers_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"], image_idx=2)
-            # markers_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"], image_idx=3)
-            # camera.add_marker_set([markers_thorax, markers_shoulder, markers_arm, markers_hand])
+            ### Get the tracking configuration from file
+            tracking_config = init_tracking_conf(images_dir, tracking_files)
+            tracking_config_file = f"{images_dir}{os.sep}tracking_config.json"
 
-            # kinematics_marker_set_shoulder = MarkerSet(
-            #     marker_set_name="shoulder",
-            #     marker_names=[
-            #         "xiph",
-            #         "ster",
-            #         "clavsc",
-            #         "M1",
-            #         "M2",
-            #         "M3",
-            #         "Clavac",
-            #     ],
-            # )
-            # kinematics_marker_set_arm = MarkerSet(marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l"])
-            # kinematics_marker_set_hand = MarkerSet(marker_set_name="hand", marker_names=["larm_l", "styl_r", "styl_u"])
-            kin_marker_set = [
-                kinematics_marker_set_shoulder,
-                kinematics_marker_set_arm,
-                kinematics_marker_set_hand,
-            ]
+            ### Init KinMarkerSet and add MarkersSets to the camera
+            kin_marker_set = KinMarkerSet(camera, KinMarkerSet.BACK_3)
+
             camera.initialize_tracking(
-                tracking_conf_file=rf"{images_dir}{os.sep}t" + f"racking_config.json",
-                crop_frame=tracking_conf["crop"],
-                mask_parameters=tracking_conf["mask"],
-                label_first_frame=tracking_conf["label"],
-                build_kinematic_model=tracking_conf["build_kinematic_model"],
+                tracking_conf_file=tracking_config_file,
                 method=DetectionMethod.CV2Blobs,
-                model_name=f"{images_dir}{os.sep}kinematic_model_{suffix}.bioMod",
+                model_name=f"{files_paths['images_dir']}{os.sep}kinematic_model_{suffix}.bioMod",
                 marker_sets=kin_marker_set,
                 rotation_angle=Rotation.ROTATE_180,
                 with_tapir=False,
+                **tracking_config,
             )
-            tracking_files.append(rf"{images_dir}{os.sep}t" + f"racking_config.json")
+            tracking_files.append(tracking_config_file)
             camera.stop_index = 5
             count = 0
             if delete_old_data and os.path.isfile(f"{images_dir}{os.sep}markers_kalman.bio"):
                 os.remove(f"{images_dir}{os.sep}markers_kalman.bio")
             last_camera_frame = 0
+
             while True:
                 tic = time.time()
                 color_cropped, depth_cropped = camera.get_frames(
@@ -217,3 +142,7 @@ if __name__ == "__main__":
         # pcd1 = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, intrinsics)
         # pcd1.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
         # o3d.visualization.draw_geometries([pcd1, lineset, lineset2, lineset3] + sphere_list)
+
+
+if __name__ == "__main__":
+    main()

@@ -1972,9 +1972,9 @@ class RgbdImages:
     def initialize_tracking(
         self,
         tracking_conf_file: str = None,
-        crop_frame=False,
-        mask_parameters=False,
-        label_first_frame=False,
+        crop=False,
+        mask=False,
+        label=False,
         build_kinematic_model=False,
         model_name: str = None,
         marker_sets: list = None,
@@ -1994,18 +1994,18 @@ class RgbdImages:
             else:
                 open(tracking_conf_file, "w").close()
 
-        if crop_frame:
+        if crop:
             self.start_crop, self.end_crop = self.select_cropping()
 
-        if mask_parameters:
+        if mask:
             self.is_frame_clipped = False
             self.select_mask(**kwargs)
 
-        if label_first_frame:
+        if label:
             self.first_frame_markers = self.label_first_frame(**kwargs)
             self.is_tracking_init = True
 
-        if label_first_frame + mask_parameters + crop_frame > 0:
+        if label + mask + crop > 0:
             dic = {
                 "start_crop": self.start_crop,
                 "end_crop": self.end_crop,
