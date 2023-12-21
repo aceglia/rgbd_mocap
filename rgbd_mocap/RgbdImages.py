@@ -91,6 +91,10 @@ class RgbdImages:
         self.depth_model = None
         self.color_dist_coeffs = None
         self.depth_dist_coeffs = None
+
+        # Camera extrinsic
+        self.depth_to_color = None
+
         self.depth_scale = None
         self.frame_idx = 0
         self.optical_flow_params = None
@@ -103,9 +107,6 @@ class RgbdImages:
         self.time_to_get_frame = -1
         self.camera_frame_numbers = []
         self.last_pos = []
-
-        # Camera extrinsic
-        self.depth_to_color = None
 
         # Cropping
         self.cropping = False
@@ -132,8 +133,8 @@ class RgbdImages:
         self.last_color_frame = None
         self.last_depth_frame = None
         self.depth_frame = None
-        self.upper_bound = []
-        self.lower_bound = []
+        # self.upper_bound = []
+        # self.lower_bound = []
         self.marker_sets = []
         self.is_tracking_init = False
         self.first_frame_markers = None

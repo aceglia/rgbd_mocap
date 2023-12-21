@@ -1,8 +1,36 @@
 from rgbd_mocap.marker_class import MarkerSet
+from rgbd_mocap.RgbdImages import RgbdImages
 
 
 class KinMarkerSet:
-    def __new__(cls, camera, option_from):
+    """
+    A static class that allow the initialization
+    of the MarkerSets to track and the MarkerSet
+    for kinematic representation.
+    This class contains an Enum linked to its static
+    method.
+    This class cannot be initialized and only return
+    the created kinematic MarkerSets after adding to
+    the given camera the classic MarkerSets.
+    """
+    def __new__(cls, camera: RgbdImages, option_from):
+        """
+        Initialize MarkersSets corresponding to the option.
+        Add the created MarkerSets to the given camera.
+        Initialize and returns the kinematic MarkerSets, created
+        along the classic MarkerSets.
+
+        Parameters
+        ----------
+        camera: RgbdImages
+            Camera to add MarkerSets
+        option_from : KinMarkerSet.Enum
+            Method to apply for the initialization of the MarkerSets
+
+        Returns
+        -------
+        list[MarkerSet]
+        """
         ### Init the marker_sets and kin_marker_set
         marker_sets, kin_marker_set = option_from()
 
@@ -69,7 +97,30 @@ class KinMarkerSet:
         return marker_sets, kin_marker_sets
 
     @staticmethod
-    def create_set(set_names, set_list, image_index=False):
+    def create_set(set_names: list[str], set_list: list[list[str]], image_index: bool = False):
+        """
+        KinMarkerSet static method creating
+        a list of MarkerSet from the list of
+        the sets names and the list of markers
+        names for each set.
+        image_index indicate if the image_index
+        should be in increasing order (True) or if all
+        index are set to None. (False)
+
+        Parameters
+        ----------
+        set_names: list[str]
+            List containing the names of the MarkerSets
+        set_list: list[list[str]]
+            List containing the list of names for Markers in the corresponding MarkerSet
+        image_index: bool
+            If set to True MarkerSet will have their image_index put in increasing order (beginning with 0).
+            Else the MarkerSet will have the default value for its image_index.
+
+        Returns
+        -------
+        list[MarkerSet]
+        """
         marker_set = []
 
         for i in range(len(set_names)):
@@ -78,6 +129,7 @@ class KinMarkerSet:
                                         image_idx=i * image_index))  # will always be 0 if image_index is False
 
         return marker_set
+
 
     ### Link Class enum to the corresponding methods
     BACK_3 = from_back_3
