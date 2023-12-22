@@ -1,240 +1,131 @@
+from rgbd_mocap.enums import ColorResolution, DepthResolution, FrameRate
+from typing import Union
+from rgbd_mocap.utils import set_conf_file_from_camera, get_conf_data
 import numpy as np
+import json
+from camera_converter import CameraConverter
 
 try:
     import pyrealsense2 as rs
 except ImportError:
     raise ImportWarning("Cannot use camera: Import of the library pyrealsense2 failed")
     pass
-from rgbd_mocap.RgbdImages import RgbdImages
-
-
-class CameraIntrinsics:
-    def __init__(self):
-        self.width = None
-        self.height = None
-        self.fx = None
-        self.fy = None
-        self.ppx = None
-        self.ppy = None
-        self.intrinsics_mat = None
-        self.model = None
-        self.dist_coefficients = None
-
-    def set_intrinsics_from_file(self, fx_fy, ppx_ppy, dist_coefficients, depth_frame):
-        self.height = depth_frame.shape[1]
-        self.width = depth_frame.shape[0]
-
-        self.fx = fx_fy[0]
-        self.fy = fx_fy[1]
-
-        self.ppx = ppx_ppy[0]
-        self.ppy = ppx_ppy[1]
-
-        self.dist_coefficients = dist_coefficients
-        self.model = rs.distortion.inverse_brown_conrady
-
-        self._set_intrinsics_mat()
-
-    def set_intrinsics(self, intrinsics):
-        self.width = intrinsics.width
-        self.height = intrinsics.height
-        self.ppx = intrinsics.ppx
-        self.ppy = intrinsics.ppy
-        self.fx = intrinsics.fx
-        self.fy = intrinsics.fy
-        self.dist_coefficients = intrinsics.coeffs
-        self.model = intrinsics.model
-
-        self._set_intrinsics_mat()
-
-    def _set_intrinsics_mat(self):
-        self.intrinsics_mat = np.array(
-            [
-                [self.fx, 0, self.ppx],
-                [0, self.fy, self.ppx],
-                [0, 0, 1],
-            ],
-            dtype=float,
-        )
-
-    def get_intrinsics(self, model=None):
-        _intrinsics = rs.intrinsics()
-        _intrinsics.width = self.width
-        _intrinsics.height = self.height
-        _intrinsics.ppx = self.ppx
-        _intrinsics.ppy = self.ppy
-        _intrinsics.fx = self.fx
-        _intrinsics.fy = self.fy
-        _intrinsics.coeffs = self.dist_coefficients
-        _intrinsics.model = self.model
-        if model:
-            _intrinsics.model = model
-
-        return _intrinsics
 
 
 class Camera:
-    """
-    Camera class init the camera intrinsics to
-    calculate the position of the markers in pixel
-    via method 'express_in_pixel' or in meters
-    via method 'get_markers_pos_in_meters'.
-    """
-    def __init__(self, use_camera: bool = False, model=None):
+    config_file_path = "camera_conf.json"
+
+    def __init__(
+            self,
+            color_size: Union[tuple, ColorResolution],
+            depth_size: Union[tuple, DepthResolution],
+            color_fps: Union[int, FrameRate],
+            depth_fps: Union[int, FrameRate],
+            align: bool = False,
+    ):
         """
-        Init the Camera and its intrinsics. You can determine
-        if you are using a camera to get the intrinsics via
-        the 'use_camera parameter'. As well, you can change the
-        default method of image distortion with 'model' parameter.
+            Initialize the camera and the images parameters
 
-        Parameters
-        ----------
-        use_camera: bool
-            True if you get the intrinsics via a connected camera.
-            False if you get the intrinsics via configuration files.
-        model: rs.intrinsics.property
-            Model for distortion to apply on the image for the computation.
-        """
-        # Camera intrinsics
-        self.depth = CameraIntrinsics()
-        self.color = CameraIntrinsics()
-        self.model = model
+            Parameters:
+            -----------
+            color_size: tuple
+                Size of the color image (width, height)
+            depth_size: tuple
+                Size of the depth image (width, height)
+            color_fps: int
+                Frame per second of the color image
+            depth_fps: int
+                Frame per second of the depth image
+            align: bool
+                If True, the depth and color images will be aligned.
+                This can slow down the process.
+            """
+        # Intialize attributes
+        self.pipeline = rs.pipeline()
+        self.config = rs.config()
+        pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
+        pipeline_profile = self.config.resolve(pipeline_wrapper)
+        self.device = pipeline_profile.get_device()
 
-        self.set_intrinsics = self._set_intrinsics_from_file
-        if use_camera:
-            self.set_intrinsics = self._set_intrinsics_from_pipeline
+        # Test if the rgb channel exist
+        self.find_rgb()
 
-        # Camera extrinsic
-        self.depth_to_color = None
+        # Set depth and rgb channels
+        self.config.enable_stream(rs.stream.depth, depth_size[0], depth_size[1], rs.format.z16, depth_fps)
+        self.config.enable_stream(rs.stream.color, color_size[0], color_size[1], rs.format.bgr8, color_fps)
+        self.pipeline.start(self.config)
 
-    def _set_intrinsics_from_file(self, conf_data, depth_frame):
-        """
-        Private method.
-        Set the Camera intrinsics from file and frame.
+        # Align if needed the depth and color streams
+        self.align = None
+        if align:
+            align_to = rs.stream.color
+            self.align = rs.align(align_to)
 
-        Parameters
-        ----------
-        conf_data: dict
-            Dictionary containing the values to init the intrinsics of the camera.
-        depth_frame: np.array
-            Depth to determine size of the image.
-        """
-        self.depth.set_intrinsics_from_file(conf_data["depth_fx_fy"],
-                                            conf_data["depth_ppx_ppy"],
-                                            conf_data["dist_coeffs_color"],
-                                            depth_frame)
-        self.color.set_intrinsics_from_file(conf_data["color_fx_fy"],
-                                            conf_data["color_ppx_ppy"],
-                                            conf_data["dist_coeffs_color"],
-                                            depth_frame)
+        # Set the CameraConverter with its intrinsics
+        self.camera_intrinsics = CameraConverter(use_camera=True)
+        self.camera_intrinsics.set_intrinsics(self.pipeline)
 
-    def _set_intrinsics_from_pipeline(self, pipeline):
-        """
-        Private method.
-        Set the Camera intrinsics from pipeline.
+        # Write the camera config file in the file at 'Camera.config_file_path'
+        self.write_config_file()
+        self.conf_data = get_conf_data(Camera.config_file_path)
 
-        Parameters
-        ----------
-        pipeline: Any
-            Pipeline linked to the connected camera.
-        """
-        _intrinsics = (
-            pipeline.get_active_profile()
-            .get_stream(rs.stream.depth)
-            .as_video_stream_profile()
-            .get_intrinsics()
-        )
+        # Set Extrinsic
+        self._set_extrinsic_from_file()
 
-        self.depth.set_intrinsics(_intrinsics)
-        self.color.set_intrinsics(_intrinsics)
+        # Set scale
+        self._set_scale()
 
-    def express_in_pixel(self, marker_pos_in_meters):
-        """
-        Get the intrinsics and compute the markers positions
-        in meters to get the markers positions in pixel.\
+    def find_rgb(self):
+        for s in self.device.sensors:
+            if s.get_info(rs.camera_info.name) == "RGB Camera":
+                return
 
-        Parameters
-        ----------
-        marker_pos_in_meters: np.array
-            Markers positions in meters.
+        raise AssertionError("The program requires Depth camera with Color sensor")
 
-        Returns
-        -------
-        np.array
-        """
-        _intrinsics = self.depth.get_intrinsics(self.model)
+    def _set_extrinsic_from_file(self):
+        self.depth_to_color = np.eye(4)
+        self.depth_to_color[:3, :3] = self.conf_data["depth_to_color_rot"]
+        self.depth_to_color[:3, 3] = self.conf_data["depth_to_color_trans"]
 
-        markers_in_pixels = self._compute_markers(_intrinsics, marker_pos_in_meters, rs.rs2_project_point_to_pixel)
+    def _set_scale(self):
+        self.scale = self.conf_data['depth_scale']
 
-        return markers_in_pixels
+    def config_to_dict(self):
+        device_product_line = str(self.device.get_info(rs.camera_info.product_line))
+        d_profile = self.pipeline.get_active_profile().get_stream(rs.stream.depth).as_video_stream_profile()
+        d_intr = d_profile.get_intrinsics()
+        scale = self.pipeline.get_active_profile().get_device().first_depth_sensor().get_depth_scale()
+        c_profile = self.pipeline.get_active_profile().get_stream(rs.stream.color).as_video_stream_profile()
+        c_intr = c_profile.get_intrinsics()
+        depth_to_color = d_profile.get_extrinsics_to(c_profile)
+        r = np.array(depth_to_color.rotation).reshape(3, 3)
+        t = np.array(depth_to_color.translation)
+        dic = {
+            "camera_name": device_product_line,
+            "depth_scale": scale,
+            "depth_fx_fy": [d_intr.fx, d_intr.fy],
+            "depth_ppx_ppy": [d_intr.ppx, d_intr.ppy],
+            "color_fx_fy": [c_intr.fx, c_intr.fy],
+            "color_ppx_ppy": [c_intr.ppx, c_intr.ppy],
+            "depth_to_color_trans": t.tolist(),
+            "depth_to_color_rot": r.tolist(),
+            "model_color": c_intr.model.name,
+            "model_depth": d_intr.model.name,
+            "dist_coeffs_color": c_intr.coeffs,
+            "dist_coeffs_depth": d_intr.coeffs,
+            "size_color": [c_intr.width, c_intr.height],
+            "size_depth": [d_intr.width, d_intr.height],
+            "color_rate": c_profile.fps(),
+            "depth_rate": d_profile.fps(),
+        }
 
-    def get_markers_pos_in_meter(self, marker_pos_in_pixel=None, method: callable = None):
-        """
-        Get the intrinsics and compute the markers positions
-        in pixels to get the markers positions in meters.
-        If both parameters are set then the given
-        'marker_pos_in_pixel' override the one get from
-        the method.
+        return dic
 
-        Parameters
-        ----------
-        marker_pos_in_pixel: np.array
-            Markers positions in meters.
-        method: callable
-            Method to get markers position (Either RgbdImages.get_global_markers_pos or
-            RgbdImages.get_merged_global_markers_pos methods)
+    def write_config_file(self):
+        dic = self.config_to_dict()
+        with open(Camera.config_file_path, "w") as outfile:
+            json.dump(dic, outfile, indent=4)
 
-        Returns
-        -------
-        np.array
-        """
-        if marker_pos_in_pixel is None and method is None:
-            raise ValueError("""[Camera] Cannot get markers position in meters:
-             arguments 'marker_pos_in_pixel' and 'method' are None""")
 
-        if method is not None and (RgbdImages.get_global_markers_pos == method or
-                                   RgbdImages.get_merged_global_markers_pos == method):
-            raise ValueError(f"""[Camera] Cannot get markers position in meters: argument 'method' is not a valid.
-            Valid methods are: {RgbdImages.get_global_markers_pos} and {RgbdImages.get_merged_global_markers_pos}""")
-
-        if marker_pos_in_pixel is None:
-            marker_pos_in_pixel, markers_names, occlusions, reliability = method()  # Call get_global_markers_pos or
-                                                                                    # get_merged_global_markers_pos
-        elif method is None:
-            markers_names, occlusions, reliability = None, None, 0
-        else:
-            _, markers_names, occlusions, reliability = method()
-
-        _intrinsics = self.depth.get_intrinsics(self.model)
-        markers_in_meters = self._compute_markers(_intrinsics, marker_pos_in_pixel, rs.rs2_deproject_pixel_to_point)
-
-        return markers_in_meters, markers_names, occlusions, reliability
-
-    @staticmethod
-    def _compute_markers(intrinsics, marker_pos, method,):
-        """
-        Private method.
-        Compute the markers positions with the given method and intrinsics.
-        For positions in meters to pixels use rs.rs2_project_point_to_pixel
-        For positions in pixels to meters use rs.rs2_deproject_pixel_to_point
-
-        Parameters
-        ----------
-        intrinsics: rs.intrinsics
-            Camera intrinsics.
-        marker_pos:
-            Markers positions.
-        method:
-            Method to compute markers positions.
-
-        Returns
-        -------
-        np.array
-        """
-        markers = np.zeros_like(marker_pos)
-
-        for m in range(marker_pos.shape[1]):
-            markers[:2, m] = method(
-                intrinsics, [marker_pos[0, m], marker_pos[1, m], marker_pos[2, m]]
-            )
-        return markers
+if __name__ == '__main__':
+    camera = Camera(ColorResolution.R_480x270, DepthResolution.R_480x270, FrameRate.FPS_60, FrameRate.FPS_60, True)
