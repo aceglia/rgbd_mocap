@@ -14,6 +14,7 @@ class Marker:
         ### Shared Memory
         # Position arrays
         self.pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
+        self.last_pos = self.pos.copy()
         self.filtered_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
         self.global_filtered_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
         # self.global_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
@@ -31,6 +32,9 @@ class Marker:
         self.n_states = 4
         self.n_measures = 2
         self.kalman = None
+
+        ### Is static
+        self.is_static = False
 
     def predict_from_kalman(self):
         self.pos[:2] = self.kalman.predict()[:2].reshape(
@@ -75,6 +79,10 @@ class Marker:
         self.kalman.statePre = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
         self.kalman.statePost = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
         self.predict_from_kalman()
+
+    def set_pos_2d(self, position):
+        self.last_pos[:2] = self.pos[:2]
+        self.pos[:2] = position
 
     def set_global_pos(self, local_pos, start_crop):
         if local_pos[0] is not None and local_pos[1] is not None:
@@ -239,6 +247,17 @@ class MarkerSet:
             position of the markers
         """
         return np.array([marker.pos for marker in self.markers]).T.reshape(3, self.nb_markers)
+
+    def get_markers_pos_2d(self):
+        """
+        Get the position of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        return np.array([marker.pos[:2] for marker in self.markers]).T.reshape(3, self.nb_markers)
 
     def get_markers_reliability_index(self, frame_idx):
         return list(np.array([marker.get_reliability_index(frame_idx) for marker in self.markers]).round(2))
@@ -476,3 +495,10 @@ class MarkerSet:
             ms.add_marker(marker)
 
         return ms
+
+    def __getitem__(self, item):
+        return self.markers[item]
+
+    def __iter__(self):
+        for marker in self.markers:
+            yield marker

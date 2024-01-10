@@ -243,104 +243,104 @@ class RgbdImages:
         ]
         return color_images, depth_images
 
-    # def init_camera(
-    #     self,
-    #     color_size: Union[tuple, ColorResolution],
-    #     depth_size: Union[tuple, DepthResolution],
-    #     color_fps: Union[int, FrameRate],
-    #     depth_fps: Union[int, FrameRate],
-    #     align: bool = False,
-    # ):
-    #     """
-    #     Initialize the camera and the images parameters
+    def init_camera(
+        self,
+        color_size: Union[tuple, ColorResolution],
+        depth_size: Union[tuple, DepthResolution],
+        color_fps: Union[int, FrameRate],
+        depth_fps: Union[int, FrameRate],
+        align: bool = False,
+    ):
+        """
+        Initialize the camera and the images parameters
 
-    #     Parameters:
-    #     -----------
-    #     color_size: tuple
-    #         Size of the color image (width, height)
-    #     depth_size: tuple
-    #         Size of the depth image (width, height)
-    #     color_fps: int
-    #         Frame per second of the color image
-    #     depth_fps: int
-    #         Frame per second of the depth image
-    #     align: bool
-    #         If True, the depth and color images will be aligned.
-    #         This can slow down the process.
-    #     """
-    #     if isinstance(depth_size, DepthResolution):
-    #         depth_size = depth_size.value
-    #     if isinstance(color_size, ColorResolution):
-    #         color_size = color_size.value
-    #     if isinstance(color_fps, FrameRate):
-    #         color_fps = color_fps.value
-    #     if isinstance(depth_fps, FrameRate):
-    #         depth_fps = depth_fps.value
-    #     if self.color_images or self.depth_images:
-    #         raise ValueError("The camera can't be initialized if the images are loaded from a file.")
-    #     self.pipeline = rs.pipeline()
-    #     config = rs.config()
-    #     pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
-    #     pipeline_profile = config.resolve(pipeline_wrapper)
-    #     device = pipeline_profile.get_device()
+        Parameters:
+        -----------
+        color_size: tuple
+            Size of the color image (width, height)
+        depth_size: tuple
+            Size of the depth image (width, height)
+        color_fps: int
+            Frame per second of the color image
+        depth_fps: int
+            Frame per second of the depth image
+        align: bool
+            If True, the depth and color images will be aligned.
+            This can slow down the process.
+        """
+        if isinstance(depth_size, DepthResolution):
+            depth_size = depth_size.value
+        if isinstance(color_size, ColorResolution):
+            color_size = color_size.value
+        if isinstance(color_fps, FrameRate):
+            color_fps = color_fps.value
+        if isinstance(depth_fps, FrameRate):
+            depth_fps = depth_fps.value
+        if self.color_images or self.depth_images:
+            raise ValueError("The camera can't be initialized if the images are loaded from a file.")
+        self.pipeline = rs.pipeline()
+        config = rs.config()
+        pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
+        pipeline_profile = config.resolve(pipeline_wrapper)
+        device = pipeline_profile.get_device()
 
-    #     found_rgb = False
-    #     for s in device.sensors:
-    #         if s.get_info(rs.camera_info.name) == "RGB Camera":
-    #             found_rgb = True
-    #             break
-    #     if not found_rgb:
-    #         print("The program requires Depth camera with Color sensor")
-    #         exit(0)
-    #     config.enable_stream(rs.stream.depth, depth_size[0], depth_size[1], rs.format.z16, depth_fps)
-    #     config.enable_stream(rs.stream.color, color_size[0], color_size[1], rs.format.bgr8, color_fps)
-    #     self.pipeline.start(config)
+        found_rgb = False
+        for s in device.sensors:
+            if s.get_info(rs.camera_info.name) == "RGB Camera":
+                found_rgb = True
+                break
+        if not found_rgb:
+            print("The program requires Depth camera with Color sensor")
+            exit(0)
+        config.enable_stream(rs.stream.depth, depth_size[0], depth_size[1], rs.format.z16, depth_fps)
+        config.enable_stream(rs.stream.color, color_size[0], color_size[1], rs.format.bgr8, color_fps)
+        self.pipeline.start(config)
 
-    #     if align:
-    #         align_to = rs.stream.color
-    #         self.align = rs.align(align_to)
-    #         self.is_frame_aligned = True
+        if align:
+            align_to = rs.stream.color
+            self.align = rs.align(align_to)
+            self.is_frame_aligned = True
 
-    #     set_conf_file_from_camera(self.pipeline, device)
-    #     self.conf_data = get_conf_data("camera_conf.json")
-    #     self._set_images_params()
-    #     self.is_camera_init = True
+        set_conf_file_from_camera(self.pipeline, device)
+        self.conf_data = get_conf_data("camera_conf.json")
+        self._set_images_params()
+        self.is_camera_init = True
 
-    # def _set_intrinsics_from_file(self):
-    #     self.depth_fx_fy = self.conf_data["depth_fx_fy"]
-    #     self.depth_ppx_ppy = self.conf_data["depth_ppx_ppy"]
-    #     self.color_fx_fy = self.conf_data["color_fx_fy"]
-    #     self.color_ppx_ppy = self.conf_data["color_ppx_ppy"]
+    def _set_intrinsics_from_file(self):
+        self.depth_fx_fy = self.conf_data["depth_fx_fy"]
+        self.depth_ppx_ppy = self.conf_data["depth_ppx_ppy"]
+        self.color_fx_fy = self.conf_data["color_fx_fy"]
+        self.color_ppx_ppy = self.conf_data["color_ppx_ppy"]
 
-    #     self.intrinsics_depth_mat = np.array(
-    #         [
-    #             [self.depth_fx_fy[0], 0, self.depth_ppx_ppy[0]],
-    #             [0, self.depth_fx_fy[1], self.depth_ppx_ppy[0]],
-    #             [0, 0, 1],
-    #         ],
-    #         dtype=float,
-    #     )
-    #     self.intrinsics_color_mat = np.array(
-    #         [
-    #             [self.color_fx_fy[0], 0, self.color_ppx_ppy[0]],
-    #             [0, self.color_fx_fy[1], self.color_ppx_ppy[0]],
-    #             [0, 0, 1],
-    #         ],
-    #         dtype=float,
-    #     )
+        self.intrinsics_depth_mat = np.array(
+            [
+                [self.depth_fx_fy[0], 0, self.depth_ppx_ppy[0]],
+                [0, self.depth_fx_fy[1], self.depth_ppx_ppy[0]],
+                [0, 0, 1],
+            ],
+            dtype=float,
+        )
+        self.intrinsics_color_mat = np.array(
+            [
+                [self.color_fx_fy[0], 0, self.color_ppx_ppy[0]],
+                [0, self.color_fx_fy[1], self.color_ppx_ppy[0]],
+                [0, 0, 1],
+            ],
+            dtype=float,
+        )
 
-    # def _set_extrinsic_from_file(self):
-    #     self.depth_to_color = np.eye(4)
-    #     self.depth_to_color[:3, :3] = self.conf_data["depth_to_color_rot"]
-    #     self.depth_to_color[:3, 3] = self.conf_data["depth_to_color_trans"]
+    def _set_extrinsic_from_file(self):
+        self.depth_to_color = np.eye(4)
+        self.depth_to_color[:3, :3] = self.conf_data["depth_to_color_rot"]
+        self.depth_to_color[:3, 3] = self.conf_data["depth_to_color_trans"]
 
-    # def _set_depth_scale_from_file(self):
-    #     self.depth_scale = self.conf_data["depth_scale"]
+    def _set_depth_scale_from_file(self):
+        self.depth_scale = self.conf_data["depth_scale"]
 
-    # def _set_images_params(self):
-    #     self._set_intrinsics_from_file()
-    #     self._set_extrinsic_from_file()
-    #     self._set_depth_scale_from_file()
+    def _set_images_params(self):
+        self._set_intrinsics_from_file()
+        self._set_extrinsic_from_file()
+        self._set_depth_scale_from_file()
 
     def _crop_frames(self, color, depth):
         color_cropped = []
@@ -349,10 +349,10 @@ class RgbdImages:
         for i in range(len(self.start_crop[0])):
             # self._adapt_cropping(color, i)
             color_cropped.append(
-                color[self.start_crop[1][i] : self.end_crop[1][i], self.start_crop[0][i] : self.end_crop[0][i], :]
+                color[self.start_crop[1][i]: self.end_crop[1][i], self.start_crop[0][i] : self.end_crop[0][i], :]
             )
             depth_cropped.append(
-                depth[self.start_crop[1][i] : self.end_crop[1][i], self.start_crop[0][i] : self.end_crop[0][i]]
+                depth[self.start_crop[1][i]: self.end_crop[1][i], self.start_crop[0][i] : self.end_crop[0][i]]
             )
         if i == -1:
             return [color], [depth]
@@ -496,7 +496,8 @@ class RgbdImages:
             return img
 
         # if label_markers:
-        #     old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)  # TODO Static optical flow
+        #     old_markers_pos, markers_visible_names = self._prepare_data_optical_flow(i)  # TODO Static optical flown
+        #
         #     if len(old_markers_pos) != 0:
         #         error_threshold = 10
         #         if use_optical_flow:
@@ -1081,6 +1082,7 @@ class RgbdImages:
                                     self.marker_sets[idx].markers[p].pos,
                                     [self.start_crop[0][idx], self.start_crop[1][idx]],
                         )
+                # print(count == m)
                 count += 1
             markers_pos_list.append(marker.pos[:2])
             # for j, marker_pos in enumerate(marker.pos[:2]):
@@ -1112,6 +1114,7 @@ class RgbdImages:
                     marker.pos[2] = marker_depth
 
             marker.set_global_pos(marker.pos, [self.start_crop[0][idx], self.start_crop[1][idx]])
+
         self.last_pos[idx] = last_pos
 
     @staticmethod
