@@ -81,6 +81,9 @@ class Marker:
         self.predict_from_kalman()
 
     def set_pos_2d(self, position):
+        self.pos[:2] = position
+
+    def set_pos_and_last_2d(self, position):
         self.last_pos[:2] = self.pos[:2]
         self.pos[:2] = position
 

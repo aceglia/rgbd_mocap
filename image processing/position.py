@@ -27,5 +27,7 @@ class Position:
         return np.linalg.norm(self.position, marker.pos[:2])
 
     def check_bounds(self, max_x, max_y):
-        self.position[0] = check_bounds(self.position[0], max_x)
-        self.position[1] = check_bounds(self.position[1], max_y)
+        self.position[0], visibility_x = check_bounds(self.position[0], max_x)
+        self.position[1], visibility_y = check_bounds(self.position[1], max_y)
+
+        self.visibility = visibility_x and visibility_y

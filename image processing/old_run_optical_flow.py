@@ -104,10 +104,11 @@ def _run_optical_flow(
                             + (curent_pos[1] - past_last_pos[m][1]) ** 2
                         )
                         if dist_p < dist_current:
-                            marker.correct_from_kalman(past_last_pos[m])
+                            # marker.correct_from_kalman(past_last_pos[m])
                             marker.pos[:2] = past_last_pos[m]
+                        #     check closest blob
                         else:
-                            self.marker_sets[idx].markers[p].correct_from_kalman(past_last_pos[p])
+                            # self.marker_sets[idx].markers[p].correct_from_kalman(past_last_pos[p])
                             self.marker_sets[idx].markers[p].pos[:2] = past_last_pos[p]
                             marker_depth, self.marker_sets[idx].markers[p].is_depth_visible = check_and_attribute_depth(
                                 self.marker_sets[idx].markers[p].pos[:2], self.depth_cropped[idx],

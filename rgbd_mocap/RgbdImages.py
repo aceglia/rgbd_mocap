@@ -894,6 +894,7 @@ class RgbdImages:
                     markers_in_meter, _, _, _ = self.get_global_markers_pos_in_meter(np.array(marker_global)[:, np.newaxis])
                     idx_tmp = find_closest_markers_in_model(markers_in_meter, markers, p, self.kinematic_model)
                     if idx_tmp != i:
+                        print(i == nb_past_markers)
                         marker_local = np.array(self.express_in_local(
                         _in_pixel[:, nb_past_markers + count], [self.start_crop[0][idx], self.start_crop[1][idx]]))
                         self.marker_sets[idx].markers[count].correct_from_kalman(marker_local)
