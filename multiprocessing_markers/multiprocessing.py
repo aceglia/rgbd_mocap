@@ -5,7 +5,7 @@ import cv2
 
 import numpy as np
 from multiprocessing import Queue, Process
-from frames.frames import SharedFrames
+from frames.shared_frames import SharedFrames
 from rgbd_mocap.marker_class import MarkerSet
 
 

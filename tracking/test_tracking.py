@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
-from tracking_markers import Tracker, Position, MarkerSet, List, Frames
+from tracking_markers import Tracker, Position, MarkerSet, List, CropFrames
+from frames.frames import Frames
 
 
 params_detector = cv2.SimpleBlobDetector_Params()
@@ -77,7 +78,8 @@ def main():
     all_color_files = [path + f"{name}_{i}.png" for i in range(0, 360, angle)]
     color_images = [cv2.imread(file) for file in all_color_files[:]]
 
-    image = Frames(color_images[0], color_images[0])
+    frame = Frames(color_images[0], color_images[0])
+    image = CropFrames((0, 0, frame.width, frame.height), frame)
 
     # Marker Set
     marker_set = MarkerSet('Test', ['a', 'b', 'c', 'd'])
@@ -98,7 +100,9 @@ def main():
     quit_press = False
     while not quit_press:
         for i in range(len(color_images)):
-            image.set_images(color_images[i], color_images[i])
+            frame.set_images(color_images[i], color_images[i])
+            image.get_image()
+
             img = image.color
             blobs = get_blobs(image.color)
             # img = print_blobs(image.color, blobs)

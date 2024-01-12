@@ -4,13 +4,13 @@ from rgbd_mocap.utils import find_closest_blob
 from rgbd_mocap.marker_class import MarkerSet, Marker
 from position import Position
 from optical_flow import OpticalFlow
-from frames.frames import Frames
+from frames.crop_frames import CropFrames
 
 
 class Tracker:
     DELTA = 8
 
-    def __init__(self, frame: Frames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True):
+    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True):
         self.marker_set = marker_set
 
         # Tracking method
@@ -117,7 +117,7 @@ class Tracker:
                     self._correct_overlapping(i, j)
 
     # Check new_positions are within the crop
-    def check_bounds(self, frame: Frames):
+    def check_bounds(self, frame: CropFrames):
         max_x = frame.width - 1
         max_y = frame.height - 1
         # min_d, max_d = self.depth
@@ -128,7 +128,7 @@ class Tracker:
 
             # TODO check depth and set if visible
 
-    def track(self, frame: Frames, blobs):
+    def track(self, frame: CropFrames, blobs):
         self.blobs = blobs
 
         # Track the next position for all markers

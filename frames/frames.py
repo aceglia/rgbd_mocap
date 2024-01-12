@@ -1,5 +1,4 @@
 import numpy as np
-from multiprocessing import RawArray
 
 
 class Frames:
@@ -34,22 +33,9 @@ class Frames:
     def get_images(self):
         return self.color, self.depth
 
+    @staticmethod
+    def _get_crop(image, area):
+        return image[area[0]: area[2], area[1]:area[3]]
 
-class SharedFrames(Frames):
-    def __init__(self, color_frame, depth_frame):
-        super().__init__(color_frame, depth_frame)
-
-        color_array = RawArray('c', self.width * self.height * 3)  # 'c' -> value between 0-255
-        depth_array = RawArray('i', self.width * self.height)  # 'i' -> int32
-
-        self.color = np.frombuffer(color_array, dtype=np.uint8).reshape((self.width, self.height, 3))
-        self.depth = np.frombuffer(depth_array, dtype=np.int32).reshape((self.width, self.height))
-
-        np.copyto(self.color, color_frame)
-        np.copyto(self.depth, depth_frame)
-
-    def set_images(self, color_frame, depth_frame):
-        self.check_color_and_depth(color_frame, depth_frame)
-
-        np.copyto(self.color, color_frame)
-        np.copyto(self.depth, depth_frame)
+    def get_crop(self, area):
+        return self._get_crop(self.color, area), self._get_crop(self.depth, area)
