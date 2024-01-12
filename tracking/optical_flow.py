@@ -19,7 +19,9 @@ class OpticalFlow:
     def __init__(self, frame, positions):
         self.frame = image_gray_and_blur(frame, OpticalFlow.BLUR)
         self.previous_frame = self.frame.copy()
+        print(positions)
         self.previous_positions = np.array(positions, dtype=np.float32)
+        print(self.previous_positions)
 
         self.value = None
 

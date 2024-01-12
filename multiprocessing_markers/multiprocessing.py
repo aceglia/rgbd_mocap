@@ -3,45 +3,10 @@ import sys
 
 import cv2
 
-import rgbd_mocap.marker_class
 import numpy as np
-from multiprocessing import Queue, Process, Lock, RawArray
+from multiprocessing import Queue, Process
+from frames.frames import SharedFrames
 from rgbd_mocap.marker_class import MarkerSet
-
-
-class SharedFrames:
-    def __init__(self, color_frame, depth_frame):
-        if color_frame is None or depth_frame is None:
-            raise ValueError(f'{self}: color_frame and depth frame should be init.')
-
-        self.width = color_frame.shape[0]
-        self.height = color_frame.shape[1]
-
-        color_array = RawArray('c', self.width * self.height * 3)  # 'c' -> value between 0-255
-        depth_array = RawArray('i', self.width * self.height)  # 'i' -> int32
-
-        self.color = np.frombuffer(color_array, dtype=np.uint8).reshape((self.width, self.height, 3))
-        self.depth = np.frombuffer(depth_array, dtype=np.int32).reshape((self.width, self.height))
-
-        np.copyto(self.color, color_frame)
-        np.copyto(self.depth, depth_frame)
-
-    def shape_error(self, got, expected):
-        raise ValueError(
-            f'{self}: Given array has a wrong shape, got "{got.shape}" expected "{expected.shape}".')
-
-    def set_images(self, color_frame, depth_frame):
-        if color_frame.shape != self.color.shape:
-            self.shape_error(color_frame, self.color)
-
-        if depth_frame.shape != self.depth.shape:
-            self.shape_error(depth_frame, self.depth)
-
-        np.copyto(self.color, color_frame)
-        np.copyto(self.depth, depth_frame)
-
-    def get_images(self):
-        return self.color, self.depth
 
 
 class ProcessHandler:

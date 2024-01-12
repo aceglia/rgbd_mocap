@@ -37,10 +37,11 @@ class Marker:
         self.is_static = False
 
     def predict_from_kalman(self):
-        self.pos[:2] = self.kalman.predict()[:2].reshape(
-            2,
-        )
-        return self.pos[:2]
+        predict = self.kalman.predict()[:2].reshape(2,)
+
+        # self.pos[:2] = predict
+
+        return predict
 
     def get_reliability_index(self, frame_idx):
         return self.reliability_index.value / (frame_idx + 1)
@@ -75,13 +76,15 @@ class Marker:
             self.kalman.measurementMatrix[i, self.Measurement_array[i]] = 1
         self.pos = np.array(points)
 
-        input_points = np.float32(np.ndarray.flatten(points))
+        # input_points = np.float32(np.ndarray.flatten(points))
+        input_points = points
         self.kalman.statePre = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
         self.kalman.statePost = np.array([input_points[0], input_points[1], 0, 0], dtype=np.float32)
         self.predict_from_kalman()
 
     def set_pos_2d(self, position):
-        self.pos[:2] = position
+        if position != ():
+            self.pos[:2] = position
 
     def set_pos_and_last_2d(self, position):
         self.last_pos[:2] = self.pos[:2]
@@ -260,7 +263,7 @@ class MarkerSet:
         np.ndarray
             position of the markers
         """
-        return np.array([marker.pos[:2] for marker in self.markers]).T.reshape(3, self.nb_markers)
+        return np.array([marker.pos[:2] for marker in self.markers]).T.reshape(self.nb_markers, 2)
 
     def get_markers_reliability_index(self, frame_idx):
         return list(np.array([marker.get_reliability_index(frame_idx) for marker in self.markers]).round(2))
@@ -447,6 +450,12 @@ class MarkerSet:
     def init_kalman(self, points):
         for m, mark in enumerate(self.markers):
             mark.init_kalman(points[:, m])
+
+    def init_kalman_from_pos(self, posistions):
+        assert len(posistions) == len(self.markers)
+
+        for i in range(len(posistions)):
+            self.markers[i].init_kalman(posistions[i])
 
     def init_filtered_pos(self, points: np.ndarray) -> None:
         """
