@@ -6,9 +6,11 @@ from rgbd_mocap.marker_class import Marker
 
 def check_bounds(i, max_bound, min_bound=0):
     if i < min_bound:
+        print(i)
         return min_bound, False
 
     elif i > max_bound:
+        print(i)
         return max_bound, False
 
     return i, True

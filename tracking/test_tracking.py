@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from tracking_markers import Tracker, Position, MarkerSet, List, CropFrames
+from tracking.tracking_markers import Tracker, Position, MarkerSet, List, CropFrames
 from frames.frames import Frames
 
 
@@ -31,26 +31,41 @@ def print_blobs(frame, blobs, size=4, color=(0, 255, 0)):
 
 
 def print_marker(frame, marker_set: MarkerSet):
-    blobs = []
-    color = (0, 0, 255)
+    visible = []
+    not_visible = []
+    color_ok = (0, 255, 0)
+    color_not_ok = (0, 0, 255)
 
     for marker in marker_set:
-        frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 1)
-        blobs.append(marker.pos[:2])
+        if marker.is_visible:
+            frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, color_ok, 1)
+            visible.append(marker.pos[:2])
 
-    return print_blobs(frame, blobs, size=2, color=color)
+        else:
+            frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, color_not_ok, 1)
+            not_visible.append(marker.pos[:2])
+
+    frame = print_blobs(frame, visible, size=2, color=color_ok)
+    return print_blobs(frame, not_visible, size=2, color=color_not_ok)
 
 
 def print_position(frame, positions: List[Position]):
+    blob_static = []
     blob_visible = []
     blob_not_visible = []
     for pos in positions:
+        if isinstance(pos, tuple):
+            blob_static.append(pos)
+            continue
+
         if pos.visibility:
             blob_visible.append(pos.position)
         else:
             blob_not_visible.append(pos.position)
 
+    frame = print_blobs(frame, blob_static, size=3, color=(120, 120, 120))
     frame = print_blobs(frame, blob_visible, size=3, color=(255, 155, 0))
     return print_blobs(frame, blob_not_visible, size=3, color=(255, 0, 0))
 
@@ -68,6 +83,9 @@ def set_marker_pos(marker_set: MarkerSet, positions: List[Position]):
     for i in range(len(positions)):
         if positions[i] != ():
             marker_set[i].pos[:2] = positions[i].position
+            marker_set[i].is_visible = positions[i].visibility
+        else:
+            marker_set[i].is_visible = False
 
 
 def main():
@@ -101,7 +119,7 @@ def main():
     while not quit_press:
         for i in range(len(color_images)):
             frame.set_images(color_images[i], color_images[i])
-            image.get_image()
+            image.get_images()
 
             img = image.color
             blobs = get_blobs(image.color)
@@ -110,7 +128,7 @@ def main():
             positions, estimate_positions = tracker.track(image, blobs)
 
             set_marker_pos(marker_set, positions)
-            tracker.optical_flow.set_positions([marker.pos[:2] for marker in marker_set])
+            # tracker.correct()
 
             # img = print_blobs(img, blobs, size=5)
             img = print_estimated_positions(img, estimate_positions)

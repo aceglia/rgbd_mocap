@@ -98,7 +98,7 @@ class Filter:
         keypoints = detector.detect(self.filtered_frame)
         centers = []
         for blob in keypoints:
-            centers.append((int(blob.pt[1]), int(blob.pt[0])))
+            centers.append((int(blob.pt[0]), int(blob.pt[1])))
 
         return centers
 

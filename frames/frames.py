@@ -35,7 +35,7 @@ class Frames:
 
     @staticmethod
     def _get_crop(image, area):
-        return image[area[0]: area[2], area[1]:area[3]]
+        return image[area[1]: area[3], area[0]:area[2]]
 
     def get_crop(self, area):
         return self._get_crop(self.color, area), self._get_crop(self.depth, area)

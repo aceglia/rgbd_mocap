@@ -2,15 +2,15 @@ from typing import List, Tuple
 
 from rgbd_mocap.utils import find_closest_blob
 from rgbd_mocap.marker_class import MarkerSet, Marker
-from position import Position
-from optical_flow import OpticalFlow
+from tracking.position import Position
+from tracking.optical_flow import OpticalFlow
 from frames.crop_frames import CropFrames
 
 
 class Tracker:
-    DELTA = 8
+    DELTA = 10
 
-    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True):
+    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True, **kwargs):
         self.marker_set = marker_set
 
         # Tracking method
@@ -45,7 +45,7 @@ class Tracker:
         final_position = (0, 0)
         visibility_count = 0
         for position in positions:
-            if position.visibility:  # Does not take account of the Optical_flow estimation if it's not visible
+            if position.visibility:  # Does not take account of the estimations if it's not visible
                 final_position += position.position
                 visibility_count += 1
 
@@ -88,7 +88,7 @@ class Tracker:
             estimation, st, err = self.optical_flow[index]
 
             threshold = 10
-            if st == 1:  # and err < threshold:
+            if st == 1 and err < threshold:
                 self._get_blob_near_position(estimation, index)
 
         # return self._merge_positions(self.estimated_positions[index])
@@ -131,8 +131,10 @@ class Tracker:
     def track(self, frame: CropFrames, blobs):
         self.blobs = blobs
 
+        # Correct trajectories from last iteration
+        self.correct()
+
         # Track the next position for all markers
-        # self.positions = []
         if self.optical_flow:
             self.optical_flow.get_optical_flow_pos(frame.color)
 
@@ -143,12 +145,12 @@ class Tracker:
         self.check_tracking()
         self.check_bounds(frame)
 
-        i = 0
-        for marker in self.marker_set:
-            if self.positions[i] != ():
-                marker.correct_from_kalman(self.positions[i].position)
-            i += 1
-
         return self.positions, self.estimated_positions
 
-        # self.set_new_positions()
+    def correct(self):
+        if self.kalman:
+            for marker in self.marker_set:
+                marker.correct_from_kalman(marker.pos[:2])
+
+        if self.optical_flow:
+            self.optical_flow.set_positions([marker.pos[:2] for marker in self.marker_set])
