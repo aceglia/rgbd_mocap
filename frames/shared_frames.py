@@ -1,4 +1,4 @@
-from frames import Frames, np
+from frames.frames import Frames, np
 from multiprocessing import RawArray
 
 

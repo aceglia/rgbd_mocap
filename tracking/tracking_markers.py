@@ -31,8 +31,8 @@ class Tracker:
         self.estimated_positions[index].append(Position(position, False))
 
         position, visible = find_closest_blob(position, self.blobs, delta=Tracker.DELTA)
-        if visible:
-            self.estimated_positions[index].append(Position(position, visible))
+        # if visible:
+        self.estimated_positions[index].append(Position(position, visible))
             # self.estimated_positions[index][-1].set(position, visible)
 
         return visible
@@ -74,6 +74,13 @@ class Tracker:
         if self.naive:
             self._get_blob_near_position(marker.pos[:2], index)
 
+        # if we use Kalman then search the closest blob to the prediction
+        if self.kalman:
+            prediction = marker.predict_from_kalman()
+
+            self._get_blob_near_position(prediction, index)
+            # marker.correct_from_kalman(self.estimated_positions[index][-1].position)
+
         # If we use optical flow get the estimation, if the flow has been found
         # and the level of error is below the threshold then take the estimation
         # Then search for the closest blob, if found update the position estimated
@@ -83,13 +90,6 @@ class Tracker:
             threshold = 10
             if st == 1:  # and err < threshold:
                 self._get_blob_near_position(estimation, index)
-
-        # if we use Kalman then search the closest blob to the prediction
-        if self.kalman:
-            prediction = marker.predict_from_kalman()
-
-            self._get_blob_near_position(prediction, index)
-                # marker.correct_from_kalman(self.estimated_positions[index][-1].position)
 
         # return self._merge_positions(self.estimated_positions[index])
 

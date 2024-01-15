@@ -74,7 +74,7 @@ def main():
     # Image
     path = "test_image/"
     name = 'marker'
-    angle = 2
+    angle = 5
     all_color_files = [path + f"{name}_{i}.png" for i in range(0, 360, angle)]
     color_images = [cv2.imread(file) for file in all_color_files[:]]
 
@@ -91,8 +91,8 @@ def main():
     for i in range(len(marker_set.markers)):
         marker_set[i].pos[:2] = base_positions[i]
 
-    Tracker.DELTA = 10
-    tracker = Tracker(image, marker_set, naive=True, optical_flow=False, kalman=True)
+    Tracker.DELTA = 20
+    tracker = Tracker(image, marker_set, naive=False, optical_flow=True, kalman=False)
 
     # cv2.imshow('test', color_images[0])
     # cv2.waitKey(0)
@@ -110,7 +110,9 @@ def main():
             positions, estimate_positions = tracker.track(image, blobs)
 
             set_marker_pos(marker_set, positions)
+            tracker.optical_flow.set_positions([marker.pos[:2] for marker in marker_set])
 
+            # img = print_blobs(img, blobs, size=5)
             img = print_estimated_positions(img, estimate_positions)
             img = print_marker(img, marker_set)
 
