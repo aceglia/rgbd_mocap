@@ -53,9 +53,14 @@ class ProcessHandler:
         for queue in self.queue_arg_list:
             queue.put(order)
 
+    def receive_process(self):
         for _ in self.queue_arg_list:
             res = self.queue_res.get()
             # print(f"[Process {res}: Returned]")
+
+    def send_and_receive_process(self, order=1):
+        self.send_process(order)
+        self.receive_process()
 
     def end_process(self):
         for queue in self.queue_arg_list:

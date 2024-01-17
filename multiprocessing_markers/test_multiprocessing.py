@@ -4,6 +4,14 @@ import cv2
 
 from multiprocessing_markers.multiprocessing_ import ProcessHandler, MarkerSet, SharedFrames
 from multiprocessing_markers.config import config
+from tracking.test_tracking import print_marker
+
+
+def print_marker_sets(frame, marker_sets, crops):
+    for i, marker_set in enumerate(marker_sets):
+        frame = print_marker(frame, marker_set, (crops[i]['area'][0], crops[i]['area'][1]))
+
+    return frame
 
 
 def load_img(path, index):
@@ -15,8 +23,7 @@ def load_img(path, index):
 
     return color_image, depth_image
 
-
-def main():
+def init_():
     # Init Marker Sets
     set_names = []
     marker_names = []
@@ -52,19 +59,25 @@ def main():
     color, depth = load_img(path, index)
 
     # Frame
-    print(color, depth)
     frames = SharedFrames(color, depth)
 
     # Method
     tracking_options = {
-      "naive": True,
-      "kalman": True,
-      "optical_flow": True,
+        "naive": True,
+        "kalman": True,
+        "optical_flow": True,
     }
 
     process_handler = ProcessHandler(marker_sets, frames, config, tracking_options)
     process_handler.start_process()
 
+    return index, path, frames, process_handler, marker_sets
+
+
+def main(index, path, frames, process_handler, marker_sets):
+    avg_load_time = 0
+    avg_frame_time = 0
+    avg_total_time = 0
     while index != config['end_index']:
         tik = time.time()
 
@@ -75,24 +88,79 @@ def main():
             continue
 
         tok = time.time()
-        print('Loading frame :', tok - tik)
+        avg_load_time += (tok - tik)
 
-        tik = tok
         frames.set_images(color, depth)
+
+        # Process image
+        process_handler.send_and_receive_process()
+
+        tak = time.time()
+        avg_frame_time += (tak - tok)
+        avg_total_time += (tak - tik)
+
+        img = frames.color.copy()
+        img = print_marker_sets(img, marker_sets, config['crops'])
+
+        cv2.imshow('Main image :', img)
+        if cv2.waitKey(1) == ord('q'):
+            process_handler.end_process()
+            break
+
+    nb_img = index - config['start_index']
+    return avg_load_time / nb_img, avg_frame_time / nb_img, avg_total_time / nb_img
+
+
+def main_load_while_processing(index, path, frames, process_handler: ProcessHandler, marker_sets):
+    avg_load_time = 0
+    avg_frame_time = 0
+    avg_total_time = 0
+    while index != config['end_index']:
+        tik = time.time()
 
         # Process image
         process_handler.send_process()
 
         tok = time.time()
-        print('Time to compute frame:', tok - tik)
+        # Get next image
+        index += 1
+        color, depth = load_img(path, index)
+        if color is None or depth is None:
+            continue
 
+        tuk = time.time()
+        avg_load_time += (tuk - tok)
+
+        # Receive from process
+        process_handler.receive_process()
+
+        tak = time.time()
+        avg_frame_time += (tak - tik) - (tuk - tok)
+        avg_total_time += (tak - tik)
+
+        img = frames.color.copy()
+        img = print_marker_sets(img, marker_sets, config['crops'])
+
+        # Set next frame
+        frames.set_images(color, depth)
+
+        cv2.imshow('Main image :', img)
         if cv2.waitKey(1) == ord('q'):
             process_handler.end_process()
             break
 
-    return 0
+    nb_img = index - config['start_index']
+    return avg_load_time / nb_img, avg_frame_time / nb_img, avg_total_time / nb_img
 
 
 if __name__ == '__main__':
-    if main() == 0:
-        print("Everything's fine !")
+    # Init
+    index, path, frames, process_handler, marker_sets = init_()
+
+    # Run
+    load_time, frame_time, tot_time = main_load_while_processing(index, path, frames, process_handler, marker_sets)
+
+    print("Everything's fine !")
+    print('Average load time :', load_time)
+    print('Average computation time :', frame_time)
+    print('Average total time :', tot_time)

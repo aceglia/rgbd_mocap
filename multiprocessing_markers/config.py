@@ -2,7 +2,7 @@ import json
 
 
 def load_json():
-    path = 'test_project.json'
+    path = 'multiprocessing_markers/test_project.json'
 
     with open(path) as json_file:
         return json.load(json_file)

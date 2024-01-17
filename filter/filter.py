@@ -93,6 +93,9 @@ class Filter:
 
     ##### Blob detection ###############################
     def _blob_detector(self):
+        if not self.options['blob_option']:
+            return []
+
         detector = cv2.SimpleBlobDetector_create(self.blobs_param)
 
         keypoints = detector.detect(self.filtered_frame)

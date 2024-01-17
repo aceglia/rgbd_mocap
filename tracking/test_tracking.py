@@ -29,7 +29,7 @@ def print_blobs(frame, blobs, size=4, color=(0, 255, 0)):
     return img
 
 
-def print_marker(frame, marker_set: MarkerSet):
+def print_marker(frame, marker_set: MarkerSet, off_set=(0, 0)):
     visible = []
     not_visible = []
     color_ok = (0, 255, 0)
@@ -37,18 +37,21 @@ def print_marker(frame, marker_set: MarkerSet):
 
     for marker in marker_set:
         if marker.is_visible:
-            frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
+            frame = cv2.putText(frame, marker.name,
+                                (marker.pos[0] + 10 + off_set[0], marker.pos[1] + 10 + off_set[1]),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, color_ok, 1)
-            visible.append(marker.pos[:2])
+            visible.append(marker.pos[:2] + off_set)
 
             if marker.is_depth_visible:
-                frame = cv2.putText(frame, str(marker.pos[2] // 10), (marker.pos[0], marker.pos[1] + 20),
+                frame = cv2.putText(frame, str(marker.pos[2] // 10),
+                                    (marker.pos[0] + off_set[0], marker.pos[1] + 20 + off_set[1]),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_ok, 1)
 
         else:
-            frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
+            frame = cv2.putText(frame, marker.name,
+                                (marker.pos[0] + 10 + off_set[0], marker.pos[1] + 10 + off_set[1]),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, color_not_ok, 1)
-            not_visible.append(marker.pos[:2])
+            not_visible.append(marker.pos[:2] + off_set)
 
     frame = print_blobs(frame, visible, size=2, color=color_ok)
     return print_blobs(frame, not_visible, size=2, color=color_not_ok)
