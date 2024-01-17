@@ -14,6 +14,7 @@ class Marker:
         ### Shared Memory
         # Position arrays
         self.pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
+        #print(self.pos)
         self.last_pos = self.pos.copy()
         self.filtered_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
         self.global_filtered_pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
@@ -74,7 +75,7 @@ class Marker:
         self.kalman.transitionMatrix[1, 3] = self.dt
         for i in range(0, self.n_measures):
             self.kalman.measurementMatrix[i, self.Measurement_array[i]] = 1
-        self.pos = np.array(points)
+        self.pos[:2] = np.array(points)
 
         # input_points = np.float32(np.ndarray.flatten(points))
         input_points = points
@@ -89,6 +90,12 @@ class Marker:
     def set_pos_and_last_2d(self, position):
         self.last_pos[:2] = self.pos[:2]
         self.pos[:2] = position
+
+    def set_depth(self, depth, visibility=None):
+        self.pos[2] = depth
+
+        if visibility is not None:
+            self.is_depth_visible = visibility
 
     def set_global_pos(self, local_pos, start_crop):
         if local_pos[0] is not None and local_pos[1] is not None:
@@ -178,6 +185,7 @@ class Marker3D:
         self.kalman.measurementMatrix = np.zeros((self.n_measures, self.n_states), np.float32)
         self.Measurement_array = []
         self.dt_array = []
+
         for i in range(0, self.n_states, 6):
             self.Measurement_array.append(i)
             self.Measurement_array.append(i + 1)
@@ -186,12 +194,15 @@ class Marker3D:
         for i in range(0, self.n_states):
             if i not in self.Measurement_array:
                 self.dt_array.append(i)
+
         self.kalman.transitionMatrix[0, 2] = self.dt
         self.kalman.transitionMatrix[1, 3] = self.dt
         self.kalman.transitionMatrix[2, 4] = self.dt
+
         for i in range(0, self.n_measures):
             self.kalman.measurementMatrix[i, self.Measurement_array[i]] = 1
-        self.pos = np.array(points)
+
+        self.pos[:2] = np.array(points)
         input_points = np.float32(np.ndarray.flatten(points))
         self.kalman.statePre = np.array([input_points[0], input_points[1], input_points[2], 0, 0, 0], dtype=np.float32)
         self.kalman.statePost = np.array([input_points[0], input_points[1], input_points[2], 0, 0, 0], dtype=np.float32)
@@ -451,11 +462,11 @@ class MarkerSet:
         for m, mark in enumerate(self.markers):
             mark.init_kalman(points[:, m])
 
-    def init_kalman_from_pos(self, posistions):
-        assert len(posistions) == len(self.markers)
+    def init_kalman_from_pos(self, positions):
+        assert len(positions) == len(self.markers)
 
-        for i in range(len(posistions)):
-            self.markers[i].init_kalman(posistions[i])
+        for i in range(len(positions)):
+            self.markers[i].init_kalman(positions[i])
 
     def init_filtered_pos(self, points: np.ndarray) -> None:
         """

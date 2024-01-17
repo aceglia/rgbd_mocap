@@ -3,7 +3,6 @@ import numpy as np
 from tracking.tracking_markers import Tracker, Position, MarkerSet, List, CropFrames
 from frames.frames import Frames
 
-
 params_detector = cv2.SimpleBlobDetector_Params()
 params_detector.minThreshold = 150
 params_detector.maxThreshold = 220
@@ -38,11 +37,17 @@ def print_marker(frame, marker_set: MarkerSet):
 
     for marker in marker_set:
         if marker.is_visible:
+            print(marker.pos)
             frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, color_ok, 1)
             visible.append(marker.pos[:2])
 
+            if marker.is_depth_visible:
+                frame = cv2.putText(frame, str(marker.pos[2] // 10), (marker.pos[0], marker.pos[1] + 20),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_ok, 1)
+
         else:
+            print(marker.pos)
             frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, color_not_ok, 1)
             not_visible.append(marker.pos[:2])
@@ -79,13 +84,14 @@ def print_estimated_positions(frame, estimated_pos: List[List[Position]]):
 
 def set_marker_pos(marker_set: MarkerSet, positions: List[Position]):
     assert len(marker_set.markers) == len(positions)
+    print(positions)
 
     for i in range(len(positions)):
         if positions[i] != ():
-            marker_set[i].pos[:2] = positions[i].position
-            marker_set[i].is_visible = positions[i].visibility
+            marker_set[i].set_pos(positions[i].position)
+            marker_set[i].set_visibility(positions[i].visibility)
         else:
-            marker_set[i].is_visible = False
+            marker_set[i].set_visibility(False)
 
 
 def main():
@@ -104,10 +110,7 @@ def main():
 
     # Base positions
     base_positions = [(184, 99), (186, 242), (391, 341), (249, 482)]
-    marker_set.init_kalman_from_pos(base_positions)
-
-    for i in range(len(marker_set.markers)):
-        marker_set[i].pos[:2] = base_positions[i]
+    marker_set.set_markers_pos(base_positions)
 
     Tracker.DELTA = 20
     tracker = Tracker(image, marker_set, naive=False, optical_flow=True, kalman=False)

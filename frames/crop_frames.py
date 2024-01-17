@@ -12,9 +12,9 @@ class CropFrames(Frames):
         self.width = self.color.shape[1]
         self.height = self.depth.shape[0]
 
-    def _update_image(self):
+    def update_image(self):
         self.color, self.depth = self.frame.get_crop(self.area)
 
     def get_images(self):
-        self._update_image()
+        self.update_image()
         return self.color, self.depth

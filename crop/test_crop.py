@@ -2,7 +2,7 @@ import cv2
 
 from filter.filter import Frames
 from crop import Crop
-from rgbd_mocap.marker_class import MarkerSet
+from markers.marker_set import MarkerSet
 from tracking.test_tracking import print_blobs, print_marker, print_position, print_estimated_positions, set_marker_pos
 
 
@@ -49,25 +49,18 @@ _options = {
 
 def main():
     # Marker Set
-    dms = MarkerSet('test', ['d'])
-    marker_set = MarkerSet('Test', ['a', 'b', 'c', 'd', 'e'])
+    marker_set = MarkerSet('Test', ['a', 'b', 'c', 'd'], shared=True)#, 'e'])
 
     # Base positions  67, 73     60, 89
-    d = [(176, 104)]
-    base_positions = [(80, 85), (71, 101), (97, 117), (165, 117), (176, 104)]
+    base_positions = [(80, 85), (71, 101), (97, 117), (165, 117)]#, (176, 104)]
     # base_positions = [(204, 264), (197, 280), (223, 296), (404, 356)] #, (302, 308)]
-    marker_set.init_kalman_from_pos(base_positions)
-    dms.init_kalman_from_pos(d)
-    dms.markers[0].pos[:2] = d[0]
-
-    for i in range(len(marker_set.markers)):
-        marker_set[i].pos[:2] = base_positions[i]
+    marker_set.set_markers_pos(base_positions)
 
     # Image
     path = '../data_files/P4_session2/gear_20_15-08-2023_10_52_14/'
 
-    all_color_files = [path + f"color_{i}.png" for i in range(600, 700)]
-    all_depth_files = [path + f"depth_{i}.png" for i in range(600, 700)]
+    all_color_files = [path + f"color_{i}.png" for i in range(600, 900)]
+    all_depth_files = [path + f"depth_{i}.png" for i in range(600, 900)]
     color_images = [cv2.flip(cv2.imread(file, cv2.COLOR_BGR2RGB), -1) for file in all_color_files[:]]
     depth_images = [cv2.flip(cv2.imread(file, cv2.IMREAD_ANYDEPTH), -1) for file in all_depth_files[:]]
 
@@ -86,7 +79,6 @@ def main():
 
     for i in range(len(color_images)):
         frames.set_images(color_images[i], depth_images[i])
-        crop.frame.get_images()
 
         blobs, positions, estimated = crop.track_markers()
         set_marker_pos(marker_set, positions)

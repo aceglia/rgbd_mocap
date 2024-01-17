@@ -1,9 +1,10 @@
 from typing import List, Tuple
 
 from rgbd_mocap.utils import find_closest_blob
-from rgbd_mocap.marker_class import MarkerSet, Marker
+from markers.marker_set import MarkerSet, Marker
 from tracking.position import Position
 from tracking.optical_flow import OpticalFlow
+from tracking.kalman import KalmanSet
 from frames.crop_frames import CropFrames
 
 
@@ -18,7 +19,10 @@ class Tracker:
         if optical_flow:
             self.optical_flow = OpticalFlow(frame.color, marker_set.get_markers_pos_2d())
 
-        self.kalman = kalman
+        self.kalman = None
+        if kalman:
+            self.kalman = KalmanSet(marker_set)
+
         self.naive = naive
 
         # Blobs and positions for tracking in each frame
@@ -76,7 +80,8 @@ class Tracker:
 
         # if we use Kalman then search the closest blob to the prediction
         if self.kalman:
-            prediction = marker.predict_from_kalman()
+            # prediction = marker.predict_from_kalman()
+            prediction = self.kalman[index].predict()
 
             self._get_blob_near_position(prediction, index)
             # marker.correct_from_kalman(self.estimated_positions[index][-1].position)
@@ -120,13 +125,10 @@ class Tracker:
     def check_bounds(self, frame: CropFrames):
         max_x = frame.width - 1
         max_y = frame.height - 1
-        # min_d, max_d = self.depth
 
         for i in range(len(self.positions)):
             if self.positions[i] != ():
                 self.positions[i].check_bounds(max_x, max_y)
-
-            # TODO check depth and set if visible
 
     def track(self, frame: CropFrames, blobs):
         self.blobs = blobs
@@ -149,8 +151,7 @@ class Tracker:
 
     def correct(self):
         if self.kalman:
-            for marker in self.marker_set:
-                marker.correct_from_kalman(marker.pos[:2])
+            self.kalman.correct()
 
         if self.optical_flow:
             self.optical_flow.set_positions([marker.pos[:2] for marker in self.marker_set])
