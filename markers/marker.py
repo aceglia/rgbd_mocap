@@ -42,10 +42,9 @@ class Marker:
 
     # Setter #####
     def set_pos(self, position):
-        assert len(position) == 2
+        assert len(position) >= 2
 
-        print(self.pos, position)
-        self.pos[:2] = np.array(position, dtype=np.int32)
+        self.pos[:2] = np.array(position[:2], dtype=np.int32)
 
     def set_pos_and_last(self, position):
         if position == ():
@@ -62,7 +61,7 @@ class Marker:
         self.pos[2] = depth
 
         if visibility is not None:
-            self.is_depth_visible = visibility
+            self.set_depth_visibility(visibility)
 
     def set_reliability(self, reliability):
         self.reliability_index = reliability

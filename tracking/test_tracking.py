@@ -37,7 +37,6 @@ def print_marker(frame, marker_set: MarkerSet):
 
     for marker in marker_set:
         if marker.is_visible:
-            print(marker.pos)
             frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, color_ok, 1)
             visible.append(marker.pos[:2])
@@ -47,7 +46,6 @@ def print_marker(frame, marker_set: MarkerSet):
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_ok, 1)
 
         else:
-            print(marker.pos)
             frame = cv2.putText(frame, marker.name, (marker.pos[0] + 10, marker.pos[1] + 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, color_not_ok, 1)
             not_visible.append(marker.pos[:2])
@@ -84,7 +82,6 @@ def print_estimated_positions(frame, estimated_pos: List[List[Position]]):
 
 def set_marker_pos(marker_set: MarkerSet, positions: List[Position]):
     assert len(marker_set.markers) == len(positions)
-    print(positions)
 
     for i in range(len(positions)):
         if positions[i] != ():

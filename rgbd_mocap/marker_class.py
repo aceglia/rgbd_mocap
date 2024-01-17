@@ -75,7 +75,7 @@ class Marker:
         self.kalman.transitionMatrix[1, 3] = self.dt
         for i in range(0, self.n_measures):
             self.kalman.measurementMatrix[i, self.Measurement_array[i]] = 1
-        self.pos[:2] = np.array(points)
+        self.pos = np.array(points)
 
         # input_points = np.float32(np.ndarray.flatten(points))
         input_points = points

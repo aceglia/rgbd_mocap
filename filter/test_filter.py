@@ -36,7 +36,7 @@ _options = {
 def print_blobs(frame, blobs, size=4, color=(0, 255, 0)):
     img = frame.copy()
     for blob in blobs:
-        img[blob[0] - size:blob[0] + size, blob[1] - size:blob[1] + size] = color
+        img[blob[1] - size:blob[1] + size, blob[0] - size:blob[0] + size] = color
 
     return img
 

@@ -38,8 +38,6 @@ class Position:
         self.visibility = visibility
 
     def distance_from_marker(self, marker: Marker):
-        print(self.position, marker.pos[:2])
-
         dist = math.sqrt(((self.position[0] - marker.pos[0]) ** 2) *
                          ((self.position[1] - marker.pos[1]) ** 2))
 

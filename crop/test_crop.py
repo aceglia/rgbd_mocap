@@ -1,12 +1,13 @@
 import cv2
 
 from filter.filter import Frames
+from frames.shared_frames import SharedFrames
 from crop import Crop
 from markers.marker_set import MarkerSet
 from tracking.test_tracking import print_blobs, print_marker, print_position, print_estimated_positions, set_marker_pos
 
 
-filter_options = {
+filter_option = {
         "blend": 100,
         "white_range": [
           147,
@@ -42,14 +43,15 @@ tracking_options = {
 }
 
 _options = {
-    'filter_options': filter_options,
+    'filter_options': filter_option,
     'tracking_options': tracking_options,
 }
 
 
 def main():
+    shared_memory = False
     # Marker Set
-    marker_set = MarkerSet('Test', ['a', 'b', 'c', 'd'], shared=True)#, 'e'])
+    marker_set = MarkerSet('Test', ['a', 'b', 'c', 'd'], shared=shared_memory)#, 'e'])
 
     # Base positions  67, 73     60, 89
     base_positions = [(80, 85), (71, 101), (97, 117), (165, 117)]#, (176, 104)]
@@ -66,12 +68,14 @@ def main():
 
     # Frame
     frames = Frames(color_images[0], depth_images[0])
+    if shared_memory:
+        frames = SharedFrames(color_images[0], depth_images[0])
 
     # Area (Full img for test)
     area = (137, 191, 461, 355)
     # area = (0, 0, frames.width, frames.height)
 
-    crop = Crop(area, frames, marker_set, _options)
+    crop = Crop(area, frames, marker_set, filter_option, tracking_options)
     img = print_marker(crop.frame.color, marker_set)
 
     cv2.imshow('blobs', img)

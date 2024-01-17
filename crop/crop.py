@@ -31,7 +31,7 @@ class DepthCheck:
 
 
 class Crop:
-    def __init__(self, area, frame: Frames, marker_set: MarkerSet, options):
+    def __init__(self, area, frame: Frames, marker_set: MarkerSet, filter_option, method):
         # Image
         self.frame = CropFrames(area, frame)
 
@@ -39,16 +39,18 @@ class Crop:
         self.marker_set = marker_set
 
         # Image computing
-        self.filter = Filter(options['filter_options'])
-        self.tracker = Tracker(self.frame, marker_set, **options['tracking_options'])
+        self.filter = Filter(filter_option)
+        self.tracker = Tracker(self.frame, marker_set, **method)
 
     def attribute_depth_from_position(self, positions: list[Position]):
         assert len(positions) == len(self.marker_set.markers)
 
         for i in range(len(positions)):
-            depth, visibility = DepthCheck.check(positions[i].position, self.frame.depth)
-
-            self.marker_set[i].set_depth(depth, visibility)
+            if isinstance(positions[i], Position):
+                depth, visibility = DepthCheck.check(positions[i].position, self.frame.depth)
+                self.marker_set[i].set_depth(depth, visibility)
+            else:
+                self.marker_set[i].set_depth_visibility(False)
 
     def attribute_depth(self):
         for marker in self.marker_set:
@@ -57,7 +59,7 @@ class Crop:
             marker.set_depth(depth, visibility)
 
     def track_markers(self):
-        tik = time.time()
+        # Get updated frame
         self.frame.update_image()
 
         # Get Blobs
@@ -68,7 +70,5 @@ class Crop:
 
         # Set depth for the new positions
         self.attribute_depth_from_position(positions)
-
-        print(time.time() - tik)
 
         return blobs, positions, estimate_positions
