@@ -29,12 +29,13 @@ def print_blobs(frame, blobs, size=4, color=(0, 255, 0)):
     return img
 
 
-def print_marker(frame, marker_set: MarkerSet, off_set=(0, 0)):
+def print_marker(frame, marker_set: MarkerSet):
     visible = []
     not_visible = []
     color_ok = (0, 255, 0)
     color_not_ok = (0, 0, 255)
 
+    off_set = marker_set[0].crop_offset
     for marker in marker_set:
         if marker.is_visible:
             frame = cv2.putText(frame, marker.name,

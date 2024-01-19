@@ -91,18 +91,6 @@ class MarkerSet:
         for i in range(len(self.markers)):
             self[i].set_pos(positions[i])
 
-    def set_filtered_markers_pos(self, pos):
-        """
-        Set the position of the markers
-
-        Parameters
-        ----------
-        pos : np.ndarray
-            position of the markers
-        """
-        for m, marker in enumerate(self.markers):
-            marker.filtered_pos = pos[:, m]
-
     def set_offset_pos(self, start_crop):
         """
         Set the position of the markers

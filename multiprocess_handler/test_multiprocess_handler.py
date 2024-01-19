@@ -1,15 +1,17 @@
 import time
 
 import cv2
+import numpy as np
 
-from multiprocessing_markers.multiprocessing_ import ProcessHandler, MarkerSet, SharedFrames
-from multiprocessing_markers.config import config
+from multiprocess_handler import ProcessHandler, MarkerSet, SharedFrames
+from config import config
 from tracking.test_tracking import print_marker
+from frames.frames import Frames
 
 
-def print_marker_sets(frame, marker_sets, crops):
+def print_marker_sets(frame, marker_sets):
     for i, marker_set in enumerate(marker_sets):
-        frame = print_marker(frame, marker_set, (crops[i]['area'][0], crops[i]['area'][1]))
+        frame = print_marker(frame, marker_set)
 
     return frame
 
@@ -23,14 +25,17 @@ def load_img(path, index):
 
     return color_image, depth_image
 
+
 def init_():
     # Init Marker Sets
     set_names = []
+    off_sets = []
     marker_names = []
     base_positions = []
 
     for i in range(len(config['crops'])):
         set_names.append(config['crops'][i]['name'])
+        off_sets.append(config['crops'][i]['area'][:2])
 
         mn = []
         bs = []
@@ -46,12 +51,13 @@ def init_():
     print(marker_names)
     print(base_positions)
 
-    marker_sets = []
+    marker_sets: list[MarkerSet] = []
     for i in range(len(set_names)):
         marker_sets.append(MarkerSet(set_names[i], marker_names[i], shared=True))
 
     for i, marker_set in enumerate(marker_sets):
         marker_set.set_markers_pos(base_positions[i])
+        marker_set.set_offset_pos(off_sets[i])
 
     # Image
     path = config['directory']
@@ -63,7 +69,7 @@ def init_():
 
     # Method
     tracking_options = {
-        "naive": True,
+        "naive": False,
         "kalman": True,
         "optical_flow": True,
     }
@@ -139,7 +145,7 @@ def main_load_while_processing(index, path, frames, process_handler: ProcessHand
         avg_total_time += (tak - tik)
 
         img = frames.color.copy()
-        img = print_marker_sets(img, marker_sets, config['crops'])
+        img = print_marker_sets(img, marker_sets)
 
         # Set next frame
         frames.set_images(color, depth)
