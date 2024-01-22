@@ -1,5 +1,4 @@
 import datetime
-import numpy as np
 
 from biosiglive import save
 
@@ -7,13 +6,10 @@ try:
     import pyrealsense2 as rs
 except ImportError:
     pass
-import json
 import glob
 import os
 from typing import Union
 from biosiglive import load, InverseKinematicsMethods, MskFunctions
-import cv2
-from .enums import *
 import time
 from .marker_class import MarkerSet
 from .utils import *
@@ -30,7 +26,6 @@ from .model_creation import (
     C3dData,
     Marker,
     Segment,
-    SegmentReal,
     SegmentCoordinateSystem,
     Translations,
     Rotations,
@@ -1616,7 +1611,6 @@ class RgbdImages:
 
                 elif method == DetectionMethod.SCIKITBlobs:
                     from skimage.feature import blob_log
-                    from math import sqrt
 
                     min_threshold = cv2.getTrackbarPos("min threshold", "Trackbars")
                     max_threshold = cv2.getTrackbarPos("max threshold", "Trackbars")
@@ -1969,7 +1963,7 @@ class RgbdImages:
         for i in range(len(self.start_crop[0])):
             crops.append((self.start_crop[0][i], self.start_crop[1][i], self.end_crop[0][i], self.end_crop[1][i]))
 
-        from multiprocess_handler.multiprocessing import SharedFrames, ProcessHandler
+        from processing.multiprocess_handler import SharedFrames, ProcessHandler
         self.shared_frames = SharedFrames(self.color_frame, self.depth_frame)
         self.process_handler = ProcessHandler(self.marker_sets, self.shared_frames, crops, self.mask_params,
                                               self.partial_get_frame)

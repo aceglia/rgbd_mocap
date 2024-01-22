@@ -1,64 +1,18 @@
 import time
 
 import cv2
-import numpy as np
 
-import multiprocess_handler.config
-from multiprocess_handler.multiprocess_handler import ProcessHandler, MarkerSet, SharedFrames
-from tracking.test_tracking import print_marker
+from processing.multiprocess_handler import MultiProcessHandler, MarkerSet, SharedFrames
 from frames.frames import Frames
-from crop.crop import Crop
-from tracking.test_tracking import print_blobs, print_marker, print_position, print_estimated_positions, set_marker_pos
-
-
-class ImageProcessingHandler:
-    def __init__(self, markers_sets: list[MarkerSet], frames: Frames, options, tracking_option):
-        self.crops = []
-        self.crops_name = [crop['name'] for crop in options['crops']]
-
-        print(self.crops_name)
-
-        for i in range(len(markers_sets)):
-            marker_set = markers_sets[i]
-            option = options['crops'][i]
-
-            # Init Crop
-            crop = Crop(option['area'], frames, marker_set, option['filters'], tracking_option)
-
-            self.crops.append(crop)
-
-    def _process_function(self):
-        for i, crop in enumerate(self.crops):
-            blobs, positions, estimate_positions = crop.track_markers()
-            set_marker_pos(crop.marker_set, positions)
-
-            img = crop.filter.filtered_frame
-            img = print_blobs(img, blobs)
-            img = print_estimated_positions(img, estimate_positions)
-            img = print_marker(img, crop.marker_set)
-
-            cv2.imshow(f"{self.crops_name[i]}", img)
-            cv2.waitKey(1)
-
-    def send_process(self, order=1):
-        self._process_function()
-
-    def receive_process(self):
-        return
-
-    def send_and_receive_process(self, order=1):
-        self.send_process(order)
-        self.receive_process()
-
-    def end_process(self):
-        return
+from processing.handler import Handler
+from processing.process_handler import ProcessHandler
+from tracking.test_tracking import print_marker
 
 
 class ProcessImage:
     SHOW_BLOBS = True
     SHOW_ESTIMATION = True
     SHOW_MARKERS = True
-    SHOW_CROPS = True
 
     def __init__(self, config, tracking_options, shared=False):
         # Options
@@ -76,7 +30,6 @@ class ProcessImage:
         color, depth = load_img(self.path, self.index)
 
         # Frame
-        self.frames = None
         if not shared:
             self.frames = Frames(color, depth)
         else:
@@ -84,10 +37,12 @@ class ProcessImage:
 
         # Process
         if not shared:
-            self.process_handler = ImageProcessingHandler(self.marker_sets, self.frames, config, tracking_options)
-        else:
             self.process_handler = ProcessHandler(self.marker_sets, self.frames, config, tracking_options)
+        else:
+            self.process_handler = MultiProcessHandler(self.marker_sets, self.frames, config, tracking_options)
             self.process_handler.start_process()
+
+        self.process_handler.SHOW_CROPS = True
 
     # Init
     def init_marker_set(self, shared):

@@ -1,12 +1,10 @@
 import time
 
 import cv2
-import numpy as np
 
-from multiprocess_handler import ProcessHandler, MarkerSet, SharedFrames
+from processing.multiprocess_handler import MultiProcessHandler, MarkerSet, SharedFrames
 from config import config
 from tracking.test_tracking import print_marker
-from frames.frames import Frames
 
 
 def print_marker_sets(frame, marker_sets):
@@ -74,7 +72,7 @@ def init_():
         "optical_flow": True,
     }
 
-    process_handler = ProcessHandler(marker_sets, frames, config, tracking_options)
+    process_handler = MultiProcessHandler(marker_sets, frames, config, tracking_options)
     process_handler.start_process()
 
     return index, path, frames, process_handler, marker_sets
@@ -117,7 +115,7 @@ def main(index, path, frames, process_handler, marker_sets):
     return avg_load_time / nb_img, avg_frame_time / nb_img, avg_total_time / nb_img
 
 
-def main_load_while_processing(index, path, frames, process_handler: ProcessHandler, marker_sets):
+def main_load_while_processing(index, path, frames, process_handler: MultiProcessHandler, marker_sets):
     avg_load_time = 0
     avg_frame_time = 0
     avg_total_time = 0

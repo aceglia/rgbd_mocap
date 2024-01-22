@@ -1,22 +1,20 @@
-import os
-import sys
-
 import cv2
 
-import numpy as np
 from multiprocessing import Queue, Process
 from frames.shared_frames import SharedFrames
 from markers.marker_set import MarkerSet
 from crop.crop import Crop
 from tracking.test_tracking import print_blobs, print_marker, print_estimated_positions, set_marker_pos
+from processing.handler import Handler
 
 
-class ProcessHandler:
+class MultiProcessHandler(Handler):
     STOP = 42
     CONTINUE = 1
     RESET = 2
 
     def __init__(self, markers_sets: list[MarkerSet], shared_frame: SharedFrames, options, tracking_option):
+        super().__init__()
         self.queue_arg_list = []
         self.queue_res = Queue()
         self.queue_end_proc = Queue()
@@ -32,7 +30,7 @@ class ProcessHandler:
             marker_set = markers_sets[i]
             option = options['crops'][i]
 
-            process = Process(target=ProcessHandler._process_function,
+            process = Process(target=MultiProcessHandler._process_function,
                               args=(i,
                                     queue_arg,
                                     marker_set,
@@ -64,7 +62,7 @@ class ProcessHandler:
 
     def end_process(self):
         for queue in self.queue_arg_list:
-            queue.put(ProcessHandler.STOP)
+            queue.put(MultiProcessHandler.STOP)
 
         ### Wait for the process to stop
         for _ in self.process_list:
@@ -79,12 +77,12 @@ class ProcessHandler:
 
     @staticmethod
     def _process_function(index,
-                         queue_arg,
-                         marker_set: MarkerSet,
-                         shared_frame: SharedFrames,
-                         crop_option,
-                         tracking_option,
-                         arguments):
+                          queue_arg,
+                          marker_set: MarkerSet,
+                          shared_frame: SharedFrames,
+                          crop_option,
+                          tracking_option,
+                          arguments):
         print(f"[Process {index}: Started]")
 
         # Init Crop
@@ -94,22 +92,20 @@ class ProcessHandler:
         while True:
             arg = queue_arg.get()
 
-            if arg == ProcessHandler.STOP:
+            if arg == MultiProcessHandler.STOP:
                 break
 
-            elif arg == ProcessHandler.CONTINUE:
+            elif arg == MultiProcessHandler.CONTINUE:
                 blobs, positions, estimate_positions = crop.track_markers()
                 set_marker_pos(marker_set, positions)
 
-                img = crop.filter.filtered_frame
-                img = print_blobs(img, blobs)
-                img = print_estimated_positions(img, estimate_positions)
-                img = print_marker(img, marker_set)
+                Handler.show_image(f"{crop_option['name']} {index}",
+                                   crop.filter.filtered_frame,
+                                   blobs=blobs,
+                                   markers=crop.marker_set,
+                                   estimated_positions=estimate_positions)
 
-                cv2.imshow(f"{crop_option['name']} {index}", img)
-                cv2.waitKey(1)
-
-            elif arg == ProcessHandler.RESET:
+            elif arg == MultiProcessHandler.RESET:
                 print(f"[Process {index}: Resetting]")
 
             else:

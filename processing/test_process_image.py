@@ -1,11 +1,5 @@
-import time
-
-import cv2
-import numpy as np
-
 from process_image import ProcessImage
-import multiprocess_handler
-
+from processing.config import config
 
 tracking_options = {
         "naive": False,
@@ -16,7 +10,7 @@ tracking_options = {
 
 if __name__ == '__main__':
     # Init
-    PI = ProcessImage(multiprocess_handler.config.config, tracking_options, shared=False)
+    PI = ProcessImage(config, tracking_options, shared=True)
 
     # Run
     load_time, frame_time, tot_time = PI.process()
