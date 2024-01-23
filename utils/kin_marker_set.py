@@ -1,5 +1,5 @@
 from rgbd_mocap.marker_class import MarkerSet
-from rgbd_mocap.RgbdImages import RgbdImages
+from rgbd_mocap.RgbdImages_old import RgbdImages
 
 
 class KinMarkerSet:

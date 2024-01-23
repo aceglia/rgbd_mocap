@@ -36,7 +36,7 @@ class SharedMarker(Marker):
 
     # Override setters for shared data
     def set_reliability(self, reliability):
-        self.reliability_index.value = reliability
+        self.reliability_index.value += reliability
 
     def set_visibility(self, visibility):
         self.is_visible.value = visibility

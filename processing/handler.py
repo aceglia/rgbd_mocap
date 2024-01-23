@@ -8,7 +8,7 @@ class Handler:
     SHOW_BLOBS = True
     SHOW_ESTIMATION = True
     SHOW_MARKERS = True
-    SHOW_CROPS = True
+    SHOW_CROPS = False
 
     def __init__(self):
         pass
@@ -29,6 +29,9 @@ class Handler:
     # Show Crops
     @staticmethod
     def show_image(crop_name, image, blobs=None, markers=None, estimated_positions=None):
+        if not Handler.SHOW_CROPS:
+            return
+
         if Handler.SHOW_BLOBS and blobs is not None:
             image = print_blobs(image, blobs)
 

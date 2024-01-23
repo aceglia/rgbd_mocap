@@ -1,4 +1,4 @@
-from rgbd_mocap.RgbdImages import RgbdImages
+from rgbd_mocap.RgbdImages_old import RgbdImages
 from rgbd_mocap.utils import *
 
 import os

@@ -1,4 +1,4 @@
-from process_image import ProcessImage
+from process_image import ProcessImage, Handler
 from processing.config import config
 
 tracking_options = {
@@ -10,12 +10,16 @@ tracking_options = {
 
 if __name__ == '__main__':
     # Init
+    ProcessImage.ROTATION = -1
+    ProcessImage.SHOW_IMAGE = True
+    Handler.SHOW_CROPS = False
+
     PI = ProcessImage(config, tracking_options, shared=True)
 
+
     # Run
-    load_time, frame_time, tot_time = PI.process()
+    total_time, avg_time_per_frame = PI.process_all_image()
 
     print("Everything's fine !")
-    print('Average load time :', load_time)
-    print('Average computation time :', frame_time)
-    print('Average total time :', tot_time)
+    print('Average computation time per frame:', avg_time_per_frame)
+    print('Total time :', total_time)

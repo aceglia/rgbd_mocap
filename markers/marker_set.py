@@ -172,16 +172,6 @@ class MarkerSet:
 
         return None
 
-    def get_markers_local_in_meters(self):
-        pass
-
-    def get_markers_global_in_meters(self):
-        pass
-
-    def add_marker(self, marker: Marker):
-        self.markers.append(marker)
-        self.nb_markers += 1
-
     def __str__(self):
         string = self.name + ' ['
 

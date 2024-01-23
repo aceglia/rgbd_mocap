@@ -148,7 +148,7 @@ class CameraConverter:
         self.depth.set_intrinsics(_intrinsics)
         self.color.set_intrinsics(_intrinsics)
 
-    def express_in_pixel(self, marker_pos_in_meters):
+    def get_marker_pos_in_pixel(self, marker_pos_in_meters):
         """
         Get the intrinsics and compute the markers positions
         in meters to get the markers positions in pixel.\
@@ -208,7 +208,7 @@ class CameraConverter:
         _intrinsics = self.depth.get_intrinsics(self.model)
         markers_in_meters = self._compute_markers(_intrinsics, marker_pos_in_pixel, rs.rs2_deproject_pixel_to_point)
 
-        return markers_in_meters, markers_names, occlusions, reliability
+        return markers_in_meters
 
     @staticmethod
     def _compute_markers(intrinsics, marker_pos, method,):

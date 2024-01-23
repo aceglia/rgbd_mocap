@@ -64,7 +64,7 @@ class Marker:
             self.set_depth_visibility(visibility)
 
     def set_reliability(self, reliability):
-        self.reliability_index = reliability
+        self.reliability_index += reliability
 
     def set_visibility(self, visibility):
         self.is_visible = visibility

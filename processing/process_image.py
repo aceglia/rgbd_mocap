@@ -10,13 +10,15 @@ from tracking.test_tracking import print_marker
 
 
 class ProcessImage:
-    SHOW_BLOBS = True
-    SHOW_ESTIMATION = True
-    SHOW_MARKERS = True
+    ROTATION = None
+    SHOW_IMAGE = False
 
     def __init__(self, config, tracking_options, shared=False):
         # Options
         self.config = config
+
+        # Printing information
+        self.computation_time = 0
 
         # Init Markers
         self.marker_sets = self.init_marker_set(shared)
@@ -75,7 +77,7 @@ class ProcessImage:
 
     # Loading
     def _load_img(self):
-        color, depth = load_img(self.path, self.index)
+        color, depth = load_img(self.path, self.index, self.ROTATION)
         return color, depth
 
     def _update_img(self, color, depth):
@@ -111,10 +113,26 @@ class ProcessImage:
         # # If image could not be loaded then skip to the next one
         return self._update_img(color, depth)
 
-    def process(self):
-        avg_load_time = 0
-        avg_frame_time = 0
-        avg_total_time = 0
+    def process_next_image(self):
+        tik = time.time()
+
+        # Get next image
+        self.index += 1
+
+        # Process
+        if not self._process_while_loading():
+            return
+
+        if ProcessImage.SHOW_IMAGE:
+            cv2.imshow('Main image :', self._get_processed_image())
+            if cv2.waitKey(1) == ord('q'):
+                return
+
+        tok = time.time() - tik
+        self.computation_time = tok
+
+    def process_all_image(self):
+        total_time = 0
 
         while self.index != self.config['end_index']:
             tik = time.time()
@@ -126,21 +144,27 @@ class ProcessImage:
             if not self._process_while_loading():
                 continue
 
-            avg_total_time += (time.time() - tik)
+            if ProcessImage.SHOW_IMAGE:
+                cv2.imshow('Main image :', self._get_processed_image())
+                if cv2.waitKey(1) == ord('q'):
+                    break
 
-            cv2.imshow('Main image :', self._get_processed_image())
-            if cv2.waitKey(1) == ord('q'):
-                break
+            tok = time.time() - tik
+            total_time += tok
+            self.computation_time = tok
 
         self.process_handler.end_process()
         nb_img = self.index - self.config['start_index']
-        return avg_load_time / nb_img, avg_frame_time / nb_img, avg_total_time / nb_img
+        return total_time, total_time / nb_img
 
     def _get_processed_image(self):
         img = self.frames.color.copy()
         img = print_marker_sets(img, self.marker_sets)
 
         return img
+
+    def get_processing_time(self):
+        return self.computation_time
 
 
 def print_marker_sets(frame, marker_sets):
@@ -150,11 +174,15 @@ def print_marker_sets(frame, marker_sets):
     return frame
 
 
-def load_img(path, index):
+def load_img(path, index, rotation=None):  # Possibly change it to also allow the usage of the camera
     color_file = path + f"color_{index}.png"
     depth_file = path + f"depth_{index}.png"
 
-    color_image = cv2.flip(cv2.imread(color_file, cv2.COLOR_BGR2RGB), -1)
-    depth_image = cv2.flip(cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH), -1)
+    color_image = cv2.imread(color_file, cv2.COLOR_BGR2RGB)
+    depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
+
+    if rotation is not None:
+        color_image = cv2.flip(color_image, rotation)
+        depth_image = cv2.flip(depth_image, rotation)
 
     return color_image, depth_image
