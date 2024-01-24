@@ -68,6 +68,17 @@ class MarkerSet:
         """
         return [marker.get_global_pos() for marker in self]
 
+    def get_markers_global_pos_3d(self):
+        """
+        Get the position of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        return [marker.get_global_pos_3d() for marker in self]
+
     def get_markers_names(self):
         """
         Get the names of the markers

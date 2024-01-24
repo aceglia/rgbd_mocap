@@ -1,6 +1,9 @@
 import datetime
 
-from biosiglive import save
+import cv2
+import numpy as np
+
+# from biosiglive import save
 
 try:
     import pyrealsense2 as rs
@@ -13,23 +16,16 @@ from biosiglive import load, InverseKinematicsMethods, MskFunctions
 import time
 from markers.marker_set import MarkerSet, Marker
 from processing.process_image import ProcessImage
-from .utils import *
+from rgbd_mocap.utils import *
 from camera.camera import Camera, CameraConverter
 from kinematic_model.kin_model_check import KinematicModelChecker
-
+from processing.config import config
+from tracking.test_tracking import print_blobs
 
 class RgbdImages:
     def __init__(
         self,
-        merged_images: str = None,
-        images_dir=None,
-        color_images: Union[np.ndarray, str] = None,
-        depth_images: Union[np.ndarray, str] = None,
         conf_file: str = None,
-        start_index: int = 0,
-        stop_index: int = None,
-        downsampled: int = 1,
-        load_all_dir: bool = False,
     ):
         """
         Initialize the camera and the images parameters
@@ -61,14 +57,11 @@ class RgbdImages:
 
         # Camera
         self.camera: Camera = None
+        self.converter: CameraConverter = None
 
         self.frame_idx = 0
 
-        self.downsampled = downsampled
-        self.tracking_file_loaded = False
-        self.time_to_get_frame = -1
-
-        self.conf_data = None
+        self.config = None
         self.is_camera_init = False
 
         self.marker_sets = []
@@ -76,11 +69,8 @@ class RgbdImages:
         self.ik_method = "least_squares"
         self.markers_to_exclude_for_ik = []
 
-        if self.conf_file:
-            self.conf_data = get_conf_data(self.conf_file)
-            self._set_images_params()
-
         self.process_image: ProcessImage = None
+        self.kinematic_model_checker: KinematicModelChecker = None
 
     def get_frames(
         self,
@@ -102,11 +92,24 @@ class RgbdImages:
         depth_frame: np.ndarray
             Depth frame
         """
+        if self.process_image.index > self.config['end_index']:
+            return False
+
         self.process_image.process_next_image()
         print(self.process_image.computation_time)
 
-        if fit_model:
-            self.kinematic_model_checker.fit_kinematics_model(self.frame_idx)
+        if self.kinematic_model_checker:
+            pos = self.kinematic_model_checker.fit_kinematics_model(self.frame_idx)
+
+            # marker_pos = []
+            # for i in range(len(self.process_image.marker_sets)):
+            #     marker_pos.append([pos[0][i][0], pos[1][i][0], pos[2][i][0]])
+
+            # marker_pos = np.array(marker_pos, dtype=int)
+            print(pos)
+            self.process_image.frames.color = print_blobs(self.process_image.frames.color, pos)
+
+            cv2.imshow('test model pos', self.process_image.frames.color)
 
         for marker_set in self.marker_sets:
             for marker in marker_set:
@@ -114,8 +117,6 @@ class RgbdImages:
                     marker.set_reliability(0.5)
                 if marker.is_depth_visible:
                     marker.set_reliability(0.5)
-
-        markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
 
         if save_data:
             markers_pos, markers_names, occlusions, reliability_idx = self.get_global_markers_pos()
@@ -133,7 +134,7 @@ class RgbdImages:
             }
             save(dic, self.image_dir + os.sep + "markers_pos.bio", add_data=True)
 
-        return None
+        return True
 
     def _run_tapir_tracker(self):
         if not self.is_tapir_init:
@@ -196,26 +197,6 @@ class RgbdImages:
         )
         return prediction
 
-    def load_tracking_conf_file(self, tracking_conf_file: str):
-        with open(tracking_conf_file, "r") as f:
-            try:
-                conf = json.load(f)
-            except json.decoder.JSONDecodeError:
-                # in cas of empty file
-                conf = {}
-        for key in conf.keys():
-            self.__dict__[key] = conf[key]
-        if self.start_crop and self.end_crop:
-            self.is_cropped = True
-        if self.mask_params:
-            self.is_frame_clipped = True
-            for params in self.mask_params:
-                self.clipping_distance_in_meters.append(params["clipping_distance_in_meters"])
-        if self.first_frame_markers:
-            for i in range(len(self.first_frame_markers)):
-                self._distribute_pos_markers(i)
-        self.tracking_file_loaded = True
-
     def _init_tapir_tracker(self):
         checkpoint_path = (
             r"D:\Documents\Programmation\pose_estimation\pose_est\tapnet\checkpoints\causal_tapir_checkpoint.npy"
@@ -264,17 +245,14 @@ class RgbdImages:
     def initialize_tracking(
         self,
         config_dict,
-        tracking_conf_file: str = None,
-        build_kinematic_model=False,
         model_name: str = None,
-        marker_sets: list = None,
-        rotation_angle: Rotation = None,
         with_tapir=False,
-        multiproc=True,
-        **kwargs,
+        build_kinematic_model=True,
     ):
+        self.config = config_dict
+
         now = datetime.datetime.now()
-        dt_string = now.strftime("%d/%m/%Y %H:%M")
+        dt_string = now.strftime("%d-%m-%Y_%H_%M_%S")
         self.use_tapir = False
 
         tracking_options = {
@@ -283,7 +261,11 @@ class RgbdImages:
             "optical_flow": True,
         }
 
+        ProcessImage.SHOW_IMAGE = True
+        ProcessImage.ROTATION = -1
         self.process_image = ProcessImage(config_dict, tracking_options, shared=False)
+
+        self.process_image.process_next_image()
 
         if with_tapir:
             self.use_tapir = True
@@ -295,15 +277,28 @@ class RgbdImages:
                 "If not just be aware that the program will work slowly."
             )
 
-        build_kinematic_model = False
+        # build_kinematic_model = False
         if build_kinematic_model:
-            path_to_camera_config_file = "camera_conf.json"
+            path_to_camera_config_file = "/home/user/KaelFacon/Project/rgbd_mocap/config_camera_files/config_camera_P4_session2.json"
             self.converter = CameraConverter()
 
-            self.converter.set_intrinsics(path_to_camera_config_file)
-            model_name = f"kinematic_model_{dt_string}.bioMod" if not model_name else model_name
+            self.converter.set_intrinsics(path_to_camera_config_file, self.process_image.frames.depth)
+            path = config['directory']
+            model_name = f"{path}kinematic_model_{dt_string}.bioMod"
+            # model_name = f"kinematic_model_{dt_string}.bioMod" if not model_name else model_name
             self.kinematic_model_checker = KinematicModelChecker(self.process_image.frames,
                                                                  self.process_image.marker_sets,
                                                                  converter=self.converter,
                                                                  model_name=model_name)
 
+
+def main():
+    rgbd = RgbdImages(None)
+    rgbd.initialize_tracking(config)
+
+    while rgbd.get_frames():
+        continue
+
+
+if __name__ == '__main__':
+    main()

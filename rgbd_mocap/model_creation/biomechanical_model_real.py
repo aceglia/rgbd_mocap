@@ -22,5 +22,6 @@ class BiomechanicalModelReal:
 
     def write(self, file_path: str):
         # Method to write the current KinematicChain to a file
+        print(file_path)
         with open(file_path, "w") as file:
             file.write(str(self))

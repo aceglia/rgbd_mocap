@@ -1,11 +1,12 @@
 import numpy as np
+import json
 
 try:
     import pyrealsense2 as rs
 except ImportError:
     raise ImportWarning("Cannot use camera: Import of the library pyrealsense2 failed")
     pass
-from rgbd_mocap.RgbdImages import RgbdImages
+# from rgbd_mocap.RgbdImages import RgbdImages
 
 
 class CameraIntrinsics:
@@ -119,6 +120,7 @@ class CameraConverter:
         depth_frame: np.array
             Depth to determine size of the image.
         """
+        conf_data = load_json(conf_data)
         self.depth.set_intrinsics_from_file(conf_data["depth_fx_fy"],
                                             conf_data["depth_ppx_ppy"],
                                             conf_data["dist_coeffs_color"],
@@ -164,9 +166,23 @@ class CameraConverter:
         """
         _intrinsics = self.depth.get_intrinsics(self.model)
 
-        markers_in_pixels = self._compute_markers(_intrinsics, marker_pos_in_meters, rs.rs2_project_point_to_pixel)
+        # markers_in_pixels = self._compute_markers(_intrinsics, marker_pos_in_meters, rs.rs2_project_point_to_pixel)
+        markers = []
 
-        return markers_in_pixels
+        for i in range(len(marker_pos_in_meters)):
+            computed_pos = rs.rs2_project_point_to_pixel(
+                _intrinsics,
+                np.array([marker_pos_in_meters[i][0],
+                          marker_pos_in_meters[i][1],
+                          marker_pos_in_meters[i][2]], dtype=np.float32),
+            )
+
+            markers.append(computed_pos)
+
+        print(markers)
+        return np.array(markers, dtype=np.int64)
+
+        # return markers_in_pixels
 
     def get_markers_pos_in_meter(self, marker_pos_in_pixel=None, method: callable = None):
         """
@@ -192,10 +208,10 @@ class CameraConverter:
             raise ValueError("""[Camera] Cannot get markers position in meters:
              arguments 'marker_pos_in_pixel' and 'method' are None""")
 
-        if method is not None and (RgbdImages.get_global_markers_pos == method or
-                                   RgbdImages.get_merged_global_markers_pos == method):
-            raise ValueError(f"""[Camera] Cannot get markers position in meters: argument 'method' is not a valid.
-            Valid methods are: {RgbdImages.get_global_markers_pos} and {RgbdImages.get_merged_global_markers_pos}""")
+        # if method is not None and (RgbdImages.get_global_markers_pos == method or
+        #                            RgbdImages.get_merged_global_markers_pos == method):
+        #     raise ValueError(f"""[Camera] Cannot get markers position in meters: argument 'method' is not a valid.
+        #     Valid methods are: {RgbdImages.get_global_markers_pos} and {RgbdImages.get_merged_global_markers_pos}""")
 
         if marker_pos_in_pixel is None:
             marker_pos_in_pixel, markers_names, occlusions, reliability = method()  # Call get_global_markers_pos or
@@ -206,9 +222,23 @@ class CameraConverter:
             _, markers_names, occlusions, reliability = method()
 
         _intrinsics = self.depth.get_intrinsics(self.model)
-        markers_in_meters = self._compute_markers(_intrinsics, marker_pos_in_pixel, rs.rs2_deproject_pixel_to_point)
+        # markers_in_meters = self._compute_markers(_intrinsics, marker_pos_in_pixel, rs.rs2_deproject_pixel_to_point)
 
-        return markers_in_meters
+        markers = [[], [], []]
+
+        for i, pos in enumerate(marker_pos_in_pixel):
+            computed_pos = rs.rs2_deproject_pixel_to_point(
+                _intrinsics, np.array([pos[0], pos[1]], dtype=np.float32),
+                float(pos[2])
+            )
+
+            markers[0].append(computed_pos[0])
+            markers[1].append(computed_pos[1])
+            markers[2].append(computed_pos[2])
+
+        return np.array(markers)
+
+        # return markers_in_meters
 
     @staticmethod
     def _compute_markers(intrinsics, marker_pos, method,):
@@ -231,10 +261,21 @@ class CameraConverter:
         -------
         np.array
         """
-        markers = np.zeros_like(marker_pos)
+        markers = [[], [], []]
 
-        for m in range(marker_pos.shape[1]):
-            markers[:2, m] = method(
-                intrinsics, [marker_pos[0, m], marker_pos[1, m], marker_pos[2, m]]
+        for i, pos in enumerate(marker_pos):
+            computed_pos = method(
+                intrinsics, np.array([pos[0], pos[1]], dtype=np.float32),
+                float(pos[2])
             )
-        return markers
+
+            markers[0].append(computed_pos[0])
+            markers[1].append(computed_pos[1])
+            markers[2].append(computed_pos[2])
+
+        return np.array(markers)
+
+
+def load_json(path):
+    with open(path) as json_file:
+        return json.load(json_file)

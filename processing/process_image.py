@@ -4,7 +4,7 @@ import cv2
 
 from processing.multiprocess_handler import MultiProcessHandler, MarkerSet, SharedFrames
 from frames.frames import Frames
-from processing.handler import Handler
+from crop.crop import DepthCheck
 from processing.process_handler import ProcessHandler
 from tracking.test_tracking import print_marker
 
@@ -20,12 +20,6 @@ class ProcessImage:
         # Printing information
         self.computation_time = 0
 
-        # Init Markers
-        self.marker_sets = self.init_marker_set(shared)
-        # Set offsets for the marker_sets
-        for i in range(len(self.marker_sets)):
-            self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
-
         # Image
         self.path = config['directory']
         self.index = config['start_index']
@@ -36,6 +30,13 @@ class ProcessImage:
             self.frames = Frames(color, depth)
         else:
             self.frames = SharedFrames(color, depth)
+
+        # Init Markers
+        self.marker_sets = self.init_marker_set(shared)
+
+        # Set offsets for the marker_sets
+        for i in range(len(self.marker_sets)):
+                self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
 
         # Process
         if not shared:
@@ -71,6 +72,8 @@ class ProcessImage:
             marker_set = MarkerSet(set_names[i], marker_names[i], shared)
             marker_set.set_markers_pos(base_positions[i])
             marker_set.set_offset_pos(off_sets[i])
+            for marker in marker_set:
+                marker.set_depth(DepthCheck.check(marker.get_pos(), self.frames.depth)[0])
             marker_sets.append(marker_set)
 
         return marker_sets

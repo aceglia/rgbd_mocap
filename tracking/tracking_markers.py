@@ -29,7 +29,6 @@ class Tracker:
         self.blobs = None
         self.positions: List[Position] = []
         self.estimated_positions: List[List[Position]] = [None] * len(marker_set.markers)
-        # self.depth = depth
 
     def _get_blob_near_position(self, position, index):
         self.estimated_positions[index].append(Position(position, False))

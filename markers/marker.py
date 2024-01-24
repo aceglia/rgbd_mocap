@@ -40,6 +40,11 @@ class Marker:
     def get_global_pos(self):
         return self.pos[:2] + self.crop_offset
 
+    def get_global_pos_3d(self):
+        pos = self.get_global_pos()
+        return pos[0], pos[1], self.pos[2]
+        # return np.array([self.pos[:2] + self.crop_offset] + self.pos[2])
+
     # Setter #####
     def set_pos(self, position):
         assert len(position) >= 2

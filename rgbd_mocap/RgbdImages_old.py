@@ -1279,6 +1279,7 @@ class RgbdImages:
             _intrinsics.model = rs.distortion.none
 
         markers_in_meters = np.zeros_like(marker_pos_in_pixel)
+        print(marker_pos_in_pixel)
         for m in range(marker_pos_in_pixel.shape[1]):
             markers_in_meters[:, m] = rs.rs2_deproject_pixel_to_point(
                 _intrinsics, [marker_pos_in_pixel[0, m], marker_pos_in_pixel[1, m]], marker_pos_in_pixel[2, m]
@@ -2045,9 +2046,8 @@ class RgbdImages:
                 raise ImportError("biorbd package is not installed")
             model_name = f"kinematic_model_{dt_string}.bioMod" if not model_name else model_name
             self._create_kinematic_model(model_name=model_name, marker_sets=marker_sets)
+            print('This ----------------> ', model_name)
             self.is_kinematic_model = True
-
-            print(self.ge)
 
         if multiproc and False:
             self.init_multiprocessing()

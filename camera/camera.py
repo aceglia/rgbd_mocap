@@ -3,7 +3,7 @@ from typing import Union
 from rgbd_mocap.utils import set_conf_file_from_camera, get_conf_data
 import numpy as np
 import json
-from camera_converter import CameraConverter
+from camera.camera_converter import CameraConverter
 
 try:
     import pyrealsense2 as rs
