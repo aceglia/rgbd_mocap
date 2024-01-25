@@ -23,13 +23,13 @@ class ProcessImage:
         # Image
         self.path = config['directory']
         self.index = config['start_index']
-        color, depth = load_img(self.path, self.index)
+        self.color, depth = self._load_img()
 
         # Frame
         if not shared:
-            self.frames = Frames(color, depth)
+            self.frames = Frames(self.color, depth)
         else:
-            self.frames = SharedFrames(color, depth)
+            self.frames = SharedFrames(self.color, depth)
 
         # Init Markers
         self.marker_sets = self.init_marker_set(shared)
@@ -62,7 +62,8 @@ class ProcessImage:
             base_position = []
             for j in range(len(self.config['crops'][i]['markers'])):
                 marker_name.append(self.config['crops'][i]['markers'][j]['name'])
-                base_position.append(self.config['crops'][i]['markers'][j]['pos'])
+                base_position.append((self.config['crops'][i]['markers'][j]['pos'][1],
+                                     self.config['crops'][i]['markers'][j]['pos'][0]))
 
             marker_names.append(marker_name)
             base_positions.append(base_position)
@@ -122,17 +123,22 @@ class ProcessImage:
         # Get next image
         self.index += 1
 
+        if self.index == self.config['end_index']:
+            return False
+
         # Process
         if not self._process_while_loading():
-            return
+            return True
 
         if ProcessImage.SHOW_IMAGE:
             cv2.imshow('Main image :', self._get_processed_image())
             if cv2.waitKey(1) == ord('q'):
-                return
+                return False
 
         tok = time.time() - tik
         self.computation_time = tok
+
+        return True
 
     def process_all_image(self):
         total_time = 0
@@ -161,8 +167,8 @@ class ProcessImage:
         return total_time, total_time / nb_img
 
     def _get_processed_image(self):
-        img = self.frames.color.copy()
-        img = print_marker_sets(img, self.marker_sets)
+        img = print_marker_sets(self.color, self.marker_sets)
+        self.color = self.frames.color.copy()
 
         return img
 

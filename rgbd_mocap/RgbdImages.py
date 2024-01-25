@@ -21,6 +21,7 @@ from camera.camera import Camera, CameraConverter
 from kinematic_model.kin_model_check import KinematicModelChecker
 from processing.config import config
 from tracking.test_tracking import print_blobs
+from processing.handler import Handler
 
 class RgbdImages:
     def __init__(
@@ -110,6 +111,7 @@ class RgbdImages:
             self.process_image.frames.color = print_blobs(self.process_image.frames.color, pos)
 
             cv2.imshow('test model pos', self.process_image.frames.color)
+            cv2.waitKey(0)
 
         for marker_set in self.marker_sets:
             for marker in marker_set:
@@ -247,7 +249,7 @@ class RgbdImages:
         config_dict,
         model_name: str = None,
         with_tapir=False,
-        build_kinematic_model=True,
+        build_kinematic_model=False,
     ):
         self.config = config_dict
 
@@ -293,6 +295,7 @@ class RgbdImages:
 
 
 def main():
+    Handler.SHOW_CROPS = True
     rgbd = RgbdImages(None)
     rgbd.initialize_tracking(config)
 
