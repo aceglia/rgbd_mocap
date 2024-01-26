@@ -18,10 +18,11 @@ from markers.marker_set import MarkerSet, Marker
 from processing.process_image import ProcessImage
 from rgbd_mocap.utils import *
 from camera.camera import Camera, CameraConverter
-from kinematic_model.kin_model_check import KinematicModelChecker
+from kinematic_model_checker.kin_model_check import KinematicModelChecker
 from processing.config import config, load_json
 from tracking.test_tracking import print_blobs
 from processing.handler import Handler
+
 
 class RgbdImages:
     def __init__(
@@ -100,7 +101,7 @@ class RgbdImages:
 
         if self.kinematic_model_checker:
             pos = self.kinematic_model_checker.fit_kinematics_model(self.frame_idx)
-            self.kinematic_model_checker.set_all_markers_pos(pos)
+            # self.kinematic_model_checker.set_all_markers_pos(pos)
 
             print(pos)
             self.process_image.frames.color = print_blobs(self.process_image.frames.color, pos)
@@ -289,7 +290,7 @@ class RgbdImages:
 
 def main():
     rgbd = RgbdImages(None)
-    rgbd.initialize_tracking(config, build_kinematic_model=True)
+    rgbd.initialize_tracking(config, build_kinematic_model=False)
 
     while rgbd.get_frames():
         continue

@@ -72,7 +72,7 @@ class ProcessImage:
             marker_set.set_markers_pos(base_positions[i])
             marker_set.set_offset_pos(off_sets[i])
             for marker in marker_set:
-                marker.set_depth(DepthCheck.check(marker.get_pos(), self.frames.depth)[0])
+                marker.set_depth(DepthCheck.check(marker.get_pos(), self.frames.depth, 0, 10000)[0])
             marker_sets.append(marker_set)
 
         return marker_sets

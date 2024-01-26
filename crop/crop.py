@@ -24,13 +24,14 @@ class DepthCheck:
 
         else:
             visibility = False
-            n_d = depth_image[depth_image != -1]
+            n_d = get_pixels(depth_image,
+                             x=pos[1], y=pos[0],
+                             delta=DepthCheck.DELTA)
+            n_d = n_d[n_d != -1]
             n_d = n_d[n_d != 0]
 
             if n_d is not []:
-                depth = np.median(get_pixels(n_d,
-                                             x=pos[1], y=pos[0],
-                                             delta=DepthCheck.DELTA))
+                depth = np.median(n_d)
 
             else:
                 return -1, False
