@@ -9,10 +9,6 @@ from processing.handler import Handler
 
 
 class MultiProcessHandler(Handler):
-    STOP = 42
-    CONTINUE = 1
-    RESET = 2
-
     def __init__(self, markers_sets: list[MarkerSet], shared_frame: SharedFrames, options, tracking_option):
         super().__init__()
         self.queue_arg_list = []
@@ -92,10 +88,10 @@ class MultiProcessHandler(Handler):
         while True:
             arg = queue_arg.get()
 
-            if arg == MultiProcessHandler.STOP:
+            if arg == Handler.STOP:
                 break
 
-            elif arg == MultiProcessHandler.CONTINUE:
+            elif arg == Handler.CONTINUE:
                 blobs, positions, estimate_positions = crop.track_markers()
                 set_marker_pos(marker_set, positions)
 
@@ -105,8 +101,9 @@ class MultiProcessHandler(Handler):
                                    markers=crop.marker_set,
                                    estimated_positions=estimate_positions)
 
-            elif arg == MultiProcessHandler.RESET:
+            elif arg == Handler.RESET:
                 print(f"[Process {index}: Resetting]")
+                crop.re_init(marker_set, tracking_option)
 
             else:
                 print(f"[Process {index}: Order {arg} not implemented]")

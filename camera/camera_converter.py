@@ -179,7 +179,6 @@ class CameraConverter:
 
             markers.append(computed_pos)
 
-        print(markers)
         return np.array(markers, dtype=np.int64)
 
         # return markers_in_pixels
@@ -207,11 +206,6 @@ class CameraConverter:
         if marker_pos_in_pixel is None and method is None:
             raise ValueError("""[Camera] Cannot get markers position in meters:
              arguments 'marker_pos_in_pixel' and 'method' are None""")
-
-        # if method is not None and (RgbdImages.get_global_markers_pos == method or
-        #                            RgbdImages.get_merged_global_markers_pos == method):
-        #     raise ValueError(f"""[Camera] Cannot get markers position in meters: argument 'method' is not a valid.
-        #     Valid methods are: {RgbdImages.get_global_markers_pos} and {RgbdImages.get_merged_global_markers_pos}""")
 
         if marker_pos_in_pixel is None:
             marker_pos_in_pixel, markers_names, occlusions, reliability = method()  # Call get_global_markers_pos or

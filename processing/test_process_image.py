@@ -15,7 +15,7 @@ if __name__ == '__main__':
     # Init
     ProcessImage.ROTATION = -1
     ProcessImage.SHOW_IMAGE = True
-    Handler.SHOW_CROPS = False
+    Handler.SHOW_CROPS = True
 
     PI = ProcessImage(config, tracking_options, shared=True)
 

@@ -81,6 +81,9 @@ class Filter:
     ##### Filters functions #############################
     def _clahe_filter(self):
         img = cv2.cvtColor(self.frame.color, cv2.COLOR_RGB2GRAY)
+
+        img = cv2.GaussianBlur(img, (3, 3), 0)
+
         img = self.clahe.apply(img)
 
         if self.options["gaussian_blur"]:
@@ -121,8 +124,8 @@ class Filter:
 
         # Masks
         masks = []
-        if self.options["white_option"]:
-            masks.append(self._white_range_mask())
+        # if self.options["white_option"]:
+        #    masks.append(self._white_range_mask())
         if self.options["distance_option"]:
             masks.append(self._distance_range_mask())
         if self.options['masks_option'] and self.options['mask']:

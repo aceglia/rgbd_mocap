@@ -9,6 +9,9 @@ class Handler:
     SHOW_ESTIMATION = True
     SHOW_MARKERS = True
     SHOW_CROPS = False
+    STOP = 42
+    CONTINUE = 1
+    RESET = 2
 
     def __init__(self):
         pass

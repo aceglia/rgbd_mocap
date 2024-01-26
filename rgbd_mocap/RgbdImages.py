@@ -19,7 +19,7 @@ from processing.process_image import ProcessImage
 from rgbd_mocap.utils import *
 from camera.camera import Camera, CameraConverter
 from kinematic_model.kin_model_check import KinematicModelChecker
-from processing.config import config
+from processing.config import config, load_json
 from tracking.test_tracking import print_blobs
 from processing.handler import Handler
 
@@ -62,7 +62,7 @@ class RgbdImages:
 
         self.frame_idx = 0
 
-        self.config = None
+        self.config = load_json(conf_file) if conf_file else None
         self.is_camera_init = False
 
         self.marker_sets = []
@@ -97,16 +97,11 @@ class RgbdImages:
             return False
 
         self.process_image.process_next_image()
-        print(self.process_image.computation_time)
 
         if self.kinematic_model_checker:
             pos = self.kinematic_model_checker.fit_kinematics_model(self.frame_idx)
+            self.kinematic_model_checker.set_all_markers_pos(pos)
 
-            # marker_pos = []
-            # for i in range(len(self.process_image.marker_sets)):
-            #     marker_pos.append([pos[0][i][0], pos[1][i][0], pos[2][i][0]])
-
-            # marker_pos = np.array(marker_pos, dtype=int)
             print(pos)
             self.process_image.frames.color = print_blobs(self.process_image.frames.color, pos)
 
@@ -129,8 +124,7 @@ class RgbdImages:
                 "markers_names": markers_names,
                 "occlusions": occlusions,
                 "reliability_idx": reliability_idx,
-                "time_to_process": self.time_to_get_frame,
-                "camera_frame_idx": self.camera_frame_numbers[self.frame_idx],
+                "time_to_process": self.process_image.computation_time,
                 "frame_idx": self.frame_idx,
 
             }
@@ -246,10 +240,11 @@ class RgbdImages:
 
     def initialize_tracking(
         self,
-        config_dict,
+        config_dict=None,
         model_name: str = None,
         with_tapir=False,
         build_kinematic_model=False,
+        path_to_camera_config_file = None
     ):
         self.config = config_dict
 
@@ -267,8 +262,6 @@ class RgbdImages:
         ProcessImage.ROTATION = -1
         self.process_image = ProcessImage(config_dict, tracking_options, shared=False)
 
-        self.process_image.process_next_image()
-
         if with_tapir:
             self.use_tapir = True
             self.is_tapir_init = False
@@ -281,12 +274,12 @@ class RgbdImages:
 
         # build_kinematic_model = False
         if build_kinematic_model:
-            path_to_camera_config_file = "/home/user/KaelFacon/Project/rgbd_mocap/config_camera_files/config_camera_P4_session2.json"
+            path_to_camera_config_file = "/home/user/KaelFacon/Project/rgbd_mocap/config_camera_files/config_camera_P4_session2.json" if not path_to_camera_config_file else path_to_camera_config_file
             self.converter = CameraConverter()
 
             self.converter.set_intrinsics(path_to_camera_config_file, self.process_image.frames.depth)
             path = config['directory']
-            model_name = f"{path}kinematic_model_{dt_string}.bioMod"
+            model_name = f"{path}kinematic_model_{dt_string}.bioMod" if not model_name else model_name
             # model_name = f"kinematic_model_{dt_string}.bioMod" if not model_name else model_name
             self.kinematic_model_checker = KinematicModelChecker(self.process_image.frames,
                                                                  self.process_image.marker_sets,
@@ -295,9 +288,8 @@ class RgbdImages:
 
 
 def main():
-    Handler.SHOW_CROPS = True
     rgbd = RgbdImages(None)
-    rgbd.initialize_tracking(config)
+    rgbd.initialize_tracking(config, build_kinematic_model=True)
 
     while rgbd.get_frames():
         continue

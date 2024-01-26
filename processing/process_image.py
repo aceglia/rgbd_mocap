@@ -32,11 +32,11 @@ class ProcessImage:
             self.frames = SharedFrames(self.color, depth)
 
         # Init Markers
-        self.marker_sets = self.init_marker_set(shared)
+        self.marker_sets = self._init_marker_set(shared)
 
         # Set offsets for the marker_sets
         for i in range(len(self.marker_sets)):
-                self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
+            self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
 
         # Process
         if not shared:
@@ -45,10 +45,8 @@ class ProcessImage:
             self.process_handler = MultiProcessHandler(self.marker_sets, self.frames, config, tracking_options)
             self.process_handler.start_process()
 
-        self.process_handler.SHOW_CROPS = True
-
     # Init
-    def init_marker_set(self, shared):
+    def _init_marker_set(self, shared):
         set_names = []
         off_sets = []
         marker_names = []
