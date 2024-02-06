@@ -12,9 +12,11 @@ import multiprocessing as mp
 import time
 # from pyScienceMode2.rehastim_interface import Stimulator
 
+# from pyScienceMode2.rehastim_interface import Stimulator
+
 
 class Synchronizer:
-    def __init__(self, from_rgbd = True, from_qualysis = True, use_trigger = True, with_motomed = True):
+    def __init__(self, from_rgbd=True, from_qualysis=True, use_trigger=True, with_motomed=True, fps=60):
         self.from_rgbd = from_rgbd
         self.from_qualysis = from_qualysis
         self.pipeline = None
@@ -32,7 +34,8 @@ class Synchronizer:
         self.with_motomed = with_motomed
         now = datetime.datetime.now()
         self.date_time = now.strftime("%d-%m-%Y_%H_%M_%S")
-
+        self.nb_save_process = 3
+        self.fps = fps
         self.motomed_gear = 5
         if from_rgbd:
             self.queue_trigger_rgbd = mp.Queue()
@@ -48,7 +51,7 @@ class Synchronizer:
 
         if from_qualysis:
             self.queue_trigger_qualysis = mp.Manager().Queue()
-        if with_motomed :
+        if with_motomed:
             self.queue_motomed = mp.Manager().Queue()
         if use_trigger:
             self.init_trigger()
@@ -68,7 +71,7 @@ class Synchronizer:
             curr_time = datetime.datetime.now()
             await connection.start()
             await asyncio.sleep(2)
-            print(curr_time.strftime('%H:%M:%S.%f'))
+            print(curr_time.strftime("%H:%M:%S.%f"))
 
     def init_camera_pipeline(self):
         self.pipeline = rs.pipeline()
@@ -78,8 +81,8 @@ class Synchronizer:
         device = pipeline_profile.get_device()
         device_product_line = str(device.get_info(rs.camera_info.product_line))
 
-        config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 60)
-        config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 60)
+        config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, self.fps)
+        config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, self.fps)
 
         self.pipeline.start(config)
         d_profile = self.pipeline.get_active_profile().get_stream(rs.stream.depth).as_video_stream_profile()
@@ -90,23 +93,24 @@ class Synchronizer:
         deth_to_color = d_profile.get_extrinsics_to(c_profile)
         r = np.array(deth_to_color.rotation).reshape(3, 3)
         t = np.array(deth_to_color.translation)
-        self.dic_config_cam = {"camera_name": device_product_line,
-               'depth_scale': scale,
-               'depth_fx_fy': [d_intr.fx, d_intr.fy],
-               'depth_ppx_ppy': [d_intr.ppx, d_intr.ppy],
-               'color_fx_fy': [c_intr.fx, c_intr.fy],
-               'color_ppx_ppy': [c_intr.ppx, c_intr.ppy],
-               'depth_to_color_trans': t.tolist(),
-               'depth_to_color_rot': r.tolist(),
-               "model_color": c_intr.model.name,
-               "model_depth": d_intr.model.name,
-               "dist_coeffs_color": c_intr.coeffs,
-               "dist_coeffs_depth": d_intr.coeffs,
-               "size_color": [c_intr.width, c_intr.height],
-               "size_depth": [d_intr.width, d_intr.height],
-               "color_rate": c_profile.fps(),
-               "depth_rate": d_profile.fps()
-               }
+        self.dic_config_cam = {
+            "camera_name": device_product_line,
+            "depth_scale": scale,
+            "depth_fx_fy": [d_intr.fx, d_intr.fy],
+            "depth_ppx_ppy": [d_intr.ppx, d_intr.ppy],
+            "color_fx_fy": [c_intr.fx, c_intr.fy],
+            "color_ppx_ppy": [c_intr.ppx, c_intr.ppy],
+            "depth_to_color_trans": t.tolist(),
+            "depth_to_color_rot": r.tolist(),
+            "model_color": c_intr.model.name,
+            "model_depth": d_intr.model.name,
+            "dist_coeffs_color": c_intr.coeffs,
+            "dist_coeffs_depth": d_intr.coeffs,
+            "size_color": [c_intr.width, c_intr.height],
+            "size_depth": [d_intr.width, d_intr.height],
+            "color_rate": c_profile.fps(),
+            "depth_rate": d_profile.fps(),
+        }
         # self.config_file_name = f"config_camera_files\config_camera_{self.date_time}.json"
         align_to = rs.stream.color
         self.align = rs.align(align_to)
@@ -125,7 +129,9 @@ class Synchronizer:
                 trigger = 0
                 time.sleep(0.001)
             if trigger > 1.5:
-                motomed.start_phase(speed=60, gear=self.motomed_gear, active=True, go_forward=True, spasm_detection=False)
+                motomed.start_phase(
+                    speed=60, gear=self.motomed_gear, active=True, go_forward=True, spasm_detection=False
+                )
                 break
 
     def get_trigger(self):
@@ -237,10 +243,16 @@ class Synchronizer:
                 depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
                 cv2.addWeighted(depth_colormap, 0.8, color_image, 0.8, 0, color_image)
                 if len(loop_time_list) > 20:
-                    cv2.putText(color_image,
-                                f"FPS = {1 / np.mean(loop_time_list[-20:])}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                                (0, 0, 0), 2,
-                                cv2.LINE_AA)
+                    cv2.putText(
+                        color_image,
+                        f"FPS = {1 / np.mean(loop_time_list[-20:])}",
+                        (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (0, 0, 0),
+                        2,
+                        cv2.LINE_AA,
+                    )
                 elif len(loop_time_list) > 0:
                     cv2.putText(color_image,
                                 f"FPS = {1 / np.mean(loop_time_list)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
@@ -249,6 +261,8 @@ class Synchronizer:
                 cv2.namedWindow('RealSense', cv2.WINDOW_NORMAL)
                 cv2.imshow('RealSense', color_image)
                 if save_data:
+                    tic_init = time.time()
+                    print("start recording...")
                     cv2.destroyAllWindows()
 
         self.pipeline.stop()
