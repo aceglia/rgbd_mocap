@@ -24,6 +24,7 @@ class ColorResolution(Enum):
     """
     The different types of color resolutions that can be used.
     """
+
     R_424x240 = (424, 240)
     R_480x270 = (480, 270)
     R_640x360 = (640, 360)
@@ -37,6 +38,7 @@ class DepthResolution(Enum):
     """
     The different types of color resolutions that can be used.
     """
+
     R_256x144 = (256, 144)
     R_424x240 = (424, 240)
     R_480x270 = (480, 270)
@@ -53,6 +55,7 @@ class FrameRate(Enum):
     """
     The different types of frame rates that can be used.
     """
+
     FPS_5 = 5
     FPS_15 = 15
     FPS_25 = 25
@@ -65,6 +68,7 @@ class Rotation(Enum):
     """
     The different types of frame rotation using opencv that can be used.
     """
+
     ROTATE_0 = 0
     ROTATE_90 = 90
     ROTATE_180 = 180

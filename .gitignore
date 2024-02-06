@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+c_generated_code/
+pose_est/tapnet/
+rgbd_mocap/tapnet/
+
 # video extension
 *.avi
 
@@ -17,6 +21,8 @@ __pycache__/
 .Python
 build/
 data_files/
+data*/
+config_camera_files/
 kinematic_model/
 develop-eggs/
 dist/
