@@ -1,9 +1,9 @@
 from multiprocessing import Queue, Process
-from rgbd_mocap.frames.shared_frames import SharedFrames
-from rgbd_mocap.markers.marker_set import MarkerSet
-from rgbd_mocap.crop.crop import Crop
-from rgbd_mocap.tracking.test_tracking import set_marker_pos
-from rgbd_mocap.processing.handler import Handler
+from ..frames.shared_frames import SharedFrames
+from ..markers.marker_set import MarkerSet
+from ..crop.crop import Crop, DepthCheck
+from ..tracking.test_tracking import set_marker_pos
+from ..processing.handler import Handler
 
 
 class MultiProcessHandler(Handler):
@@ -23,6 +23,8 @@ class MultiProcessHandler(Handler):
             queue_arg = queue_arg
             marker_set = markers_sets[i]
             option = options['crops'][i]
+            if "depth_scale" in options.keys():
+                option["depth_scale"] = options["depth_scale"]
 
             process = Process(target=MultiProcessHandler._process_function,
                               args=(i,
@@ -81,8 +83,8 @@ class MultiProcessHandler(Handler):
 
         # Init Crop
         crop = Crop(crop_option['area'], shared_frame, marker_set, crop_option['filters'], tracking_option)
-        print(marker_set)
-
+        if "depth_scale" in crop_option.keys():
+            DepthCheck.set_depth_scale(crop_option["depth_scale"])
         while True:
             arg = queue_arg.get()
 

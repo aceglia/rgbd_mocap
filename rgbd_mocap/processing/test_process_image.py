@@ -3,6 +3,7 @@ import cv2
 from rgbd_mocap.processing.process_image import ProcessImage
 from rgbd_mocap.processing.handler import Handler
 from rgbd_mocap.processing.config import load_json
+from rgbd_mocap.crop.crop import DepthCheck
 
 tracking_options = {
         "naive": False,
@@ -15,10 +16,12 @@ if __name__ == '__main__':
     # Init
     from rgbd_mocap.enums import Rotation
     ProcessImage.ROTATION = Rotation.ROTATE_0
-    ProcessImage.SHOW_IMAGE = True
+    ProcessImage.SHOW_IMAGE = False
     Handler.SHOW_CROPS = True
+    DepthCheck.DEPTH_SCALE = 0.0010000000474974513
     config = load_json(r"D:\Documents\Programmation\pose_estimation\data_files\P14\gear_15_project\test.json")
-    PI = ProcessImage(config, tracking_options, multi_processing=False)
+    config["depth_scale"] = DepthCheck.DEPTH_SCALE
+    PI = ProcessImage(config, tracking_options, multi_processing=True)
 
     check_first_frame = True
     if check_first_frame:

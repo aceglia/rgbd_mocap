@@ -20,9 +20,9 @@ class CameraIntrinsics:
         self.model = None
         self.dist_coefficients = None
 
-    def set_intrinsics_from_file(self, fx_fy, ppx_ppy, dist_coefficients, depth_frame):
-        self.height = depth_frame.shape[1]
-        self.width = depth_frame.shape[0]
+    def set_intrinsics_from_file(self, fx_fy, ppx_ppy, dist_coefficients, size):
+        self.height = size[1]
+        self.width = size[0]
 
         self.fx = fx_fy[0]
         self.fy = fx_fy[1]
@@ -102,8 +102,9 @@ class CameraConverter:
         self.set_intrinsics = self._set_intrinsics_from_file if not use_camera else self._set_intrinsics_from_pipeline
         # Camera extrinsic
         self.depth_to_color = None
+        self.depth_scale = None
 
-    def _set_intrinsics_from_file(self, conf_data, depth_frame):
+    def _set_intrinsics_from_file(self, conf_data: dict):
         """
         Private method.
         Set the Camera intrinsics from file and frame.
@@ -112,20 +113,19 @@ class CameraConverter:
         ----------
         conf_data: dict
             Dictionary containing the values to init the intrinsics of the camera.
-        depth_frame: np.array
-            Depth to determine size of the image.
         """
         conf_data = load_json(conf_data)
+        self.depth_scale = conf_data["depth_scale"]
         self.depth.set_intrinsics_from_file(conf_data["depth_fx_fy"],
                                             conf_data["depth_ppx_ppy"],
                                             conf_data["dist_coeffs_color"],
-                                            depth_frame)
+                                            conf_data["size_depth"])
         self.color.set_intrinsics_from_file(conf_data["color_fx_fy"],
                                             conf_data["color_ppx_ppy"],
                                             conf_data["dist_coeffs_color"],
-                                            depth_frame)
+                                            conf_data["size_color"])
 
-    def _set_intrinsics_from_pipeline(self, pipeline):
+    def _set_intrinsics_from_pipeline(self, pipeline: rs.pipeline):
         """
         Private method.
         Set the Camera intrinsics from pipeline.
@@ -141,11 +141,11 @@ class CameraConverter:
             .as_video_stream_profile()
             .get_intrinsics()
         )
-
+        self.depth_scale = pipeline.get_active_profile().get_device().first_depth_sensor().get_depth_scale()
         self.depth.set_intrinsics(_intrinsics)
         self.color.set_intrinsics(_intrinsics)
 
-    def get_marker_pos_in_pixel(self, marker_pos_in_meters):
+    def get_marker_pos_in_pixel(self, marker_pos_in_meters: np.array):
         """
         Get the intrinsics and compute the markers positions
         in meters to get the markers positions in pixel.\
@@ -178,7 +178,7 @@ class CameraConverter:
 
         # return markers_in_pixels
 
-    def get_markers_pos_in_meter(self, marker_pos_in_pixel=None, method: callable = None):
+    def get_markers_pos_in_meter(self, marker_pos_in_pixel: np.array):
         """
         Get the intrinsics and compute the markers positions
         in pixels to get the markers positions in meters.
@@ -190,25 +190,11 @@ class CameraConverter:
         ----------
         marker_pos_in_pixel: np.array
             Markers positions in meters.
-        method: callable
-            Method to get markers position (Either RgbdImages.get_global_markers_pos or
-            RgbdImages.get_merged_global_markers_pos methods)
 
         Returns
         -------
         np.array
         """
-        if marker_pos_in_pixel is None and method is None:
-            raise ValueError("""[Camera] Cannot get markers position in meters:
-             arguments 'marker_pos_in_pixel' and 'method' are None""")
-
-        if marker_pos_in_pixel is None:
-            marker_pos_in_pixel, markers_names, occlusions, reliability = method()  # Call get_global_markers_pos or
-                                                                                    # get_merged_global_markers_pos
-        elif method is None:
-            markers_names, occlusions, reliability = None, None, 0
-        else:
-            _, markers_names, occlusions, reliability = method()
 
         _intrinsics = self.depth.get_intrinsics(self.model)
         # markers_in_meters = self._compute_markers(_intrinsics, marker_pos_in_pixel, rs.rs2_deproject_pixel_to_point)

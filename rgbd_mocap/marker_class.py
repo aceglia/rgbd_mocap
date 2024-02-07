@@ -92,7 +92,7 @@ class Marker:
         self.pos[:2] = position
 
     def set_depth(self, depth, visibility=None):
-        self.pos[2] = depth
+        self.depth = depth
 
         if visibility is not None:
             self.is_depth_visible = visibility

@@ -43,7 +43,7 @@ def print_marker(frame, marker_set: MarkerSet):
             visible.append(marker.pos[:2] + off_set)
 
             if marker.is_depth_visible:
-                frame = cv2.putText(frame, str(marker.pos[2] // 10),
+                frame = cv2.putText(frame, str(marker.depth // 10),
                                     (marker.pos[0] + off_set[0], marker.pos[1] + 20 + off_set[1]),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_ok, 1)
 

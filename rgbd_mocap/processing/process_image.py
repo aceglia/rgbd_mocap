@@ -57,8 +57,7 @@ class ProcessImage:
 
         for i in range(len(self.config['crops'])):
             set_names.append(self.config['crops'][i]['name'])
-            off_sets.append(self.config['crops'][i]['area'][:2])
-
+            off_sets.append(self.config['crops'][i]['area'])
             marker_name = []
             base_position = []
             for j in range(len(self.config['crops'][i]['markers'])):
@@ -73,9 +72,10 @@ class ProcessImage:
         for i in range(len(set_names)):
             marker_set = MarkerSet(set_names[i], marker_names[i], multi_processing)
             marker_set.set_markers_pos(base_positions[i])
-            marker_set.set_offset_pos(off_sets[i])
+            marker_set.set_offset_pos(off_sets[i][:2])
+            depth_cropped = self.frames.get_crop(off_sets[i])[1]
             for marker in marker_set:
-                marker.set_depth(DepthCheck.check(marker.get_pos(), self.frames.depth, 0, 10000)[0])
+                marker.set_depth(DepthCheck.check(marker.get_pos(), depth_cropped, 0, 10000)[0])
             marker_sets.append(marker_set)
 
         return marker_sets
@@ -192,7 +192,7 @@ def load_img(path, index, rotation=None):  # Possibly change it to also allow th
     color_file = path + os.sep + f"color_{index}.png"
     depth_file = path + os.sep + f"depth_{index}.png"
 
-    color_image = cv2.imread(color_file, cv2.COLOR_BGR2RGB)
+    color_image = cv2.imread(color_file)
     depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
 
     if rotation is not None and rotation != rgbd_mocap.enums.Rotation.ROTATE_0:

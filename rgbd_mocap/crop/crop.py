@@ -12,9 +12,13 @@ def get_pixels(array, x, y, delta):
 
 class DepthCheck:
     DELTA = 8
+    DEPTH_SCALE = None
 
     @staticmethod
     def check(pos, depth_image, depth_min, depth_max):
+        if DepthCheck.DEPTH_SCALE is None:
+            raise ValueError("Please provide the depth scale to have the markers depth in meters."
+                             "You can set it with the DepthCheck.set_depth_scale method.")
         depth, visibility = 0, True
 
         if depth_image[pos[1], pos[0]] > 0:
@@ -35,9 +39,13 @@ class DepthCheck:
                 return -1, False
 
         if depth_min <= depth <= depth_max:
-            return depth, visibility
+            return depth * DepthCheck.DEPTH_SCALE, visibility
 
         return -1, False
+
+    @staticmethod
+    def set_depth_scale(scale):
+        DepthCheck.DEPTH_SCALE = scale
 
 
 class Crop:

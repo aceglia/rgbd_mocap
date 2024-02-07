@@ -11,14 +11,15 @@ from .processing.process_image import ProcessImage
 from .utils import *
 from .camera.camera import Camera, CameraConverter
 from .kinematic_model_checker.kin_model_check import KinematicModelChecker
-from .processing.config import config, load_json
+from .processing.config import load_json
 from .tracking.test_tracking import print_blobs
+from .crop.crop import DepthCheck
 
 
 class RgbdImages:
     def __init__(
         self,
-        conf_file: str = None,
+        camera_conf_file: str = None,
     ):
         """
         Initialize the camera and the images parameters
@@ -45,16 +46,17 @@ class RgbdImages:
 
         """
         self.frame = None
-        self.conf_file = conf_file
+        self.camera_conf_file = camera_conf_file
         self.pipeline = None
 
         # Camera
         self.camera: Camera = None
-        self.converter: CameraConverter = None
-
+        self.converter = CameraConverter()
+        self.converter.set_intrinsics(self.camera_conf_file)
+        if self.converter.depth_scale != DepthCheck.DEPTH_SCALE:
+            DepthCheck.set_depth_scale(self.converter.depth_scale)
         self.frame_idx = 0
 
-        self.config = load_json(conf_file) if conf_file else None
         self.is_camera_init = False
 
         self.marker_sets = []
@@ -64,6 +66,8 @@ class RgbdImages:
 
         self.process_image: ProcessImage = None
         self.kinematic_model_checker: KinematicModelChecker = None
+
+        self.tracking_config = None
 
     def get_frames(
         self,
@@ -85,7 +89,7 @@ class RgbdImages:
         depth_frame: np.ndarray
             Depth frame
         """
-        if self.process_image.index > self.config['end_index']:
+        if self.process_image.index > self.tracking_config['end_index']:
             return False
 
         self.process_image.process_next_image()
@@ -126,17 +130,15 @@ class RgbdImages:
 
     def initialize_tracking(
         self,
-        config_dict=None,
+        tracking_config_dict=None,
         model_name: str = None,
-        with_tapir=False,
         build_kinematic_model=False,
-        path_to_camera_config_file = None
     ):
-        self.config = config_dict
+        self.tracking_config = load_json(tracking_config_dict)
+        self.tracking_config["depth_scale"] = self.converter.depth_scale
 
         now = datetime.datetime.now()
         dt_string = now.strftime("%d-%m-%Y_%H_%M_%S")
-        self.use_tapir = False
 
         tracking_options = {
             "naive": False,
@@ -144,42 +146,16 @@ class RgbdImages:
             "optical_flow": True,
         }
 
-        ProcessImage.SHOW_IMAGE = True
-        ProcessImage.ROTATION = -1
-        self.process_image = ProcessImage(config_dict, tracking_options, multi_processing=False)
-
-        if with_tapir:
-            self.use_tapir = True
-            self.is_tapir_init = False
-            print(
-                "WARNING: "
-                "You have selected with Tapir. Please be aware that it could take a lot of GPU or CPU ressources."
-                "If you have a GPU, please make sure that you have installed the GPU requirements to be in realtime."
-                "If not just be aware that the program will work slowly."
-            )
+        ProcessImage.SHOW_IMAGE = False
+        ProcessImage.ROTATION = None
+        self.process_image = ProcessImage(self.tracking_config, tracking_options, multi_processing=True)
 
         # build_kinematic_model = False
         if build_kinematic_model:
-            path_to_camera_config_file = "/home/user/KaelFacon/Project/rgbd_mocap/config_camera_files/config_camera_P4_session2.json" if not path_to_camera_config_file else path_to_camera_config_file
-            self.converter = CameraConverter()
-
-            self.converter.set_intrinsics(path_to_camera_config_file, self.process_image.frames.depth)
-            path = config['directory']
+            path = self.tracking_config['directory']
             model_name = f"{path}kinematic_model_{dt_string}.bioMod" if not model_name else model_name
             # model_name = f"kinematic_model_{dt_string}.bioMod" if not model_name else model_name
             self.kinematic_model_checker = KinematicModelChecker(self.process_image.frames,
                                                                  self.process_image.marker_sets,
                                                                  converter=self.converter,
                                                                  model_name=model_name)
-
-
-def main():
-    rgbd = RgbdImages(None)
-    rgbd.initialize_tracking(config, build_kinematic_model=False)
-
-    while rgbd.get_frames():
-        continue
-
-
-if __name__ == '__main__':
-    main()

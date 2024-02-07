@@ -7,7 +7,8 @@ class Marker:
         self.name = name
 
         # Position arrays
-        self.pos = np.zeros((3,), dtype=np.int32)
+        self.pos = np.zeros((2,), dtype=np.int32)
+        self.depth = -1
         self.last_pos = self.pos.copy()
         self.crop_offset = np.zeros((2,), dtype=np.int32)
 
@@ -26,7 +27,7 @@ class Marker:
         return self.pos[:2]
 
     def get_depth(self):
-        return self.pos[2]
+        return self.depth
 
     def get_reliability_index(self, frame_idx):
         return self.reliability_index / (frame_idx + 1)
@@ -42,14 +43,14 @@ class Marker:
 
     def get_global_pos_3d(self):
         pos = self.get_global_pos()
-        return pos[0], pos[1], self.pos[2]
+        return pos[0], pos[1], self.depth
         # return np.array([self.pos[:2] + self.crop_offset] + self.pos[2])
 
     # Setter #####
     def set_pos(self, position):
         assert len(position) >= 2
 
-        self.pos[:2] = np.array(position[:2], dtype=np.int32)
+        self.pos[:2] = position[:2]
 
     def set_pos_and_last(self, position):
         if position == ():
@@ -62,8 +63,8 @@ class Marker:
         self.crop_offset = (x, y)
 
     def set_depth(self, depth, visibility=None):
-        self.last_pos[2] = self.pos[2]
-        self.pos[2] = depth
+        # self.last_pos[2] = self.pos[2]
+        self.depth = depth
 
         if visibility is not None:
             self.set_depth_visibility(visibility)
