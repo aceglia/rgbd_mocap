@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+rgbd_mocap/tapnet/
 # video extension
 *.avi
 

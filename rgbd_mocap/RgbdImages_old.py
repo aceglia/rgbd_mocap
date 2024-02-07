@@ -1964,7 +1964,7 @@ class RgbdImages:
         for i in range(len(self.start_crop[0])):
             crops.append((self.start_crop[0][i], self.start_crop[1][i], self.end_crop[0][i], self.end_crop[1][i]))
 
-        from processing.multiprocess_handler import SharedFrames, MultiProcessHandler
+        from rgbd_mocap.processing import SharedFrames, MultiProcessHandler
         self.shared_frames = SharedFrames(self.color_frame, self.depth_frame)
         self.process_handler = MultiProcessHandler(self.marker_sets, self.shared_frames, crops, self.mask_params,
                                               self.partial_get_frame)
