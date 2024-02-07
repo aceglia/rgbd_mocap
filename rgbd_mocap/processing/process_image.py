@@ -82,7 +82,13 @@ class ProcessImage:
 
     # Loading
     def _load_img(self):
-        color, depth = load_img(self.path, self.index, self.ROTATION)
+        color, depth = None, None
+        while color is None or depth is None:
+            color, depth = load_img(self.path, self.index, self.ROTATION)
+            if color is None or depth is None:
+                self.index += 1
+                if self.index == self.config['end_index']:
+                    return None, None
         return color, depth
 
     def _update_img(self, color, depth):
