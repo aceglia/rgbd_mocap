@@ -99,11 +99,7 @@ class CameraConverter:
         self.depth = CameraIntrinsics()
         self.color = CameraIntrinsics()
         self.model = model
-
-        self.set_intrinsics = self._set_intrinsics_from_file
-        if use_camera:
-            self.set_intrinsics = self._set_intrinsics_from_pipeline
-
+        self.set_intrinsics = self._set_intrinsics_from_file if not use_camera else self._set_intrinsics_from_pipeline
         # Camera extrinsic
         self.depth_to_color = None
 

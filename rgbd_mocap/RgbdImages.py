@@ -124,112 +124,6 @@ class RgbdImages:
 
         return True
 
-    def _run_tapir_tracker(self):
-        if not self.is_tapir_init:
-            self.is_tapir_init = True
-            checkpoint_path = (
-                r"D:\Documents\Programmation\pose_estimation\pose_est\tapnet\checkpoints\causal_tapir_checkpoint.npy"
-            )
-            ckpt_state = np.load(checkpoint_path, allow_pickle=True).item()
-            params, state = ckpt_state["params"], ckpt_state["state"]
-            online_init = hk.transform_with_state(build_online_model_init)
-            online_init_apply = jax.jit(online_init.apply)
-
-            online_predict = hk.transform_with_state(build_online_model_predict)
-            online_predict_apply = jax.jit(online_predict.apply)
-
-            rng = jax.random.PRNGKey(42)
-            online_init_apply = functools.partial(online_init_apply, params=params, state=state, rng=rng)
-            self.online_predict_apply = functools.partial(online_predict_apply, params=params, state=state, rng=rng)
-            if self.color_frame is None:
-                self.color_frame = self.color_images[0]
-                self.depth_frame = self.depth_images[0]
-
-            self.video_empty_tapir = np.ndarray(
-                (1, self.color_frame.shape[0], self.color_frame.shape[1], self.color_frame.shape[2]), dtype=np.uint8
-            )
-            self.height, self.width = self.video_empty_tapir.shape[1:3]
-            self.video_empty_tapir[0] = self.color_frame
-            self.resize_height_tapir, self.resize_width_tapir = 256, 256
-            frames = media.resize_video(self.video_empty_tapir, (self.resize_height_tapir, self.resize_width_tapir))
-            select_points, _, _, _ = self.get_global_markers_pos()
-            select_points = select_points[:2].T
-
-            # select_points = self._prepare_data_optical_flow(0)
-            query_points = convert_select_points_to_query_points(0, select_points)
-            query_points = transforms.convert_grid_coordinates(
-                query_points,
-                (1, self.height, self.width),
-                (1, self.resize_height_tapir, self.resize_width_tapir),
-                coordinate_format="tyx",
-            )
-
-            self.query_features, _ = online_init_apply(
-                frames=preprocess_frames(frames[None, None, 0]), query_points=query_points[None]
-            )
-            self.causal_state = construct_initial_causal_state(
-                query_points.shape[0], len(self.query_features.resolutions) - 1
-            )
-        self.video_empty_tapir[0] = self.color_frame
-        frames = media.resize_video(self.video_empty_tapir, (self.resize_height_tapir, self.resize_width_tapir))
-
-        # for i in tqdm(range(3)):
-        (prediction, self.causal_state), _ = self.online_predict_apply(
-            frames=preprocess_frames(frames[None, None, 0]),
-            query_features=self.query_features,
-            causal_context=self.causal_state,
-        )
-        prediction = prediction["tracks"][0]
-        prediction = transforms.convert_grid_coordinates(
-            prediction, (self.resize_width_tapir, self.resize_height_tapir), (self.width, self.height)
-        )
-        return prediction
-
-    def _init_tapir_tracker(self):
-        checkpoint_path = (
-            r"D:\Documents\Programmation\pose_estimation\pose_est\tapnet\checkpoints\causal_tapir_checkpoint.npy"
-        )
-        ckpt_state = np.load(checkpoint_path, allow_pickle=True).item()
-        params, state = ckpt_state["params"], ckpt_state["state"]
-        self.online_init = hk.transform_with_state(build_online_model_init)
-        self.online_init_apply = jax.jit(self.online_init.apply)
-
-        self.online_predict = hk.transform_with_state(build_online_model_predict)
-        self.online_predict_apply = jax.jit(self.online_predict.apply)
-
-        rng = jax.random.PRNGKey(42)
-        self.online_init_apply = functools.partial(self.online_init_apply, params=params, state=state, rng=rng)
-        self.online_predict_apply = functools.partial(self.online_predict_apply, params=params, state=state, rng=rng)
-        if self.color_frame is None:
-            self.color_frame = self.color_images[0]
-            self.depth_frame = self.depth_images[0]
-
-        self.video_empty_tapir = np.ndarray(
-            (1, self.color_frame.shape[0], self.color_frame.shape[1], self.color_frame.shape[2]), dtype=np.uint8
-        )
-        self.height, self.width = self.video_empty_tapir.shape[1:3]
-        self.video_empty_tapir[0] = self.color_frame
-        self.resize_height_tapir, self.resize_width_tapir = 256, 256
-        frames = media.resize_video(self.video_empty_tapir, (self.resize_height_tapir, self.resize_width_tapir))
-        select_points, _, _, _ = self.get_global_markers_pos()
-        select_points = select_points[:2].T
-
-        # select_points = self._prepare_data_optical_flow(0)
-        query_points = convert_select_points_to_query_points(0, select_points)
-        query_points = transforms.convert_grid_coordinates(
-            query_points,
-            (1, self.height, self.width),
-            (1, self.resize_height_tapir, self.resize_width_tapir),
-            coordinate_format="tyx",
-        )
-
-        self.query_features, _ = self.online_init_apply(
-            frames=preprocess_frames(frames[None, None, 0]), query_points=query_points[None]
-        )
-        self.causal_state = construct_initial_causal_state(
-            query_points.shape[0], len(self.query_features.resolutions) - 1
-        )
-
     def initialize_tracking(
         self,
         config_dict=None,
@@ -252,7 +146,7 @@ class RgbdImages:
 
         ProcessImage.SHOW_IMAGE = True
         ProcessImage.ROTATION = -1
-        self.process_image = ProcessImage(config_dict, tracking_options, shared=False)
+        self.process_image = ProcessImage(config_dict, tracking_options, multi_processing=False)
 
         if with_tapir:
             self.use_tapir = True

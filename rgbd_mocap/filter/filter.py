@@ -34,6 +34,8 @@ class Filter:
         self.blobs_param.minConvexity = self.options["convexity"] / 100
         self.blobs_param.filterByInertia = False
 
+        self.blobs_detector = cv2.SimpleBlobDetector_create(self.blobs_param)
+
     # Getter
     def get_filtered_frame(self):
         if self.filtered_frame is not None:
@@ -97,9 +99,7 @@ class Filter:
         if not self.options['blob_option']:
             return []
 
-        detector = cv2.SimpleBlobDetector_create(self.blobs_param)
-
-        keypoints = detector.detect(self.filtered_frame)
+        keypoints = self.blobs_detector.detect(self.filtered_frame)
         centers = []
         for blob in keypoints:
             centers.append((int(blob.pt[0]), int(blob.pt[1])))

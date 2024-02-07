@@ -7,4 +7,5 @@ def load_json(path='../../processing/test_project_bis.json'):
         return json.load(json_file)
 
 
-config = load_json()
+if __name__ == '__main__':
+    config = load_json()

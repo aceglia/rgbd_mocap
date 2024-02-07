@@ -2,7 +2,7 @@ import cv2
 
 from rgbd_mocap.processing.process_image import ProcessImage
 from rgbd_mocap.processing.handler import Handler
-from rgbd_mocap.processing.config import config
+from rgbd_mocap.processing.config import load_json
 
 tracking_options = {
         "naive": False,
@@ -13,13 +13,14 @@ tracking_options = {
 
 if __name__ == '__main__':
     # Init
-    ProcessImage.ROTATION = -1
+    from rgbd_mocap.enums import Rotation
+    ProcessImage.ROTATION = Rotation.ROTATE_0
     ProcessImage.SHOW_IMAGE = True
     Handler.SHOW_CROPS = True
+    config = load_json(r"D:\Documents\Programmation\pose_estimation\data_files\P14\gear_15_project\test.json")
+    PI = ProcessImage(config, tracking_options, multi_processing=False)
 
-    PI = ProcessImage(config, tracking_options, multi_processing=True)
-
-    check_first_frame = False
+    check_first_frame = True
     if check_first_frame:
         PI.process_next_image()
         cv2.waitKey(0)
@@ -34,6 +35,12 @@ if __name__ == '__main__':
         print('Total time :', total_time)
 
     # Run frame by frame
+
     else:
-        while PI.process_next_image():
-            continue
+        import time
+        while True:
+            tic = time.time()
+            if not PI.process_next_image():
+                break
+            print("Time for one frame :", time.time() - tic)
+

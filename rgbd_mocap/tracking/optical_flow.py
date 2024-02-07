@@ -9,7 +9,7 @@ def image_gray_and_blur(image, blur_size):
 
 
 class OpticalFlow:
-    BLUR = 9
+    BLUR = 5
     optical_flow_parameters = {
         'winSize': (15, 15),
         'maxLevel': 2,
@@ -24,7 +24,7 @@ class OpticalFlow:
         self.value = None
 
     def get_optical_flow_pos(self, frame):
-        self.previous_frame = self.frame
+        self.previous_frame = self.frame.copy()
         self.frame = image_gray_and_blur(frame, OpticalFlow.BLUR)
 
         self.value = cv2.calcOpticalFlowPyrLK(

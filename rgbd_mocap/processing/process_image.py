@@ -1,7 +1,9 @@
 import time
 
 import cv2
+import os
 
+import rgbd_mocap.enums
 from ..processing.multiprocess_handler import MultiProcessHandler, MarkerSet, SharedFrames
 from ..frames.frames import Frames
 from ..crop.crop import DepthCheck
@@ -35,8 +37,9 @@ class ProcessImage:
         self.marker_sets = self._init_marker_set(multi_processing)
 
         # Set offsets for the marker_sets
-        for i in range(len(self.marker_sets)):
-            self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
+        # Already done in the init_marker_set
+        # for i in range(len(self.marker_sets)):
+        #     self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
 
         # Process
         if not multi_processing:
@@ -186,14 +189,16 @@ def print_marker_sets(frame, marker_sets):
 
 
 def load_img(path, index, rotation=None):  # Possibly change it to also allow the usage of the camera
-    color_file = path + f"color_{index}.png"
-    depth_file = path + f"depth_{index}.png"
+    color_file = path + os.sep + f"color_{index}.png"
+    depth_file = path + os.sep + f"depth_{index}.png"
 
     color_image = cv2.imread(color_file, cv2.COLOR_BGR2RGB)
     depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
 
-    if rotation is not None:
-        color_image = cv2.flip(color_image, rotation)
-        depth_image = cv2.flip(depth_image, rotation)
+    if rotation is not None and rotation != rgbd_mocap.enums.Rotation.ROTATE_0:
+        if rotation != rgbd_mocap.enums.Rotation.ROTATE_180:
+            raise NotImplementedError("Only 180 degrees rotation is implemented")
+        color_image = cv2.rotate(color_image, rotation.value)
+        depth_image = cv2.rotate(depth_image, rotation.value)
 
     return color_image, depth_image
