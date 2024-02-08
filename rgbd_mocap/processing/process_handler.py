@@ -1,7 +1,7 @@
 from ..markers.marker_set import MarkerSet
 from ..frames.frames import Frames
 from ..crop.crop import Crop
-from ..tracking.test_tracking import set_marker_pos
+from ..tracking.utils import set_marker_pos
 from ..processing.handler import Handler
 
 

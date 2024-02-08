@@ -13,7 +13,8 @@ class SharedMarker(Marker):
         super().__init__(name, is_static)
 
         ### Shared Memory
-        self.pos = np.frombuffer(RawArray(c_int, 3), dtype=np.int32)
+        self.raw_array_pos = RawArray(c_int, 3)
+        self.pos = np.frombuffer(self.raw_array_pos, dtype=np.int32)
         self.last_pos = self.pos.copy()
 
         # Visibility and reliability

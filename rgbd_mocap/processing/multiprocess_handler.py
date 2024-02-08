@@ -2,9 +2,9 @@ from multiprocessing import Queue, Process
 from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
 from ..crop.crop import Crop, DepthCheck
-from ..tracking.test_tracking import set_marker_pos
+from ..tracking.utils import set_marker_pos
 from ..processing.handler import Handler
-
+import numpy as np
 
 class MultiProcessHandler(Handler):
     def __init__(self, markers_sets: list[MarkerSet], shared_frame: SharedFrames, options, tracking_option):
@@ -82,6 +82,10 @@ class MultiProcessHandler(Handler):
         print(f"[Process {index}: Started]")
 
         # Init Crop
+        shared_frame.color = np.frombuffer(shared_frame.color_array, dtype=np.uint8).reshape((shared_frame.width, shared_frame.height, 3))
+        shared_frame.depth = np.frombuffer(shared_frame.depth_array, dtype=np.int32).reshape((shared_frame.width, shared_frame.height))
+        for marker in marker_set:
+            marker.pos = np.frombuffer(marker.raw_array_pos, dtype=np.int32)
         crop = Crop(crop_option['area'], shared_frame, marker_set, crop_option['filters'], tracking_option)
         if "depth_scale" in crop_option.keys():
             DepthCheck.set_depth_scale(crop_option["depth_scale"])
