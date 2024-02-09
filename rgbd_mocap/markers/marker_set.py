@@ -1,7 +1,7 @@
 import numpy as np
 
-from rgbd_mocap.markers.marker import Marker
-from rgbd_mocap.markers.shared_marker import SharedMarker
+from ..markers.marker import Marker
+from ..markers.shared_marker import SharedMarker
 
 
 class MarkerSet:

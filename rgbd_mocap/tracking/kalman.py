@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from rgbd_mocap.markers.marker_set import MarkerSet
+from ..markers.marker_set import MarkerSet
 
 
 class Kalman:

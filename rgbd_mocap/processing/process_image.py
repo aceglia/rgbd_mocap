@@ -3,7 +3,7 @@ import time
 import cv2
 import os
 
-import rgbd_mocap.enums
+from ..enums import Rotation
 from ..processing.multiprocess_handler import MultiProcessHandler, MarkerSet, SharedFrames
 from ..frames.frames import Frames
 from ..crop.crop import DepthCheck, Crop
@@ -148,7 +148,7 @@ class ProcessImage:
 
         if ProcessImage.SHOW_IMAGE:
             cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
-            cv2.imshow('Main image :', self._get_processed_image())
+            cv2.imshow('Main image :', self.get_processed_image())
             if cv2.waitKey(1) == ord('q'):
                 return False
 
@@ -174,7 +174,7 @@ class ProcessImage:
                 continue
 
             if ProcessImage.SHOW_IMAGE:
-                cv2.imshow('Main image :', self._get_processed_image())
+                cv2.imshow('Main image :', self.get_processed_image())
                 if cv2.waitKey(1) == ord('q'):
                     break
 
@@ -186,7 +186,7 @@ class ProcessImage:
         nb_img = self.index - self.config['start_index']
         return total_time, total_time / nb_img
 
-    def _get_processed_image(self):
+    def get_processed_image(self):
         img = print_marker_sets(self.color, self.marker_sets)
         self.color = self.frames.color.copy()
 
@@ -210,8 +210,8 @@ def load_img(path, index, rotation=None):  # Possibly change it to also allow th
     color_image = cv2.imread(color_file)
     depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
 
-    if rotation is not None and rotation != rgbd_mocap.enums.Rotation.ROTATE_0:
-        if rotation != rgbd_mocap.enums.Rotation.ROTATE_180:
+    if rotation is not None and rotation != Rotation.ROTATE_0:
+        if rotation != Rotation.ROTATE_180:
             raise NotImplementedError("Only 180 degrees rotation is implemented")
         color_image = cv2.rotate(color_image, rotation.value)
         depth_image = cv2.rotate(depth_image, rotation.value)

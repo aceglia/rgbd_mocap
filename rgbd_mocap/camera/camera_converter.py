@@ -10,6 +10,7 @@ except ImportError:
 
 class CameraIntrinsics:
     def __init__(self):
+        self.fps = None
         self.width = None
         self.height = None
         self.fx = None
@@ -20,7 +21,7 @@ class CameraIntrinsics:
         self.model = None
         self.dist_coefficients = None
 
-    def set_intrinsics_from_file(self, fx_fy, ppx_ppy, dist_coefficients, size):
+    def set_intrinsics_from_file(self, fx_fy, ppx_ppy, dist_coefficients, size, fps):
         self.height = size[1]
         self.width = size[0]
 
@@ -32,7 +33,9 @@ class CameraIntrinsics:
 
         self.dist_coefficients = dist_coefficients
         self.model = rs.distortion.inverse_brown_conrady
-
+        
+        self.fps = fps
+        
         self._set_intrinsics_mat()
 
     def set_intrinsics(self, intrinsics):
@@ -119,11 +122,13 @@ class CameraConverter:
         self.depth.set_intrinsics_from_file(conf_data["depth_fx_fy"],
                                             conf_data["depth_ppx_ppy"],
                                             conf_data["dist_coeffs_color"],
-                                            conf_data["size_depth"])
+                                            conf_data["size_depth"], 
+                                            conf_data["depth_rate"])
         self.color.set_intrinsics_from_file(conf_data["color_fx_fy"],
                                             conf_data["color_ppx_ppy"],
                                             conf_data["dist_coeffs_color"],
-                                            conf_data["size_color"])
+                                            conf_data["size_color"], 
+                                            conf_data["color_rate"])
 
     def _set_intrinsics_from_pipeline(self, pipeline: rs.pipeline):
         """

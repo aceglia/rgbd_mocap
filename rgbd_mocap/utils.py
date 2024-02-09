@@ -210,6 +210,15 @@ def find_closest_node_3d(point, node_list):
         return None, None, None
 
 
+def _save_video(image, size=(480, 848), file_name=None, fps=60, video_object=None):
+    if file_name is None:
+        raise ValueError("file_name must be provided")
+    if video_object is None:
+        video_object = cv2.VideoWriter(file_name, cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+    video_object.write(image)
+    return video_object
+
+
 def find_closest_blob(center, blobs, delta=10, return_distance=False):
     """
     Find the closest blob to the center

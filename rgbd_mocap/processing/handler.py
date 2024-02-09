@@ -1,7 +1,7 @@
 import cv2
 
-from rgbd_mocap.markers.marker_set import MarkerSet
-from rgbd_mocap.tracking.position import Position
+from ..markers.marker_set import MarkerSet
+from ..tracking.position import Position
 
 
 class Handler:

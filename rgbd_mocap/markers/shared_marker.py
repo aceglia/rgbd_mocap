@@ -1,6 +1,6 @@
 import numpy as np
 from multiprocessing import RawArray, RawValue
-from rgbd_mocap.markers.marker import Marker
+from ..markers.marker import Marker
 
 
 c_int = 'i'

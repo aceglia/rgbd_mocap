@@ -1,7 +1,7 @@
 import math
 
 import numpy as np
-from rgbd_mocap.marker_class import Marker
+from ..markers.marker import Marker
 
 
 def check_bounds(i, max_bound, min_bound=0):

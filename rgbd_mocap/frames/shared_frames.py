@@ -1,4 +1,4 @@
-from rgbd_mocap.frames.frames import Frames, np
+from ..frames.frames import Frames, np
 from multiprocessing import RawArray
 
 

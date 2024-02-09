@@ -1,6 +1,6 @@
 import cv2
-from rgbd_mocap.tracking.tracking_markers import Tracker, Position, MarkerSet, List, CropFrames
-from rgbd_mocap.frames.frames import Frames
+from ..tracking.tracking_markers import Tracker, Position, MarkerSet, List, CropFrames
+from ..frames.frames import Frames
 
 params_detector = cv2.SimpleBlobDetector_Params()
 params_detector.minThreshold = 150
