@@ -4,7 +4,7 @@ import cv2
 
 from rgbd_mocap.processing.multiprocess_handler import MultiProcessHandler, MarkerSet, SharedFrames
 from config import config
-from rgbd_mocap.tracking.test_tracking import print_marker
+from rgbd_mocap.tracking.utils import print_marker
 
 
 def print_marker_sets(frame, marker_sets):

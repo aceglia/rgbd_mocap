@@ -6,9 +6,9 @@ import os
 import rgbd_mocap.enums
 from ..processing.multiprocess_handler import MultiProcessHandler, MarkerSet, SharedFrames
 from ..frames.frames import Frames
-from ..crop.crop import DepthCheck
+from ..crop.crop import DepthCheck, Crop
 from ..processing.process_handler import ProcessHandler
-from ..tracking.test_tracking import print_marker
+from ..tracking.utils import print_marker
 
 
 class ProcessImage:
@@ -35,18 +35,27 @@ class ProcessImage:
 
         # Init Markers
         self.marker_sets = self._init_marker_set(multi_processing)
+        self.loading_time = 0
 
         # Set offsets for the marker_sets
         # Already done in the init_marker_set
         # for i in range(len(self.marker_sets)):
         #     self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
-
+        self.tracking_options = tracking_options
+        self._init_crops()
         # Process
         if not multi_processing:
-            self.process_handler = ProcessHandler(self.marker_sets, self.frames, config, tracking_options)
+            self.process_handler = ProcessHandler(self.crops)
         else:
             self.process_handler = MultiProcessHandler(self.marker_sets, self.frames, config, tracking_options)
             self.process_handler.start_process()
+
+    def _init_crops(self):
+        self.crops = []
+        for i in range(len(self.marker_sets)):
+            self.crops.append(Crop(self.config['crops'][i]["area"], self.frames, self.marker_sets[i],
+                                   self.config['crops'][i]["filters"],
+                        self.tracking_options))
 
     # Init
     def _init_marker_set(self, multi_processing):
@@ -54,7 +63,6 @@ class ProcessImage:
         off_sets = []
         marker_names = []
         base_positions = []
-
         for i in range(len(self.config['crops'])):
             set_names.append(self.config['crops'][i]['name'])
             off_sets.append(self.config['crops'][i]['area'])
@@ -114,6 +122,7 @@ class ProcessImage:
     def _process_while_loading(self):
         # Start the processing of the current image
         self.process_handler.send_process()
+        # self.blobs = self.process_handler.blobs
 
         # Load next frame
         color, depth = self._load_img()  # If image could not be loaded then skip to the next one

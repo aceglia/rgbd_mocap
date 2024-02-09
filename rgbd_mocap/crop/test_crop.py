@@ -4,7 +4,7 @@ from ..filter.filter import Frames
 from ..frames.shared_frames import SharedFrames
 from crop import Crop
 from ..markers.marker_set import MarkerSet
-from ..tracking.test_tracking import print_blobs, print_marker, print_estimated_positions, set_marker_pos
+from ..tracking.utils import print_blobs, print_marker, print_estimated_positions, set_marker_pos
 
 
 filter_option = {

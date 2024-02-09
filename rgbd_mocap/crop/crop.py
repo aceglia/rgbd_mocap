@@ -1,6 +1,7 @@
 import numpy as np
 
 from ..frames.crop_frames import Frames, CropFrames
+from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
 from ..tracking.tracking_markers import Tracker, Position
 from ..filter.filter import Filter
@@ -50,6 +51,11 @@ class DepthCheck:
 
 class Crop:
     def __init__(self, area, frame: Frames, marker_set: MarkerSet, filter_option, method):
+        if isinstance(frame, SharedFrames):
+            frame.color = np.frombuffer(frame.color_array, dtype=np.uint8).reshape((frame.width, frame.height, 3))
+            frame.depth = np.frombuffer(frame.depth_array, dtype=np.int32).reshape((frame.width, frame.height))
+            for marker in marker_set:
+                marker.pos = np.frombuffer(marker.raw_array_pos, dtype=np.int32)
         # Image
         self.frame = CropFrames(area, frame)
 
@@ -58,7 +64,7 @@ class Crop:
 
         self.depth_min = filter_option['distance_in_centimeters'][0] * 10
         self.depth_max = filter_option['distance_in_centimeters'][1] * 10
-
+        self.tracking_option = method
         # Image computing
         self.filter = Filter(filter_option)
         self.tracker = Tracker(self.frame, marker_set, **method)

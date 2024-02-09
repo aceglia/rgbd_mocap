@@ -16,14 +16,14 @@ if __name__ == '__main__':
     # Init
     from rgbd_mocap.enums import Rotation
     ProcessImage.ROTATION = Rotation.ROTATE_0
-    ProcessImage.SHOW_IMAGE = False
-    Handler.SHOW_CROPS = True
+    ProcessImage.SHOW_IMAGE = True
+    Handler.SHOW_CROPS = False
     DepthCheck.DEPTH_SCALE = 0.0010000000474974513
     config = load_json(r"D:\Documents\Programmation\pose_estimation\data_files\P14\gear_15_project\test.json")
     config["depth_scale"] = DepthCheck.DEPTH_SCALE
     PI = ProcessImage(config, tracking_options, multi_processing=True)
 
-    check_first_frame = True
+    check_first_frame = False
     if check_first_frame:
         PI.process_next_image()
         cv2.waitKey(0)
@@ -45,5 +45,5 @@ if __name__ == '__main__':
             tic = time.time()
             if not PI.process_next_image():
                 break
-            print("Time for one frame :", time.time() - tic)
+            print("Time for one frame :", (time.time() - tic))
 

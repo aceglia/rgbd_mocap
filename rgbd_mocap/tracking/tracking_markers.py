@@ -1,11 +1,11 @@
 from typing import List, Tuple
 
-from rgbd_mocap.utils import find_closest_blob
-from rgbd_mocap.markers.marker_set import MarkerSet, Marker
-from rgbd_mocap.tracking.position import Position
-from rgbd_mocap.tracking.optical_flow import OpticalFlow
-from rgbd_mocap.tracking.kalman import KalmanSet
-from rgbd_mocap.frames.crop_frames import CropFrames
+from ..utils import find_closest_blob
+from ..markers.marker_set import MarkerSet, Marker
+from ..tracking.position import Position
+from ..tracking.optical_flow import OpticalFlow
+from ..tracking.kalman import KalmanSet
+from ..frames.crop_frames import CropFrames
 
 
 class Tracker:
@@ -31,7 +31,7 @@ class Tracker:
         self.estimated_positions: List[List[Position]] = [None] * len(marker_set.markers)
 
     def _get_blob_near_position(self, position, index):
-        self.estimated_positions[index].append(Position(position, False))
+        # self.estimated_positions[index].append(Position(position, False))
 
         position, visible = find_closest_blob(position, self.blobs, delta=Tracker.DELTA)
         # if visible:
@@ -121,9 +121,16 @@ class Tracker:
                     self._correct_overlapping(i, j)
 
     # Check new_positions are within the crop
-    def check_bounds(self, frame: CropFrames):
-        max_x = frame.width - 1
-        max_y = frame.height - 1
+    def check_bounds(self, frame: CropFrames = None, size: [int, int] = None):
+        if frame is not None:
+            max_x = frame.width - 1
+            max_y = frame.height - 1
+        if size is not None:
+            max_x, max_y = size[0] - 1, size[1] - 1
+        if not frame and not size:
+            raise ValueError("Either frame or size must be given")
+        if frame and size and (frame.width, frame.height) != size:
+            raise ValueError("Frame and size must have the same dimensions")
 
         for i in range(len(self.positions)):
             if self.positions[i] != ():

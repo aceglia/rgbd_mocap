@@ -4,7 +4,7 @@ from ..markers.marker_set import MarkerSet
 from ..crop.crop import Crop, DepthCheck
 from ..tracking.utils import set_marker_pos
 from ..processing.handler import Handler
-import numpy as np
+
 
 class MultiProcessHandler(Handler):
     def __init__(self, markers_sets: list[MarkerSet], shared_frame: SharedFrames, options, tracking_option):
@@ -12,10 +12,12 @@ class MultiProcessHandler(Handler):
         self.queue_arg_list = []
         self.queue_res = Queue()
         self.queue_end_proc = Queue()
+        self.queue_blobs = Queue()
         self.process_list = []
 
         arguments = {'queue_res': self.queue_res,
                      'queue_end': self.queue_end_proc,
+                     'queue_blobs': self.queue_blobs,
                      }
 
         for i in range(len(markers_sets)):
@@ -80,15 +82,11 @@ class MultiProcessHandler(Handler):
                           tracking_option,
                           arguments):
         print(f"[Process {index}: Started]")
-
         # Init Crop
-        shared_frame.color = np.frombuffer(shared_frame.color_array, dtype=np.uint8).reshape((shared_frame.width, shared_frame.height, 3))
-        shared_frame.depth = np.frombuffer(shared_frame.depth_array, dtype=np.int32).reshape((shared_frame.width, shared_frame.height))
-        for marker in marker_set:
-            marker.pos = np.frombuffer(marker.raw_array_pos, dtype=np.int32)
         crop = Crop(crop_option['area'], shared_frame, marker_set, crop_option['filters'], tracking_option)
         if "depth_scale" in crop_option.keys():
             DepthCheck.set_depth_scale(crop_option["depth_scale"])
+        import time
         while True:
             arg = queue_arg.get()
 
@@ -96,7 +94,9 @@ class MultiProcessHandler(Handler):
                 break
 
             elif arg == Handler.CONTINUE:
+                tic = time.time()
                 blobs, positions, estimate_positions = crop.track_markers()
+                arguments['queue_blobs'].put((index, blobs))
                 set_marker_pos(marker_set, positions)
 
                 Handler.show_image(f"{crop_option['name']} {index}",
@@ -104,7 +104,7 @@ class MultiProcessHandler(Handler):
                                    blobs=blobs,
                                    markers=crop.marker_set,
                                    estimated_positions=estimate_positions)
-
+                print(f"[Process {index}: Processed in {time.time() - tic} s]")
             elif arg == Handler.RESET:
                 print(f"[Process {index}: Resetting]")
                 crop.re_init(marker_set, tracking_option)
