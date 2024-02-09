@@ -215,6 +215,15 @@ def find_closest_node_3d(point, node_list):
         return None, None, None
 
 
+def _save_video(image, size=(480, 848), file_name=None, fps=60, video_object=None):
+    if file_name is None:
+        raise ValueError("file_name must be provided")
+    if video_object is None:
+        video_object = cv2.VideoWriter(file_name, cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+    video_object.write(image)
+    return video_object
+
+
 def find_closest_blob(center, blobs, delta=10, return_distance=False):
     """
     Find the closest blob to the center
@@ -441,25 +450,27 @@ def find_closest_markers_in_model(marker_to_check, markers_model, same_idx, mode
 def get_blobs(
     frame,
     params,
-    method=DetectionMethod.CV2Contours,
+    method=DetectionMethod.CV2Blobs,
     return_image=False,
     return_centers=False,
     image_bounds=None,
     threshold_distance=2,
     depth=None,
-    clipping_color=None,
-    depth_scale=None,
+    clipping_color=20,
+    depth_scale=0.001,
 ):
-    if image_bounds:
-        bounded_frame = frame.copy()
-        bounded_frame = bounded_frame[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
-        bounded_depth = depth.copy()
-        bounded_depth = bounded_depth[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
-    else:
-        bounded_frame = frame.copy()
-        image_bounds = (0, frame.shape[1], 0, frame.shape[0])
-        bounded_depth = depth.copy()
-    im_from_init = bounded_frame.copy()
+    # if image_bounds:
+    #     bounded_frame = frame.copy()
+    #     bounded_frame = bounded_frame[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
+    #     bounded_depth = depth.copy()
+    #     bounded_depth = bounded_depth[image_bounds[2] : image_bounds[3], image_bounds[0] : image_bounds[1]]
+    # else:
+    #     bounded_frame = frame.copy()
+    #     image_bounds = (0, frame.shape[1], 0, frame.shape[0])
+    #     bounded_depth = depth.copy()
+    # im_from_init = bounded_frame.copy()
+    im_from_init = frame.copy()
+    bounded_depth = depth.copy()
     centers = []
     blobs = []
     im_from = None
@@ -523,7 +534,7 @@ def get_blobs(
                 if len(contours) != 0:
                     for c in contours:
                         M = cv2.moments(c)
-                        print(c)
+                        # print(c)
                         if M["m00"] == 0:
                             pass
                         else:
@@ -554,10 +565,13 @@ def get_blobs(
             # Create the detector object
             detector = cv2.SimpleBlobDetector_create(params_detector)
             keypoints = detector.detect(im_from)
+            # print(keypoints)
             for blob in keypoints:
                 blobs.append(blob)
                 if return_centers:
-                    centers.append((int(blob.pt[0] + image_bounds[0]), int(blob.pt[1] + image_bounds[2])))
+                    # centers.append((int(blob.pt[0] + image_bounds[0]), int(blob.pt[1] + image_bounds[2])))
+                    centers.append((int(blob.pt[0]), int(blob.pt[1])))
+
     if return_image:
         if return_centers:
             return im_from, centers

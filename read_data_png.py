@@ -17,7 +17,8 @@ import time
 # 50, (frame_width, frame_height))
 for i in range(100, int(len(all_color_files))):
     tic = time.time()
-    color, depth = cv2.imread(path + f"/color_{i}.png"), cv2.imread(path + f"/depth_{i}.png", cv2.IMREAD_ANYDEPTH)
+    color, depth = (cv2.imread(path + f"/color_{i}.png"),
+                    cv2.imread(path + f"/depth_{i}.png", cv2.IMREAD_ANYDEPTH))
     color = cv2.rotate(color, cv2.ROTATE_180)
     # out.write(color)
 

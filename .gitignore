@@ -5,6 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
+c_generated_code/
 
 c_generated_code/
 pose_est/tapnet/
@@ -12,6 +13,7 @@ rgbd_mocap/tapnet/
 
 # video extension
 *.avi
+*.mp4
 
 # Distribution / packaging
 
@@ -139,6 +141,9 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Test images
+**.png
 
 # Pyre type checker
 .pyre/

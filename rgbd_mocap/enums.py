@@ -20,7 +20,7 @@ class FilterType(Enum):
     Gray = "gray"
 
 
-class ColorResolution(Enum):
+class ColorResolution:
     """
     The different types of color resolutions that can be used.
     """
@@ -34,7 +34,7 @@ class ColorResolution(Enum):
     R_1280x800 = (1280, 800)
 
 
-class DepthResolution(Enum):
+class DepthResolution:
     """
     The different types of color resolutions that can be used.
     """
@@ -51,7 +51,7 @@ class DepthResolution(Enum):
     R_1280x800 = (1280, 800)
 
 
-class FrameRate(Enum):
+class FrameRate:
     """
     The different types of frame rates that can be used.
     """
