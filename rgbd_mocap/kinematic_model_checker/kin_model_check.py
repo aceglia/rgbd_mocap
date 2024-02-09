@@ -205,7 +205,7 @@ class KinematicModelChecker:
             positions = crops[m].tracker.positions
             from rgbd_mocap.tracking.position import Position
             for p, pos in enumerate(positions):
-                positions[p] = Position(_in_local, visibility=False) if pos == () else pos
+                positions[p] = Position(_in_local[p], visibility=False) if pos == () else pos
             crops[m].attribute_depth_from_position(positions)
             set_marker_pos(crops[m].marker_set, positions)
             start += marker_set.nb_markers
