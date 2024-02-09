@@ -25,12 +25,15 @@ class SharedMarker(Marker):
         self.reliability_index = RawValue(c_float, 0)
         # self.mean_reliability_index = RawValue(c_float, 0)
 
+    def get_depth(self):
+        return self.depth.value
+
     # Override getters for shared data
     def get_reliability_index(self, frame_idx):
         return self.reliability_index.value / (frame_idx + 1)
 
     def get_visibility(self):
-        return self.is_visible.value
+        return "1" in str(self.is_visible.value)
 
     def get_depth_visibility(self):
         return self.is_depth_visible.value
@@ -44,3 +47,9 @@ class SharedMarker(Marker):
 
     def set_depth_visibility(self, visibility):
         self.is_depth_visible.value = visibility
+
+    def set_depth(self, depth, visibility=None):
+        self.depth.value = depth
+
+        if visibility is not None:
+            self.set_depth_visibility(visibility)

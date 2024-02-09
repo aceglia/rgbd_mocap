@@ -1,6 +1,7 @@
 import datetime
 import os
 import cv2
+import time
 
 from biosiglive import save
 try:
@@ -98,8 +99,8 @@ class RgbdImages:
         self,
         fit_model=False,
         save_data=False,
-        show_markers=False,
-        save_path=None,
+        show_image=False,
+        file_path=None,
         save_video=False,
     ):
         """
@@ -117,13 +118,16 @@ class RgbdImages:
         depth_frame: np.ndarray
             Depth frame
         """
-        save_path = save_path if save_path else self.tracking_config['directory']
-        ProcessImage.SHOW_IMAGE = show_markers
+        save_dir = self.tracking_config['directory']
+        file_path = file_path if file_path else save_dir + os.sep + "markers_pos_test.bio"
+        ProcessImage.SHOW_IMAGE = show_image
         if self.process_image.index > self.tracking_config['end_index']:
             return False
 
         self.process_image.process_next_image()
+        fit_model_time = 0
         if fit_model:
+            tic = time.time()
             if not self.kinematic_model_checker:
                 self.kinematic_model_checker = KinematicModelChecker(self.process_image.frames,
                                                                      self.process_image.marker_sets,
@@ -133,6 +137,7 @@ class RgbdImages:
                                                                      kin_marker_set=self.kin_marker_sets)
             self.kinematic_model_checker.ik_method = "kalman"
             self.kinematic_model_checker.fit_kinematics_model(self.process_image)
+            fit_model_time = time.time() - tic
 
         for marker_set in self.marker_sets:
             for marker in marker_set:
@@ -140,24 +145,27 @@ class RgbdImages:
                     marker.set_reliability(0.5)
                 if marker.is_depth_visible:
                     marker.set_reliability(0.5)
-
+        markers_pos, markers_names, occlusions = self._get_all_markers()
+        print(occlusions)
         if save_data:
             markers_pos, markers_names, occlusions = self._get_all_markers()
             markers_in_meter = self.converter.get_markers_pos_in_meter(markers_pos)
+            print(occlusions)
             dic = {
                 "markers_in_meters": markers_in_meter[:, :, np.newaxis],
                 "markers_in_pixel": np.array(markers_pos).T[:, :, np.newaxis],
                 "markers_names": markers_names,
                 "occlusions": occlusions,
-                "time_to_process": self.process_image.computation_time,
+                "time_to_process": self.process_image.computation_time + fit_model_time,
                 "iteration": self.iter,
                 "frame_idx": self.process_image.index,
 
             }
-            save(dic, save_path + os.sep + "markers_pos.bio", add_data=True)
+            save(dic, file_path, add_data=True)
         if save_video:
-            if self.iter == 0 and os.path.isfile(save_path + os.sep + "images_processed.avi"):
-                os.remove(save_path + os.sep + "images_processed.avi")
+            video_path = save_dir + os.sep + "images_processed.avi"
+            if self.iter == 0 and os.path.isfile(video_path):
+                os.remove(video_path)
             color_for_video = self.process_image.get_processed_image()
             cv2.putText(
                 color_for_video,
@@ -171,7 +179,7 @@ class RgbdImages:
             )
             self.video_object = _save_video(color_for_video,
                                             (color_for_video.shape[1], color_for_video.shape[0]),
-                                            save_path + os.sep + "images_processed.avi",
+                                            video_path,
                                             self.converter.color.fps,
                                             self.video_object)
         self.iter += 1

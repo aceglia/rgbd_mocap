@@ -42,7 +42,7 @@ class Marker:
 
     def get_global_pos_3d(self):
         pos = self.get_global_pos()
-        return pos[0], pos[1], self.depth
+        return pos[0], pos[1], self.get_depth()
         # return np.array([self.pos[:2] + self.crop_offset] + self.pos[2])
 
     # Setter #####

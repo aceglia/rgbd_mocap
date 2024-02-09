@@ -1,6 +1,6 @@
 from rgbd_mocap.RgbdImages import RgbdImages
 from rgbd_mocap.markers.marker_set import MarkerSet
-
+import os
 
 def _init_kin_marker_set():
     kinematics_marker_set_shoulder = MarkerSet(
@@ -56,7 +56,8 @@ def main():
     import time
     while True:
         tic = time.time()
-        if not rgbd.get_frames(fit_model=True, show_markers=False, save_data=False, save_video=True):
+        if not rgbd.get_frames(fit_model=True, show_image=True, save_data=False, save_video=True,
+                               file_path=rgbd.tracking_config["directory"] + os.sep + "test.bio"):
             break
         print("Time for one frame :", time.time() - tic)
         continue

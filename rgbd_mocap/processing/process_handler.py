@@ -19,17 +19,6 @@ class ProcessHandler(Handler):
             for i, crop in enumerate(self.crops):
                 blobs, positions, estimate_positions = crop.track_markers()
                 set_marker_pos(crop.marker_set, positions)
-                pos = crop.marker_set.get_markers_pos_2d()
-                from rgbd_mocap.tracking.utils import print_blobs
-                img =  print_blobs(crop.filter.filtered_frame, pos)
-                cv2.imshow(f"{self.crops_name[i]}", img)
-
-
-                # self.show_image(f"{self.crops_name[i]}",
-                #                 crop.filter.filtered_frame,
-                #                 blobs=blobs,
-                #                 markers=crop.marker_set,
-                #                 estimated_positions=estimate_positions)
                 self.blobs += blobs
 
         elif order == Handler.RESET:
