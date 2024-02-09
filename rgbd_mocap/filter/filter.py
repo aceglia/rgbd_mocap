@@ -34,8 +34,6 @@ class Filter:
         self.blobs_param.minConvexity = self.options["convexity"] / 100
         self.blobs_param.filterByInertia = False
 
-        self.blobs_detector = cv2.SimpleBlobDetector_create(self.blobs_param)
-
     # Getter
     def get_filtered_frame(self):
         if self.filtered_frame is not None:
@@ -90,7 +88,7 @@ class Filter:
             img = cv2.GaussianBlur(img, (self.options["gaussian_blur"] * 2 + 1,
                                          self.options["gaussian_blur"] * 2 + 1), 0)
 
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        # img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
         self.filtered_frame = img
 
@@ -99,11 +97,11 @@ class Filter:
         if not self.options['blob_option']:
             return []
 
+        self.blobs_detector = cv2.SimpleBlobDetector_create(self.blobs_param)
         keypoints = self.blobs_detector.detect(self.filtered_frame)
         centers = []
         for blob in keypoints:
             centers.append((int(blob.pt[0]), int(blob.pt[1])))
-
         return centers
 
     ##### Main functions ####################################
@@ -134,7 +132,6 @@ class Filter:
     def get_blobs(self, frame: Frames):
         self.frame = frame
         self.filtered_frame = self.frame.color.copy()
-
         self.apply_filters()
 
         return self._blob_detector()
