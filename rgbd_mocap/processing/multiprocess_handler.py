@@ -94,17 +94,14 @@ class MultiProcessHandler(Handler):
                 break
 
             elif arg == Handler.CONTINUE:
-                tic = time.time()
                 blobs, positions, estimate_positions = crop.track_markers()
-                arguments['queue_blobs'].put((index, blobs))
                 set_marker_pos(marker_set, positions)
-
+                arguments['queue_blobs'].put((index, blobs))
                 Handler.show_image(f"{crop_option['name']} {index}",
                                    crop.filter.filtered_frame,
                                    blobs=blobs,
                                    markers=crop.marker_set,
                                    estimated_positions=estimate_positions)
-                print(f"[Process {index}: Processed in {time.time() - tic} s]")
             elif arg == Handler.RESET:
                 print(f"[Process {index}: Resetting]")
                 crop.re_init(marker_set, tracking_option)

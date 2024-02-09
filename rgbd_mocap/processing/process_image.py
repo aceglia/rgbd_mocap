@@ -116,7 +116,6 @@ class ProcessImage:
 
         # Process image
         self.process_handler.send_and_receive_process()
-
         return True
 
     def _process_while_loading(self):
@@ -133,7 +132,7 @@ class ProcessImage:
         # # If image could not be loaded then skip to the next one
         return self._update_img(color, depth)
 
-    def process_next_image(self):
+    def process_next_image(self, process_while_loading=True):
         tik = time.time()
 
         # Get next image
@@ -143,8 +142,12 @@ class ProcessImage:
             return False
 
         # Process
-        if not self._process_while_loading():
-            return True
+        if process_while_loading:
+            if not self._process_while_loading():
+                return True
+        else:
+            if not self._process_after_loading():
+                return True
 
         if ProcessImage.SHOW_IMAGE:
             cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
