@@ -141,9 +141,11 @@ class Synchronizer:
         # break when everything is started
         while True:
             trigger_data = self.interface.get_device_data(device_name="trigger")
+            # print(trigger_data)
             if trigger_data is not None:
                 if len(trigger_data) > 0:
-                    trigger_data = np.mean(trigger_data)
+                    # trigger_data = np.mean(trigger_data)
+                    trigger_data = 5 if len(np.where(trigger_data > 0.1)[0]) > 0 else 0
                 else:
                     trigger_data = 0
                 if self.from_qualysis:
@@ -153,14 +155,12 @@ class Synchronizer:
                         pass
 
                     self.queue_trigger_qualysis.put_nowait(trigger_data)
-
                 if self.from_rgbd:
                     try:
                         self.queue_trigger_rgbd.get_nowait()
                     except:
                         pass
                     self.queue_trigger_rgbd.put_nowait(trigger_data)
-
                 if self.with_motomed:
                     try:
                         self.queue_motomed.get_nowait()
@@ -250,12 +250,12 @@ class Synchronizer:
                     nb_process += 1
 
                 if self.use_trigger:
-                    if i >= 80:
+                    if i >= 60:
                         try:
                             data_trigger = self.queue_trigger_rgbd.get_nowait()
                         except:
                             data_trigger = 0
-                        if data_trigger > 1.5:
+                        if data_trigger > 1.5 or i >= 7200:
                             break
                 else:
                     if i >= 7200:
@@ -348,6 +348,6 @@ class Synchronizer:
 if __name__ == "__main__":
     sync = Synchronizer(from_rgbd=True, from_qualysis=False, use_trigger=True, with_motomed=False)
     sync.fps = 60
-    sync.file_name = "random"
-    sync.participant = "P8"
+    sync.file_name = ("wheelchair")
+    sync.participant = ("P16")
     sync.start()

@@ -184,7 +184,12 @@ def find_closest_node(point, node_list):
     closest_node = None
     smallest_distance = float("inf")
     for node in node_list:
-        distance = math.sqrt((node[0] - point[0]) ** 2 + (node[1] - point[1]) ** 2)
+        try:
+            distance = math.sqrt((node[0] - point[0]) ** 2 + (node[1] - point[1]) ** 2)
+        except ValueError:
+            print("point", point)
+            print("node", node)
+            raise ValueError
         if distance < smallest_distance:
             closest_node = node
             smallest_distance = distance
@@ -363,15 +368,17 @@ def check_and_attribute_depth(pos_2d, depth_image, depth_scale=0.01):
     :param depth_scale: depth scale
     :return: depth value
     """
-    delta = 8
+    delta = 1
     if isinstance(pos_2d, list):
         pos_2d = np.array(pos_2d)
     pos_2d = pos_2d.astype(int)
+    pos = -1
     if depth_image[pos_2d[1], pos_2d[0]] <= 0:
-        pos = (
-            np.median(depth_image[pos_2d[1] - delta : pos_2d[1] + delta, pos_2d[0] - delta : pos_2d[0] + delta])
-            * depth_scale
-        )
+        while pos <= 0 and delta < 15:
+            d = depth_image[pos_2d[1] - delta : pos_2d[1] + delta, pos_2d[0] - delta : pos_2d[0] + delta]
+            if len(d[d > 0]) > 0:
+                pos = np.median(d[d > 0]) * depth_scale
+            delta += 1
         if not np.isfinite(pos):
             pos = -1
         is_visible = False
@@ -492,8 +499,9 @@ def get_blobs(
         clahe = cv2.createCLAHE(
             clipLimit=params["clahe_clip_limit"], tileGridSize=(params["clahe_autre"], params["clahe_autre"])
         )
+        im_from = cv2.GaussianBlur(im_from, (3, 3), 0)
         im_from = clahe.apply(im_from)
-        im_from = cv2.GaussianBlur(im_from, (params["blur"], params["blur"]), 0)
+        # im_from = cv2.GaussianBlur(im_from, (params["blur"], params["blur"]), 0)
         if method == DetectionMethod.SCIKITBlobs:
             raise RuntimeError("Method not implemented")
             # blobs = blob_log(im_from, max_sigma=area_bounds[1], min_sigma=area_bounds[0], threshold=0.3)
@@ -610,6 +618,11 @@ def set_conf_file_from_camera(pipeline, device):
 
 def background_remover(frame, depth, clipping_distance, depth_scale, clipping_color, min_dist=0, use_contour=True):
     depth_image_3d = np.dstack((depth, depth, depth))
+    final = np.where(
+        (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= min_dist / depth_scale),
+        clipping_color,
+        frame,
+    )
     if use_contour:
         white_frame = np.ones_like(frame) * 255
         im_for_mask = np.where(
@@ -621,25 +634,32 @@ def background_remover(frame, depth, clipping_distance, depth_scale, clipping_co
         ret, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
         contours, hierarchy = cv2.findContours(image=thresh, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
         try:
-            c = max(contours, key=cv2.contourArea)
-            mask = np.ones_like(frame) * clipping_color
-            cv2.drawContours(mask, [c], contourIdx=-1, color=(255, 255, 255), thickness=-1)
-            final = np.where(mask == (255, 255, 255), frame, clipping_color)
+            c = sorted(contours, key=cv2.contourArea)
         except ValueError:
-            final = np.where(
-                (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= min_dist / depth_scale),
-                clipping_color,
-                frame,
-            )
+            return final
+        mask = np.ones_like(frame) * clipping_color
+        if len(c) > 0:
+            cv2.drawContours(mask, [c[-1]], contourIdx=-1, color=(255, 255, 255), thickness=-1)
+            if len(c) > 1:
+                cv2.drawContours(mask, [c[-2]], contourIdx=-1, color=(255, 255, 255), thickness=-1)
+            final = np.where(mask == (255, 255, 255), frame, clipping_color)
+
+        # try:
+        #     c = max(contours, key=cv2.contourArea)
+        #     mask = np.ones_like(frame) * clipping_color
+        #     cv2.drawContours(mask, [c], contourIdx=-1, color=(255, 255, 255), thickness=-1)
+        #     if len(c) > 1:
+        #         cv2.drawContours(mask, [c], contourIdx=-1, color=(255, 255, 255), thickness=-1)
+        #     final = np.where(mask == (255, 255, 255), frame, clipping_color)
+        # except ValueError:
+        #     final = np.where(
+        #         (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= min_dist / depth_scale),
+        #         clipping_color,
+        #         frame,
+        #     )
         # mask = np.ones_like(frame) * clipping_color
         # cv2.drawContours(mask, [c], contourIdx=-1, color=(255, 255, 255), thickness=-1)
         # final = np.where(mask == (255, 255, 255), frame, clipping_color)
-    else:
-        final = np.where(
-            (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= min_dist / depth_scale),
-            clipping_color,
-            frame,
-        )
     return final
 
 
@@ -648,6 +668,15 @@ def draw_blobs(frame, blobs, color=(255, 0, 0), scale=5):
         for blob in blobs:
             frame = cv2.circle(frame, (int(blob[0]), int(blob[1])), scale, color, 1)
     return frame
+
+
+def _save_video(image, size=(480, 848), file_name=None, fps=60, video_object=None):
+    if file_name is None:
+        raise ValueError("file_name must be provided")
+    if video_object is None:
+        video_object = cv2.VideoWriter(file_name, cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+    video_object.write(image)
+    return video_object
 
 
 def draw_markers(

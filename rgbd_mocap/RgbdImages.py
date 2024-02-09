@@ -46,6 +46,7 @@ class RgbdImages:
             Only used if the images comes from a file and not a live stream.
 
         """
+        self.video_object = None
         self.frame = None
         self.camera_conf_file = camera_conf_file
         self.pipeline = None
