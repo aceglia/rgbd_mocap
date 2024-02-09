@@ -5,9 +5,11 @@ __pycache__/
 
 # C extensions
 *.so
-rgbd_mocap/tapnet/
+c_generated_code/
+
 # video extension
 *.avi
+*.mp4
 
 # Distribution / packaging
 
