@@ -210,8 +210,13 @@ def load_img(path, index, rotation=None):  # Possibly change it to also allow th
     color_file = path + os.sep + f"color_{index}.png"
     depth_file = path + os.sep + f"depth_{index}.png"
 
-    color_image = cv2.imread(color_file)
-    depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
+    if not os.path.isfile(color_file) or not os.path.isfile(depth_file):
+        return None, None
+    try:
+        color_image = cv2.imread(color_file)
+        depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
+    except:
+        return None, None
 
     if rotation is not None and rotation != Rotation.ROTATE_0:
         if rotation != Rotation.ROTATE_180:
