@@ -16,11 +16,24 @@ class DepthCheck:
     DEPTH_SCALE = None
 
     @staticmethod
+    def _check_bounds(pos, depth_image):
+        if pos[1] >= depth_image.shape[0] or pos[0] >= depth_image.shape[1]:
+            return [depth_image.shape[0] - 1, depth_image.shape[1] - 1]
+        return pos
+
+    @staticmethod
     def check(pos, depth_image, depth_min, depth_max):
         if DepthCheck.DEPTH_SCALE is None:
             raise ValueError("Please provide the depth scale to have the markers depth in meters."
                              "You can set it with the DepthCheck.set_depth_scale method.")
         depth, visibility = 0, True
+
+        pos = DepthCheck._check_bounds(pos, depth_image)
+        try:
+            depth = depth_image[pos[1], pos[0]]
+        except:
+            print(depth_image.shape, pos)
+            return -1, False
 
         if depth_image[pos[1], pos[0]] > 0:
             depth = depth_image[pos[1], pos[0]]
