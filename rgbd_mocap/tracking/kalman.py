@@ -57,7 +57,7 @@ class Kalman:
         return self.kalman.predict()[:2].reshape(2, )
 
     def correct(self, points):
-        self.kalman.correct(np.array(points[:2], dtype=np.float32))[:2].reshape(2, )
+        return self.kalman.correct(np.array(points[:2], dtype=np.float32))[:2].reshape(2, )
 
 
 class KalmanSet:

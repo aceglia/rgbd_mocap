@@ -3,9 +3,7 @@ import numpy as np
 
 
 def image_gray_and_blur(image, blur_size):
-    return cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY),
-                            (blur_size, blur_size),
-                            0)
+    return cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY), (blur_size, blur_size), 0)
 
 
 class OpticalFlow:

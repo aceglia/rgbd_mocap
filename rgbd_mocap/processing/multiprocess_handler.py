@@ -86,7 +86,6 @@ class MultiProcessHandler(Handler):
         crop = Crop(crop_option['area'], shared_frame, marker_set, crop_option['filters'], tracking_option)
         if "depth_scale" in crop_option.keys():
             DepthCheck.set_depth_scale(crop_option["depth_scale"])
-        import time
         while True:
             arg = queue_arg.get()
 

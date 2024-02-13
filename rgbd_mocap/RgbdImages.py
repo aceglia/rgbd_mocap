@@ -124,7 +124,7 @@ class RgbdImages:
         if self.process_image.index > self.tracking_config['end_index']:
             return False
 
-        self.process_image.process_next_image(process_while_loading=True)
+        self.process_image.process_next_image(process_while_loading=False)
         fit_model_time = 0
         if fit_model:
             tic = time.time()

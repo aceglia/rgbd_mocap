@@ -111,11 +111,12 @@ class ProcessImage:
     def _process_after_loading(self):
         # Update frame
         color, depth = self._load_img()
-        if not self._update_img(color, depth):  # If image could not be loaded then skip to the next one
-            return False
 
         # Process image
         self.process_handler.send_and_receive_process()
+
+        if not self._update_img(color, depth):  # If image could not be loaded then skip to the next one
+            return False
         return True
 
     def _process_while_loading(self):

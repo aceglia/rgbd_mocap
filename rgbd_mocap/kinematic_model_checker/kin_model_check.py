@@ -19,6 +19,7 @@ from ..markers.marker_set import MarkerSet
 from ..camera.camera_converter import CameraConverter
 from ..tracking.utils import set_marker_pos
 from ..processing.multiprocess_handler import MultiProcessHandler
+from ..tracking.position import Position
 
 
 class KinematicModelChecker:
@@ -52,7 +53,7 @@ class KinematicModelChecker:
         # Set Markers to exclude
         self.markers_to_exclude = markers_to_exclude
 
-        self.ik_method = 'least_square'
+        self.ik_method = 'kalman'
 
     # utils
     def _get_all_markers(self):
@@ -157,7 +158,6 @@ class KinematicModelChecker:
             crops[m].tracker.check_tracking()
             crops[m].tracker.check_bounds(crops[m].frame)
             positions = crops[m].tracker.positions
-            from rgbd_mocap.tracking.position import Position
             for p, pos in enumerate(positions):
                 positions[p] = Position(_in_local[p], visibility=False) if pos == () else pos
             crops[m].attribute_depth_from_position(positions)
