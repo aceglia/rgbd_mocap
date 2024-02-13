@@ -56,6 +56,7 @@ def main():
                              build_kinematic_model=True,
                              multi_processing=False,
                              kin_marker_set=kin_marker_set,
+                             images_path=r"D:\Documents\Programmation\pose_estimation\data_files\P14\gear_15_22-01-2024_16_26_05",
                              model_name="model_test.bioMod")
 
     import time

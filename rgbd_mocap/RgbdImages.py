@@ -194,8 +194,11 @@ class RgbdImages:
         kin_marker_set=None,
         use_kalman=True,
         use_optical_flow=True,
+        images_path=None,
     ):
         self.tracking_config = load_json(tracking_config_dict)
+        if images_path:
+            self.tracking_config["directory"] = images_path
         self.tracking_config["depth_scale"] = self.converter.depth_scale
         self.iter = 0
         now = datetime.datetime.now()
