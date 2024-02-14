@@ -15,7 +15,7 @@ class ProcessImage:
     ROTATION = None
     SHOW_IMAGE = False
 
-    def __init__(self, config, tracking_options, multi_processing=False):
+    def __init__(self, config, tracking_options, static_markers=None, multi_processing=False):
         # Options
         self.config = config
 
@@ -33,8 +33,10 @@ class ProcessImage:
         else:
             self.frames = SharedFrames(self.color, depth)
 
+        self.static_markers = static_markers
+
         # Init Markers
-        self.marker_sets = self._init_marker_set(multi_processing)
+        self.marker_sets = self._init_marker_set(self.static_markers, multi_processing)
         self.loading_time = 0
 
         # Set offsets for the marker_sets
@@ -58,7 +60,7 @@ class ProcessImage:
                         self.tracking_options))
 
     # Init
-    def _init_marker_set(self, multi_processing):
+    def _init_marker_set(self, static_markers, multi_processing):
         set_names = []
         off_sets = []
         marker_names = []
@@ -72,7 +74,6 @@ class ProcessImage:
                 marker_name.append(self.config['crops'][i]['markers'][j]['name'])
                 base_position.append((self.config['crops'][i]['markers'][j]['pos'][1],
                                      self.config['crops'][i]['markers'][j]['pos'][0]))
-
             marker_names.append(marker_name)
             base_positions.append(base_position)
 
@@ -84,6 +85,8 @@ class ProcessImage:
             depth_cropped = self.frames.get_crop(off_sets[i])[1]
             for marker in marker_set:
                 marker.set_depth(DepthCheck.check(marker.get_pos(), depth_cropped, 0, 10000)[0])
+                if static_markers and marker.name in static_markers:
+                    marker.is_static = True
             marker_sets.append(marker_set)
 
         return marker_sets
@@ -152,7 +155,18 @@ class ProcessImage:
 
         if ProcessImage.SHOW_IMAGE:
             cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
-            cv2.imshow('Main image :', self.get_processed_image())
+            im = self.get_processed_image().copy()
+            cv2.putText(
+                im,
+                f"Frame : {self.index}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 0),
+                2,
+                cv2.LINE_AA,
+            )
+            cv2.imshow('Main image :', im)
             if cv2.waitKey(1) == ord('q'):
                 return False
 

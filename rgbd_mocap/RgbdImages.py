@@ -78,6 +78,12 @@ class RgbdImages:
         self.build_kinematic_model = False
         self.kin_marker_sets = None
         self.model_name = None
+        self.static_markers = None
+
+    def set_static_markers(self, markers):
+        if not isinstance(markers, list):
+            markers = [markers]
+        self.static_markers = markers
 
     def _get_all_markers(self):
         markers_pos = []
@@ -118,13 +124,15 @@ class RgbdImages:
         depth_frame: np.ndarray
             Depth frame
         """
+        if self.static_markers and not self.process_image.static_markers:
+            raise RuntimeError("Static marker should be set before initialization.")
         save_dir = self.tracking_config['directory']
         file_path = file_path if file_path else save_dir + os.sep + "markers_pos_test.bio"
         ProcessImage.SHOW_IMAGE = show_image
-        if self.process_image.index > self.tracking_config['end_index']:
+        if not self.process_image.process_next_image(process_while_loading=False):
+            if self.video_object is not None:
+                self.video_object.release()
             return False
-
-        self.process_image.process_next_image(process_while_loading=False)
         fit_model_time = 0
         if fit_model:
             tic = time.time()
@@ -141,16 +149,18 @@ class RgbdImages:
 
         for marker_set in self.marker_sets:
             for marker in marker_set:
-                if marker.is_visible:
+                if marker.get_visibility():
                     marker.set_reliability(0.5)
                 if marker.is_depth_visible:
                     marker.set_reliability(0.5)
         markers_pos, markers_names, occlusions = self._get_all_markers()
-        # print(occlusions)
+        print(occlusions)
         if save_data:
+            if self.iter == 0 and os.path.isfile(file_path):
+                os.remove(file_path)
             markers_pos, markers_names, occlusions = self._get_all_markers()
             markers_in_meter = self.converter.get_markers_pos_in_meter(markers_pos)
-            # print(occlusions)
+            print(occlusions)
             dic = {
                 "markers_in_meters": markers_in_meter[:, :, np.newaxis],
                 "markers_in_pixel": np.array(markers_pos).T[:, :, np.newaxis],
@@ -195,7 +205,9 @@ class RgbdImages:
         use_kalman=True,
         use_optical_flow=True,
         images_path=None,
+        static_markers=None
     ):
+        self.static_markers = static_markers if static_markers else self.static_markers
         self.tracking_config = load_json(tracking_config_dict)
         if images_path:
             self.tracking_config["directory"] = images_path
@@ -210,7 +222,7 @@ class RgbdImages:
             "optical_flow": use_optical_flow,
         }
 
-        self.process_image = ProcessImage(self.tracking_config, tracking_options, multi_processing=multi_processing)
+        self.process_image = ProcessImage(self.tracking_config, tracking_options, self.static_markers, multi_processing=multi_processing)
         self.model_name = self.tracking_config['directory'] + os.sep + model_name if model_name else None
         self.build_kinematic_model = build_kinematic_model
         if build_kinematic_model:

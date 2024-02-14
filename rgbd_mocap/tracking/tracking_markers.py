@@ -69,10 +69,10 @@ class Tracker:
 
     def _track_marker(self, marker: Tuple[int, Marker]):
         index, marker = marker
-        if marker.is_static:
-            return marker.pos[:2]
-
         self.estimated_positions[index]: List[Position] = []
+        if marker.is_static:
+            return self.estimated_positions[index].append(Position(marker.pos[:2], False))
+
         # If the marker is visible search for the closest blob
         if self.naive:
             self.get_blob_near_position(marker.pos[:2], index)
@@ -95,9 +95,9 @@ class Tracker:
         if self.optical_flow:
             estimation, st, err = self.optical_flow[index]
 
-            threshold = 10
-            if st == 1 and err < threshold:
-                self.get_blob_near_position(estimation, index)
+            # threshold = 10
+            # if st == 1 and err < threshold:
+            self.get_blob_near_position(estimation, index)
 
         # return self._merge_positions(self.estimated_positions[index])
 
@@ -121,7 +121,9 @@ class Tracker:
 
         for i in range(nb_pos):
             for j in range(i + 1, nb_pos):
-                if self.positions[i] == self.positions[j] and self.positions[i] != ():
+                if self.positions[i] == () or self.positions[j] == ():
+                    continue
+                if tuple(self.positions[i].position) == tuple(self.positions[j].position) :
                     self._correct_overlapping(i, j)
 
     # Check new_positions are within the crop

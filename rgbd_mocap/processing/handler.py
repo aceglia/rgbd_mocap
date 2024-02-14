@@ -52,7 +52,7 @@ def print_blobs(frame, blobs, size=4, color=(0, 255, 0)):
     if len(img.shape) == 2:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     for blob in blobs:
-        img[blob[1] - size:blob[1] + size, blob[0] - size:blob[0] + size] = color
+        img[int(blob[1]) - size:int(blob[1]) + size, int(blob[0]) - size:int(blob[0]) + size] = color
 
     return img
 

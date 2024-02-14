@@ -91,7 +91,7 @@ class Crop:
                                                      self.frame.depth,
                                                      self.depth_min,
                                                      self.depth_max)
-                if depth != -1:
+                if depth != -1 or abs(self.marker_set[i].get_depth() - depth) < 0.08:
                     self.marker_set[i].set_depth(depth)
                 self.marker_set[i].set_depth_visibility(visibility)
             else:

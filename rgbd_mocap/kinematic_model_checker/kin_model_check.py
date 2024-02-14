@@ -150,6 +150,9 @@ class KinematicModelChecker:
             markers_local = markers[:, start:end, 0]
             for i in range(marker_set.nb_markers):
                 crops[m].tracker.estimated_positions[i] = []
+                if marker_set.markers[i].is_static:
+                    crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos, False)]
+                    continue
                 marker_in_pixel = self.converter.get_marker_pos_in_pixel(markers_local[:, i][np.newaxis, :])[0, :]
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
                 _in_local.append(marker_in_local)

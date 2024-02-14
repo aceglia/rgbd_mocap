@@ -47,4 +47,5 @@ class Position:
         self.position[0], visibility_x = check_bounds(self.position[0], max_x)
         self.position[1], visibility_y = check_bounds(self.position[1], max_y)
 
-        self.visibility = visibility_x and visibility_y
+        if not (visibility_x and visibility_y):
+            self.visibility = False
