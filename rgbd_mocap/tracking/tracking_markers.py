@@ -83,9 +83,9 @@ class Tracker:
             prediction = self.kalman[index].predict()
             self.get_blob_near_position(prediction, index)
 
-            pos, visibility = self.estimated_positions[index][-1].get()
-            pos = self.kalman[index].correct(pos)
-            self.estimated_positions[index][-1].set(pos, visibility)
+            # pos, visibility = self.estimated_positions[index][-1].get()
+            # pos = self.kalman[index].correct(pos)
+            # self.estimated_positions[index][-1].set(pos, visibility)
 
             # marker.correct_from_kalman(self.estimated_positions[index][-1].position)
 

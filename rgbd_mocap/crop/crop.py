@@ -8,7 +8,15 @@ from ..filter.filter import Filter
 
 
 def get_pixels(array, x, y, delta):
-    return array[x - delta: x + delta, y - delta: y + delta]
+    pos = -1
+    pos_2d = [x, y]
+    delta = 1
+    while pos <= 0 and delta < 15:
+        d = array[pos_2d[0] - delta: pos_2d[0] + delta, pos_2d[1] - delta: pos_2d[1] + delta]
+        if len(d[d > 0]) > 0:
+            pos = np.median(d[d > 0])
+        delta += 1
+    return pos
 
 
 class DepthCheck:
@@ -29,28 +37,15 @@ class DepthCheck:
         depth, visibility = 0, True
 
         pos = DepthCheck._check_bounds(pos, depth_image)
-        try:
-            depth = depth_image[pos[1], pos[0]]
-        except:
-            print(depth_image.shape, pos)
-            return -1, False
 
         if depth_image[pos[1], pos[0]] > 0:
             depth = depth_image[pos[1], pos[0]]
 
         else:
             visibility = False
-            n_d = get_pixels(depth_image,
+            depth = get_pixels(depth_image,
                              x=pos[1], y=pos[0],
                              delta=DepthCheck.DELTA)
-            n_d = n_d[n_d != -1]
-            n_d = n_d[n_d != 0]
-
-            if n_d is not []:
-                depth = np.median(n_d)
-
-            else:
-                return -1, False
 
         if depth_min <= depth <= depth_max:
             return depth * DepthCheck.DEPTH_SCALE, visibility
@@ -91,7 +86,7 @@ class Crop:
                                                      self.frame.depth,
                                                      self.depth_min,
                                                      self.depth_max)
-                if depth != -1 or abs(self.marker_set[i].get_depth() - depth) < 0.08:
+                if depth != -1 and abs(self.marker_set[i].get_depth() - depth) < 0.08:
                     self.marker_set[i].set_depth(depth)
                 self.marker_set[i].set_depth_visibility(visibility)
             else:

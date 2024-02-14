@@ -153,14 +153,13 @@ class RgbdImages:
                     marker.set_reliability(0.5)
                 if marker.is_depth_visible:
                     marker.set_reliability(0.5)
-        markers_pos, markers_names, occlusions = self._get_all_markers()
-        print(occlusions)
+        # print(occlusions)
         if save_data:
             if self.iter == 0 and os.path.isfile(file_path):
                 os.remove(file_path)
             markers_pos, markers_names, occlusions = self._get_all_markers()
             markers_in_meter = self.converter.get_markers_pos_in_meter(markers_pos)
-            print(occlusions)
+            # print(occlusions)
             dic = {
                 "markers_in_meters": markers_in_meter[:, :, np.newaxis],
                 "markers_in_pixel": np.array(markers_pos).T[:, :, np.newaxis],
