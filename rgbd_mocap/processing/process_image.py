@@ -25,19 +25,20 @@ class ProcessImage:
         # Image
         self.path = config['directory']
         self.index = config['start_index']
-        self.color, depth = self._load_img()
+        self.color, self.depth = self._load_img()
 
         # Frame
         if not multi_processing:
-            self.frames = Frames(self.color, depth)
+            self.frames = Frames(self.color, self.depth)
         else:
-            self.frames = SharedFrames(self.color, depth)
+            self.frames = SharedFrames(self.color, self.depth)
 
         self.static_markers = static_markers
 
         # Init Markers
         self.marker_sets = self._init_marker_set(self.static_markers, multi_processing)
         self.loading_time = 0
+        self.last_index = 0
 
         # Set offsets for the marker_sets
         # Already done in the init_marker_set
@@ -103,12 +104,8 @@ class ProcessImage:
         return color, depth
 
     def _update_img(self, color, depth):
-        if color is None or depth is None:
-            return False
-
         self.frames.set_images(color, depth)
-
-        return True
+        self.last_index = self.index
 
     # Processing
     def _process_after_loading(self):
@@ -118,9 +115,7 @@ class ProcessImage:
         # Process image
         self.process_handler.send_and_receive_process()
 
-        if not self._update_img(color, depth):  # If image could not be loaded then skip to the next one
-            return False
-        return True
+        return color, depth
 
     def _process_while_loading(self):
         # Start the processing of the current image
@@ -134,24 +129,20 @@ class ProcessImage:
         self.process_handler.receive_process()
 
         # # If image could not be loaded then skip to the next one
-        return self._update_img(color, depth)
+        return color, depth
 
     def process_next_image(self, process_while_loading=True):
         tik = time.time()
-
-        # Get next image
-        self.index += 1
+        self._update_img(self.color, self.depth)
 
         if self.index == self.config['end_index']:
             return False
 
         # Process
         if process_while_loading:
-            if not self._process_while_loading():
-                return True
+            self.color, self.depth = self._process_while_loading()
         else:
-            if not self._process_after_loading():
-                return True
+            self.color, self.depth = self._process_after_loading()
 
         if ProcessImage.SHOW_IMAGE:
             cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
@@ -169,7 +160,8 @@ class ProcessImage:
             cv2.imshow('Main image :', im)
             if cv2.waitKey(1) == ord('q'):
                 return False
-
+        # Get next image
+        self.index += 1
         tok = time.time() - tik
         self.computation_time = tok
 
@@ -205,8 +197,8 @@ class ProcessImage:
         return total_time, total_time / nb_img
 
     def get_processed_image(self):
-        img = print_marker_sets(self.color, self.marker_sets)
-        self.color = self.frames.color.copy()
+        img = print_marker_sets(self.frames.color, self.marker_sets)
+        # self.color = self.frames.color.copy()
 
         return img
 

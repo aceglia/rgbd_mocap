@@ -16,6 +16,7 @@ from .camera.camera import Camera, CameraConverter
 from .kinematic_model_checker.kin_model_check import KinematicModelChecker
 from .processing.config import load_json
 from .crop.crop import DepthCheck
+from .processing.process_image import print_marker_sets
 
 
 class RgbdImages:
@@ -128,7 +129,8 @@ class RgbdImages:
             raise RuntimeError("Static marker should be set before initialization.")
         save_dir = self.tracking_config['directory']
         file_path = file_path if file_path else save_dir + os.sep + "markers_pos_test.bio"
-        ProcessImage.SHOW_IMAGE = show_image
+        if not fit_model:
+            ProcessImage.SHOW_IMAGE = show_image
         if not self.process_image.process_next_image(process_while_loading=False):
             if self.video_object is not None:
                 self.video_object.release()
@@ -145,6 +147,25 @@ class RgbdImages:
                                                                      kin_marker_set=self.kin_marker_sets)
             self.kinematic_model_checker.ik_method = "kalman"
             self.kinematic_model_checker.fit_kinematics_model(self.process_image)
+            if show_image:
+                im = print_marker_sets(self.process_image.frames.color.copy(), self.kinematic_model_checker.marker_sets)
+                cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
+                cv2.putText(
+                    im,
+                    f"Frame : {self.process_image.last_index}",
+                    (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0, 0, 0),
+                    2,
+                    cv2.LINE_AA,
+                )
+                cv2.imshow('Main image :', im)
+                if cv2.waitKey(1) == ord('q'):
+                    if self.video_object is not None:
+                        self.video_object.release()
+                    return False
+
             fit_model_time = time.time() - tic
 
         for marker_set in self.marker_sets:
@@ -153,6 +174,7 @@ class RgbdImages:
                     marker.set_reliability(0.5)
                 if marker.is_depth_visible:
                     marker.set_reliability(0.5)
+
         # print(occlusions)
         if save_data:
             if self.iter == 0 and os.path.isfile(file_path):
