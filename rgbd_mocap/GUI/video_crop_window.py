@@ -10,7 +10,7 @@ import cv2
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-from Marker_Setter.marker_setter_tab import MarkerSetter
+from Marker_Setter.model_setter_tab import MarkerSetter
 from Utils.video_player import VideoControl
 from Video_cropping.crop_video_tab import CropVideoTab
 from Video_cropping.crop_video import VideoCropper
@@ -54,7 +54,7 @@ class CropWindowMenuBar(QMenuBar):
     """
     Menu bar for the Crop window.
     Contains shortcut for loading
-    folder of image, crop saved files
+    folder of image, crops saved files
     and for saving actual crops.
     """
 
@@ -167,7 +167,7 @@ class CropWindow(QMainWindow):
         if len(self.index):
             self.min_index = self.index[0]
             self.max_index = self.index[-1]
-
+            self.video_player.value = self.min_index
             self.video_player.adjust(self.min_index, self.max_index)
 
             self.update_image()
@@ -178,17 +178,24 @@ class CropWindow(QMainWindow):
             return False
 
     def update_image(self):
-        if self.dir and self.min_index is not None:
+        if self.index != [] and self.min_index is not None:
             color_path = self.dir + os.sep + f"color_{self.video_player.value}.png"
             depth_path = self.dir + os.sep + f"depth_{self.video_player.value}.png"
-            image_color = cv2.imread(color_path)
-            if image_color is None:
+            if not os.path.isfile(color_path) or not os.path.isfile(depth_path):
                 return
-            tik = time.time()
-            image_color = cv2.cvtColor(image_color, cv2.COLOR_BGR2RGB)
-            image_depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
-            print('Time:', time.time() - tik)
+            try:
+                image_color = cv2.imread(color_path)
+                image_depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
+            except:
+                print('Error loading image number', self.video_player.value)
+                return
 
+            if image_color is None or image_depth is None:
+                return
+            # tik = time.time()
+            image_color = cv2.cvtColor(image_color, cv2.COLOR_BGR2RGB)
+            cv2.putText(image_color, f"Frame {self.video_player.value}",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
             ### Check if the image has been well loaded
             self.video_tab.set_image(image_color, image_depth)
 
@@ -219,7 +226,7 @@ class CropWindow(QMainWindow):
 
     def save_crop(self):
         SaveDialog(parent=self,
-                   caption='Save crop file',
+                   caption='Save crops file',
                    filter='Save File (*.csv)',
                    suffix='csv',
                    save_method=self.save_crop_file)
@@ -233,7 +240,7 @@ class CropWindow(QMainWindow):
 
     def load_crop(self):
         LoadDialog(parent=self,
-                   caption='Load crop file',
+                   caption='Load crops file',
                    filter='Save File (*.csv);; Any(*)',
                    load_method=self.video_cropper.load_crops_file)
 

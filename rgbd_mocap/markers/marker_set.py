@@ -109,7 +109,7 @@ class MarkerSet:
         Parameters
         ----------
         start_crop : np.ndarray
-            Starting position of the crop (Up-Left)
+            Starting position of the crops (Up-Left)
 
         """
         for marker in self:

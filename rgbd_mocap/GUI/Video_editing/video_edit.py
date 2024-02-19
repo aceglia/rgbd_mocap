@@ -59,9 +59,9 @@ class VideoEdit(QLabel):
 
     def apply_filter(self, filter):
         """
-        Apply the filter given in parameters
+        Apply the filters given in parameters
         to the filtered frame.
-        :param filter: A filter function to apply to the VideoEdit frame
+        :param filter: A filters function to apply to the VideoEdit frame
         :type filter: function
         :return: None
         """

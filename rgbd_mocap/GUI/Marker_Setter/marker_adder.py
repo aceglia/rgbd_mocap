@@ -2,7 +2,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-from Marker_Setter.marker_list import MarkerList
+from rgbd_mocap.GUI.Marker_Setter.marker_list import MarkerList
 
 
 class AddMarkerEntry(QLineEdit):
@@ -113,6 +113,9 @@ class LoadAndRemoveMarkerButtons(QWidget):
         self.load_button = QPushButton('Load Marker Set')
         self.load_button.pressed.connect(marker_list.load_marker_set)
 
+        self.save_button = QPushButton('Save Marker Set')
+        self.save_button.pressed.connect(marker_list.save_marker_set)
+
         self.remove_button = QPushButton('Remove')
         self.remove_button.pressed.connect(marker_list.remove_marker)
 
@@ -121,7 +124,8 @@ class LoadAndRemoveMarkerButtons(QWidget):
 
         ### Set Layout
         layout = QGridLayout()
-        layout.addWidget(self.load_button, 0, 0, 1, 2)
+        layout.addWidget(self.load_button, 0, 0, 1, 1)
+        layout.addWidget(self.save_button, 0, 1, 1, 1)
         layout.addWidget(self.remove_button, 1, 0, 1, 1)
         layout.addWidget(self.remove_all_button, 1, 1, 1, 1)
         self.setLayout(layout)
@@ -162,16 +166,52 @@ class MarkerAdder(QWidget):
         ### Create the layout with the AddMarkerButton on the top
         layout = QVBoxLayout(self)
         self.add_marker_widget = AddMarkerButton(self.list_marker, self)
+        # self.add_marker_widget_2 = AddMarkerButton(self.list_marker, self)
         layout.addWidget(self.add_marker_widget)
+        # layout.addWidget(self.add_marker_widget_2)
 
         ### Separator between AddMarkerButton and the MarkerList
         layout.addWidget(HorizontalSeparator())
 
         ### Also creating a scrolling area for the MarkerList
+
+        # scroll.setWidget(tree)
+        # scroll.setWidgetResizable(True)
+        # layout.addWidget(scroll)
         scroll = QScrollArea()
         scroll.setWidget(self.list_marker)
         scroll.setWidgetResizable(True)
         layout.addWidget(scroll)
+        # making a scrolling area with tree widget
+        # tree = QTreeWidget()
+        # tree.setHeaderLabels(['Model'])
+        # tree.setColumnCount(1)
+        # tree.setDragEnabled(False)
+        # tree.setAcceptDrops(False)
+        # tree.setDefaultDropAction(Qt.MoveAction)
+        #
+        # # add items to the tree widget
+        #
+        # parent = QTreeWidgetItem(tree, ['Segments'])
+        # tree.removeItemWidget(parent, 0)
+        # # parent.addChildren([QTreeWidgetItem(parent, ['Child 1'])])
+        # # parent.addChildren([QTreeWidgetItem(parent, ['Child 2'])])
+        # parent.removeChild(parent.child(0))
+        # parent_2 = QTreeWidgetItem(tree, ['Segments 2'])
+        #
+        # scroll = QScrollArea()
+        # scroll.setWidget(tree)
+        # scroll.setWidgetResizable(True)
+        # layout.addWidget(scroll)
+        # # parent.setFlags(parent.flags() | Qt.ItemIsDropEnabled)
+        # # child1 = QTreeWidgetItem(parent, ['Child 1'])
+        # # child1.setFlags(child1.flags() | Qt.ItemIsDragEnabled)
+        # # child2 = QTreeWidgetItem(parent, ['Child 2'])
+        # child3 = QTreeWidgetItem(parent_2, ['Child 3'])
+        # #
+        # # # add the tree widget to the layout
+        # # layout.addWidget(tree)
+        #
 
         ### At the bottom of the widget the RemoveMarkerButtons
         self.remove_marker_widget = LoadAndRemoveMarkerButtons(self.list_marker)

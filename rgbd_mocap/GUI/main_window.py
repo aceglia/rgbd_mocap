@@ -8,7 +8,7 @@ import cv2
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-from Marker_Setter.marker_setter_tab import MarkerSetter
+from Marker_Setter.model_setter_tab import MarkerSetter
 from video_crop_widget import CropWidget
 from video_crop_window import CropWindow
 from Utils.video_player import VideoControl
@@ -23,7 +23,7 @@ class MainWindowMenuBar(QMenuBar):
     """
     Menu bar for the Crop window.
     Contains shortcut for loading
-    folder of image, crop saved files
+    folder of image, crops saved files
     and for saving actual crops.
     """
 
@@ -150,7 +150,7 @@ class MainWindow(QMainWindow):
 
     def load_crop(self):
         LoadDialog(parent=self,
-                   caption='Load crop file',
+                   caption='Load crops file',
                    filter='Save File (*.json);; Any(*)',
                    load_method=self.vce.video_cropper.load_crops_file)
 
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
                 if crop_vce['name'] == crop_ms['name'] and crop_vce['markers'] == []:
                     crop_vce['markers'] = crop_ms['markers']
                     break
-            ### Way to unplace markers if crop not found rather than removing them
+            ### Way to unplace markers if crops not found rather than removing them
 
         parameters_vce['markers'] = parameters_ms['markers']
         return parameters_vce

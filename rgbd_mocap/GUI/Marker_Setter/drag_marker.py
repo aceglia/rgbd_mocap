@@ -161,8 +161,8 @@ class DragMarker(QLabel):
         :return: None
         """
         self.set_pos(x, y, area)
-        self.parent().remove_marker()
-        self.hide()
+        # self.parent().remove_marker()
+        # self.hide()
 
     def remove_from_image(self):
         """
@@ -171,8 +171,12 @@ class DragMarker(QLabel):
         :return: None
         """
         self.set_pos(-1, -1, (0, 0, 0, 0))
-        self.parent().re_add_marker(self)
-        self.show()
+        # self.parent().re_add_marker(self)
+        # self.show()
 
     def to_dict(self):
         return {'name': self.text(), 'pos': (self.x, self.y)}
+
+    @property
+    def name(self):
+        return self.text()

@@ -619,7 +619,7 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path):
 
 
 if __name__ == '__main__':
-    participants = ["P10", "P11", "P10","P11", "P12", "P13", "P14"]  #,"P9", "P10",
+    participants = ["P10", "P11", "P10", "P11", "P12", "P13", "P14"]  #,"P9", "P10",
     processed_data_path = "Q:\Projet_hand_bike_markerless/process_data"
     vicon_data_files = "Q:\Projet_hand_bike_markerless/vicon/"
     depth_data_files = "Q:\Projet_hand_bike_markerless/RGBD/"

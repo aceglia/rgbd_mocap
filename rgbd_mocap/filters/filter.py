@@ -2,13 +2,13 @@ import numpy as np
 import cv2
 
 from ..frames.frames import Frames
-from ..crop.crop import DepthCheck
 
 
 class Filter:
     def __init__(self, options):
         self.frame = None
         self.filtered_frame = None
+        self.filtered_depth = None
 
         self.options = options
 
@@ -43,11 +43,14 @@ class Filter:
             raise Warning('No image has been filtered.')
 
     def _distance_range_mask(self):
+        from ..crops.crop import DepthCheck
+
         mask = np.ones(self.frame.depth.shape, dtype=np.uint8)
-        print(self.options["distance_in_centimeters"])
-        print(self.options["distance_in_centimeters"][0] / 10 * DepthCheck.DEPTH_SCALE)
-        mask[self.frame.depth < self.options["distance_in_centimeters"][0] / 10 * DepthCheck.DEPTH_SCALE] = 0
-        mask[self.frame.depth > self.options["distance_in_centimeters"][1] / 10 * DepthCheck.DEPTH_SCALE] = 0
+        min_dist = self.options["distance_in_centimeters"][0] / 100 / DepthCheck.DEPTH_SCALE
+        max_dist = self.options["distance_in_centimeters"][1] / 100 / DepthCheck.DEPTH_SCALE
+        mask[self.frame.depth < min_dist] = 0
+        mask[self.frame.depth > max_dist] = 0
+        self.filtered_depth = np.where((self.frame.depth > max_dist), -1, self.frame.depth)
 
         if not self.options["use_contour"]:
             return mask
@@ -102,7 +105,7 @@ class Filter:
         self.filtered_frame[mask == 0] = 20
 
     def apply_filters(self):
-        # Clahe filter
+        # Clahe filters
         # Masks
         masks = []
         if self.options["distance_option"]:
@@ -116,6 +119,7 @@ class Filter:
     def get_blobs(self, frame: Frames):
         self.frame = frame
         self.filtered_frame = self.frame.color.copy()
+        self.filtered_depth = self.frame.depth.copy()
         self.apply_filters()
 
         return self._blob_detector()

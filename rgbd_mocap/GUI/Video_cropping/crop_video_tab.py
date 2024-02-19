@@ -2,7 +2,7 @@ import sys
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from Video_cropping.crop_video import VideoCropper
+from rgbd_mocap.GUI.Video_cropping.crop_video import VideoCropper
 
 
 class CropVideoTab(QTabWidget):

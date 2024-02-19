@@ -23,7 +23,7 @@ class CropPopUp(QMessageBox):
         self.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
         self.focusPreviousChild()
         self.setIconPixmap(crop_q_pixmap)
-        self.setWindowTitle('Do you want to keep this crop ?')
+        self.setWindowTitle('Do you want to keep this crops ?')
 
         self.res = self.exec_() == QMessageBox.Ok
 
@@ -33,7 +33,7 @@ class VideoCropper(QLabel):
         This class allow the mouse tracking on an QLabel
         containing an image. The : mousePressEvent, mouseMoveEvent,
         mouseReleaseEvent are modified to set new functionalities.
-        You can select a zone on the image to crop it and add it
+        You can select a zone on the image to crops it and add it
         in another tab.
         This class also include the set_image and update_image functions
         which allows to respectively to set the image of the VideoCropper
@@ -71,7 +71,7 @@ class VideoCropper(QLabel):
 
         return vel
 
-    ### Overrided Method to select a zone to crop
+    ### Overrided Method to select a zone to crops
     def mousePressEvent(self, eventQMouseEvent):
         """
             This function is enable only if the image is loaded
@@ -125,12 +125,12 @@ class VideoCropper(QLabel):
             ### Adjust the current_q_rect to take in account marging while centering the image
             current_q_rect = self.adjust_rect(current_q_rect)
 
-            # Invalid or too small crop area
+            # Invalid or too small crops area
             if (self.resized_image.size() == current_q_rect.size() or
                     current_q_rect.width() * current_q_rect.height() < 500):
                 return
 
-            # Pop Up to ask if you accept the crop, add it to a new tab (if accepted)
+            # Pop Up to ask if you accept the crops, add it to a new tab (if accepted)
             if CropPopUp(self.resized_image.copy(current_q_rect)).res:
                 self.new_crop(self.calculate_area(current_q_rect))
 
@@ -183,7 +183,7 @@ class VideoCropper(QLabel):
         crops = parameters['crops']
 
         for crop in crops:
-            ### Add new crop to the CropVideoTab
+            ### Add new crops to the CropVideoTab
             vel = self.new_crop(crop['area'], crop['name'])
 
             ### Set the filters to the newly added VideoEditLinker

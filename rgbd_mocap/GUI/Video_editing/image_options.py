@@ -138,7 +138,7 @@ class ImageOptions(QWidget):
         self.options = []
 
         ### Blend option over all ###
-        self.blend_option = LabeledSlider('Show applied filter (%): ',
+        self.blend_option = LabeledSlider('Show applied filters (%): ',
                                           minimum=0, maximum=100,
                                           default_value=self.params["blend"],
                                           parent=self)

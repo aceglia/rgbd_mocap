@@ -6,11 +6,11 @@ import cv2
 import json
 import os
 
-from Marker_Setter.marker_adder import MarkerAdder
-from Marker_Setter.display_marker_image import DisplayMarkerImage
-from Marker_Setter.drop_image import DropImage
-from Utils.file_dialog import SaveDialog, LoadDialog
-from Utils.error_popup import ErrorPopUp
+from rgbd_mocap.GUI.Marker_Setter.marker_adder import MarkerAdder
+from rgbd_mocap.GUI.Marker_Setter.display_marker_image import DisplayMarkerImage
+from rgbd_mocap.GUI.Marker_Setter.drop_image import DropImage
+from rgbd_mocap.GUI.Utils.file_dialog import SaveDialog, LoadDialog
+from rgbd_mocap.GUI.Utils.error_popup import ErrorPopUp
 
 
 class DropImageTab(QTabWidget):

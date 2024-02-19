@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import os
 
@@ -144,6 +145,8 @@ class KinematicModelChecker:
 
     def _set_markers(self, markers, crops):
         start = 0
+        markers_in_pixel = []
+        from rgbd_mocap.tracking.utils import print_blobs, print_estimated_positions
         for m, marker_set in enumerate(self.marker_sets):
             _in_local = []
             end = start + marker_set.nb_markers
@@ -154,18 +157,20 @@ class KinematicModelChecker:
                     crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos, False)]
                     continue
                 marker_in_pixel = self.converter.get_marker_pos_in_pixel(markers_local[:, i][np.newaxis, :])[0, :]
+                markers_in_pixel.append(marker_in_pixel)
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
                 _in_local.append(marker_in_local)
                 crops[m].tracker.get_blob_near_position(marker_in_local, i)
+            image = print_blobs(crops[m].frame.color , crops[m].tracker.blobs)
+            image = print_estimated_positions(image, crops[m].tracker.estimated_positions)
+            cv2.imshow(f"model fit crop{m}", image)
             crops[m].tracker.merge_positions()
             crops[m].tracker.check_tracking()
             crops[m].tracker.check_bounds(crops[m].frame)
-            positions = crops[m].tracker.positions
-            for p, pos in enumerate(positions):
-                positions[p] = Position(_in_local[p], visibility=False) if pos == () else pos
-            crops[m].attribute_depth_from_position(positions)
-            set_marker_pos(crops[m].marker_set, positions)
+            crops[m].attribute_depth_from_position(crops[m].tracker.positions)
+            set_marker_pos(crops[m].marker_set, crops[m].tracker.positions)
             start += marker_set.nb_markers
+        return markers_in_pixel
 
     def fit_kinematics_model(self, process_image):
         crops = process_image.crops
@@ -202,5 +207,15 @@ class KinematicModelChecker:
 
         q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=100)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
-        self._set_markers(markers, crops)
+        markers_in_pixel = self._set_markers(markers, crops)
+        from rgbd_mocap.tracking.utils import print_blobs
+        im = process_image.frames.color
+        im = print_blobs(im, markers_in_pixel)
+        cv2.imshow("im", im)
+        # if process_image.index > 2217:
+        #     import bioviz
+        #     b = bioviz.Viz(self.model_name)
+        #     b.load_movement(np.repeat(q, 3, axis=1))
+        #     b.load_experimental_markers(np.repeat(markers_for_ik, 3, axis=2))
+        #     b.exec()
         return q

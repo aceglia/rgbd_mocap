@@ -24,7 +24,7 @@ class Icon(QPushButton):
 
 
 class VideoControl(QWidget):
-    def __init__(self, start_index: int = 100, end_index: int = 1000, hz: int = 60, parent=None):
+    def __init__(self, start_index: int = 0, end_index: int = 1000, hz: int = 60, parent=None):
         super(VideoControl, self).__init__(parent)
         layout = QGridLayout()
         self.value = start_index
@@ -48,6 +48,7 @@ class VideoControl(QWidget):
         ### Init Animation
         self.button_start_stop = Icon("SP_MediaPlay")
         layout.addWidget(self.button_start_stop, 0, 2, 1, 1)
+
         ## Could be better with a QLabeledRangeSlider but is error prone..
         self.slider_anim = QRangeSlider(Qt.Horizontal)
         self.slider_anim.setRange(start_index, end_index)

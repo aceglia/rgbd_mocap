@@ -3,7 +3,7 @@ import cv2
 from rgbd_mocap.processing.process_image import ProcessImage
 from rgbd_mocap.processing.handler import Handler
 from rgbd_mocap.processing.config import load_json
-from rgbd_mocap.crop.crop import DepthCheck
+from rgbd_mocap.crops.crop import DepthCheck
 
 tracking_options = {
         "naive": False,

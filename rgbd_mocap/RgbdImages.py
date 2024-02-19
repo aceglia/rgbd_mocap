@@ -15,7 +15,7 @@ from .utils import _save_video
 from .camera.camera import Camera, CameraConverter
 from .kinematic_model_checker.kin_model_check import KinematicModelChecker
 from .processing.config import load_json
-from .crop.crop import DepthCheck
+from .crops.crop import DepthCheck
 from .processing.process_image import print_marker_sets
 
 

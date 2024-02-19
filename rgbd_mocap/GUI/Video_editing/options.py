@@ -163,7 +163,7 @@ class BlobOption(CollapsibleBox):
 
 class ClaheOption(CollapsibleBox):
     """
-        Clahe filter options class. A CollapsibleBox containing
+        Clahe filters options class. A CollapsibleBox containing
         the image options for white parameters.
         """
 

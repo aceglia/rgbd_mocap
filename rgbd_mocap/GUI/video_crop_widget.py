@@ -10,7 +10,7 @@ import cv2
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-from Marker_Setter.marker_setter_tab import MarkerSetter
+from Marker_Setter.model_setter_tab import MarkerSetter
 from Utils.video_player import VideoControl
 from Video_cropping.crop_video_tab import CropVideoTab
 from Video_cropping.crop_video import VideoCropper
@@ -92,6 +92,7 @@ class CropWidget(QMainWindow):
             print('Time:', time.time() - tik)
 
             ### Check if the image has been well loaded
+            print(image_color.shape, image_depth.shape)
             self.video_tab.set_image(image_color, image_depth)
 
     ### Saves and Loads

@@ -2,7 +2,7 @@ import numpy as np
 
 
 class Frames:
-    def __init__(self, color_frame, depth_frame):
+    def __init__(self, color_frame, depth_frame, index):
         if color_frame is None or depth_frame is None:
             raise ValueError(f'{self}: color_frame and depth frame should be init.')
 
@@ -11,6 +11,7 @@ class Frames:
 
         self.color = np.copy(color_frame)
         self.depth = np.copy(depth_frame)
+        self.index = index
 
     def _shape_error(self, got, expected):
         raise ValueError(
@@ -24,14 +25,17 @@ class Frames:
         self._check_frame(self.color, color_frame)
         self._check_frame(self.depth, depth_frame)
 
-    def set_images(self, color_frame, depth_frame):
+    def set_images(self, color_frame, depth_frame, index):
         self.check_color_and_depth(color_frame, depth_frame)
-
         self.color = np.copy(color_frame)
         self.depth = np.copy(depth_frame)
+        self.index = index
 
     def get_images(self):
         return self.color, self.depth
+
+    def get_index(self):
+        return self.index
 
     @staticmethod
     def _get_crop(image, area):

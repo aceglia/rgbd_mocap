@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from rgbd_mocap.GUI.Video_editing.video_edit import VideoEdit
 from rgbd_mocap.GUI.Video_editing.image_options import ImageOptions
-from ...filter.filter import Filter
+from ...filters.filter import Filter
 from ...frames.frames import Frames
 # from video_edit_linker import VideoEditLinker
 

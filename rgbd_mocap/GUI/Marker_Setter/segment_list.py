@@ -10,7 +10,7 @@ from rgbd_mocap.GUI.Utils.file_dialog import LoadDialog
 from rgbd_mocap.GUI.Utils.error_popup import ErrorPopUp
 
 
-class MarkerList(QWidget):
+class SegmentList(QTreeWidgetItem):
     """
     Contains a list of DragMarker that can be
     dragged over a DropImage to be set upon it.
@@ -26,15 +26,12 @@ class MarkerList(QWidget):
         and set its parent.
         :param list: list containing the names of the DragMarker to be initialized and put in the MarkerList
         :type list: list[str]
-        :param parent: QWidget parent container
+        :param parent: QTreeWidget parent container
         :type parent: QObject
         """
-        super(MarkerList, self).__init__(parent)
-        self.setAcceptDrops(True)
-        self.setMouseTracking(True)
+        super(SegmentList, self).__init__(parent)
         self.list = []
-        self.current_marker = None
-
+        self.current_segment = None
         ### Save and load
         self.kwargs = {}
         if 'SNAP' in os.environ:
@@ -43,43 +40,18 @@ class MarkerList(QWidget):
         ### Create Scroll Layout and container for the Dock Widget
         self.layout = QVBoxLayout(self)
 
-        for marker in l:
-            btn = DragMarker(marker)
-            self.list.append(btn)
-            self.layout.addWidget(btn, Qt.AlignTop)
+        for segment in l:
+            self.list.append(QTreeWidgetItem(parent, [segment]))
 
-        self.layout.addStretch()
-        self.setLayout(self.layout)
-
-    def __iter__(self):
-        for drag_marker in self.list:
-            yield drag_marker
-
-    def _add_marker_to_list(self, marker: str, insert=False):
+    def add_marker(self, segment: str):
         """
         Initialize a DragMarker from string and insert it at the end of the MarkerList
         :param marker: Name of the marker to be init
         :type marker: str
         :return: None
         """
-        btn = DragMarker(marker)
-
-        if insert:
-            self.layout.insertWidget(len(self.list), btn, 0, Qt.AlignTop)
-        else:
-            self.layout.addWidget(btn, Qt.AlignTop)
-        self.list.append(btn)
-
-    def add_marker(self, marker: str):
-        """
-        Initialize a DragMarker from string and insert it at the end of the MarkerList
-        :param marker: Name of the marker to be init
-        :type marker: str
-        :return: None
-        """
-        new_name = self._check_name(marker)
-        self._add_marker_to_list(new_name, insert=True)
-
+        new_name = self._check_name(segment)
+        self.list.append(QTreeWidgetItem(self.parent, [new_name]))
         self.set_focused_marker(self.list[-1])
 
     def _get_all_names(self):

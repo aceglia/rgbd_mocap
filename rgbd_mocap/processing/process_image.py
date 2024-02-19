@@ -6,7 +6,7 @@ import os
 from ..enums import Rotation
 from ..processing.multiprocess_handler import MultiProcessHandler, MarkerSet, SharedFrames
 from ..frames.frames import Frames
-from ..crop.crop import DepthCheck, Crop
+from ..crops.crop import DepthCheck, Crop
 from ..processing.process_handler import ProcessHandler
 from ..tracking.utils import print_marker
 
@@ -23,15 +23,17 @@ class ProcessImage:
         self.computation_time = 0
 
         # Image
+        self.count = 0
         self.path = config['directory']
         self.index = config['start_index']
-        self.color, self.depth = self._load_img()
+        self.first_image_loaded = False
+        self.color, self.depth, _ = self._load_img()
 
         # Frame
         if not multi_processing:
-            self.frames = Frames(self.color, self.depth)
+            self.frames = Frames(self.color.copy(), self.depth.copy(), self.index)
         else:
-            self.frames = SharedFrames(self.color, self.depth)
+            self.frames = SharedFrames(self.color, self.depth, self.index)
 
         self.static_markers = static_markers
 
@@ -95,27 +97,33 @@ class ProcessImage:
     # Loading
     def _load_img(self):
         color, depth = None, None
+        count = 1 if self.first_image_loaded else 0
         while color is None or depth is None:
-            color, depth = load_img(self.path, self.index, self.ROTATION)
+            color, depth = load_img(self.path, self.index + count, self.ROTATION)
             if color is None or depth is None:
-                self.index += 1
+                count += 1
                 if self.index == self.config['end_index']:
                     return None, None
-        return color, depth
+        return color, depth, count
 
-    def _update_img(self, color, depth):
-        self.frames.set_images(color, depth)
-        self.last_index = self.index
+    def _update_img(self, color, depth, count):
+        if not self.first_image_loaded:
+            print("load_first")
+            self.first_image_loaded = True
+        else:
+            self.last_index = self.index
+            self.index += count
+            self.frames.set_images(color.copy(), depth.copy(), self.index)
 
     # Processing
     def _process_after_loading(self):
         # Update frame
-        color, depth = self._load_img()
+        color, depth, count = self._load_img()
 
         # Process image
         self.process_handler.send_and_receive_process()
 
-        return color, depth
+        return color, depth, count
 
     def _process_while_loading(self):
         # Start the processing of the current image
@@ -123,26 +131,25 @@ class ProcessImage:
         # self.blobs = self.process_handler.blobs
 
         # Load next frame
-        color, depth = self._load_img()  # If image could not be loaded then skip to the next one
+        color, depth, count = self._load_img()  # If image could not be loaded then skip to the next one
 
         # Wait for the end of the processing of the image
         self.process_handler.receive_process()
 
         # # If image could not be loaded then skip to the next one
-        return color, depth
+        return color, depth, count
 
     def process_next_image(self, process_while_loading=True):
         tik = time.time()
-        self._update_img(self.color, self.depth)
+        self._update_img(self.color, self.depth, self.count)
 
         if self.index == self.config['end_index']:
             return False
-
         # Process
         if process_while_loading:
-            self.color, self.depth = self._process_while_loading()
+            self.color, self.depth, self.count = self._process_while_loading()
         else:
-            self.color, self.depth = self._process_after_loading()
+            self.color, self.depth, self.count = self._process_after_loading()
 
         if ProcessImage.SHOW_IMAGE:
             cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
@@ -161,7 +168,7 @@ class ProcessImage:
             if cv2.waitKey(1) == ord('q'):
                 return False
         # Get next image
-        self.index += 1
+        # self.index += 1
         tok = time.time() - tik
         self.computation_time = tok
 
@@ -197,9 +204,7 @@ class ProcessImage:
         return total_time, total_time / nb_img
 
     def get_processed_image(self):
-        img = print_marker_sets(self.frames.color, self.marker_sets)
-        # self.color = self.frames.color.copy()
-
+        img = print_marker_sets(self.frames.color.copy(), self.marker_sets)
         return img
 
     def get_processing_time(self):

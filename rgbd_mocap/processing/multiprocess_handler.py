@@ -1,7 +1,7 @@
 from multiprocessing import Queue, Process
 from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
-from ..crop.crop import Crop, DepthCheck
+from ..crops.crop import Crop, DepthCheck
 from ..tracking.utils import set_marker_pos
 from ..processing.handler import Handler
 

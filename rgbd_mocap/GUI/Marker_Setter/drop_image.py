@@ -6,7 +6,7 @@ import csv
 import cv2
 from typing import List
 
-from Marker_Setter.drag_marker import DragMarker
+from rgbd_mocap.GUI.Marker_Setter.drag_marker import DragMarker
 
 
 class DropImage(QLabel):

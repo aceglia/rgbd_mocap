@@ -4,10 +4,10 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 import cv2
 
-from Marker_Setter.marker_adder import MarkerAdder
-from Marker_Setter.display_marker_image import DisplayMarkerImage
+from rgbd_mocap.GUI.Marker_Setter.marker_adder import MarkerAdder
+from rgbd_mocap.GUI.Marker_Setter.display_marker_image import DisplayMarkerImage
 # from Marker_Setter.drop_image import DropImage
-from Marker_Setter.drop_image_tab import DropImageTab
+from rgbd_mocap.GUI.Marker_Setter.drop_image_tab import DropImageTab
 
 
 class DropImageButton(QWidget):
@@ -160,7 +160,7 @@ class MarkerSetter(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication([])
-    path = "/home/user/KaelFacon/Project/rgbd_mocap/data_files/P4_session2/gear_20_15-08-2023_10_52_14/color_600.png"
+    path = "D:\Documents\Programmation\pose_estimation\data_files\P14\gear_5_22-01-2024_16_15_16/color_997.png"
     l = []
     crops = [('Hand', (191, 226, 308, 357)),
              ('Arm', (256, 270, 369, 392)),
