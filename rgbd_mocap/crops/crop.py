@@ -21,7 +21,7 @@ def get_pixels(array, x, y, delta):
 
 class DepthCheck:
     DELTA = 8
-    DEPTH_SCALE = None
+    DEPTH_SCALE = 0.001
 
     @staticmethod
     def _check_bounds(pos, depth_image):
@@ -70,8 +70,8 @@ class Crop:
         # Marker
         self.marker_set = marker_set
 
-        self.depth_min = filter_option['distance_in_centimeters'][0] * 10
-        self.depth_max = filter_option['distance_in_centimeters'][1] * 10
+        self.depth_min = filter_option['distance_in_centimeters'][0] / 10 * DepthCheck.DEPTH_SCALE
+        self.depth_max = filter_option['distance_in_centimeters'][1] / 10 * DepthCheck.DEPTH_SCALE
         self.tracking_option = method
         # Image computing
         self.filter = Filter(filter_option)
@@ -97,13 +97,34 @@ class Crop:
 
     def attribute_depth(self):
         self.attribute_depth_from_position([marker.pos for marker in self.marker_set])
+    @staticmethod
+    def draw_blobs(frame, blobs, color=(255, 0, 0), scale=5):
+        import cv2
+        if blobs is not None:
+            for blob in blobs:
+                frame = cv2.circle(frame, (int(blob[0]), int(blob[1])), scale, color, 1)
+        return frame
 
     def track_markers(self):
         # Get updated frame
         self.frame.update_image()
 
         # Get Blobs
+        import cv2
         blobs = self.filter.get_blobs(self.frame)
+        if self.marker_set.name == "crop_0":
+            cv2.imwrite(
+                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\before_new_filter.png"
+            , self.filter.frame.color)
+            cv2.imwrite(
+                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_filter.png"
+            , self.filter.filtered_frame)
+            image = self.draw_blobs(self.filter.filtered_frame, blobs)
+            cv2.imwrite(
+                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_with_blobs.png"
+            ,image)
+
+            cv2.waitKey(0)
 
         # Get tracking positions
         positions, estimate_positions = self.tracker.track(self.frame, blobs)
