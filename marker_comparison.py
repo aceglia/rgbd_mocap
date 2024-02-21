@@ -1,4 +1,6 @@
 import os
+
+import biorbd
 import numpy as np
 from pathlib import Path
 from scipy.interpolate import interp1d
@@ -21,7 +23,6 @@ def _convert_string(string):
 
 def rmse(data, data_ref):
     return np.sqrt(np.mean(((data - data_ref) ** 2), axis=-1))
-
 
 
 def compute_error(markers_depth, markers_vicon, vicon_to_depth_idx, state_depth, state_vicon):
@@ -87,18 +88,43 @@ def refine_synchro(depth_markers, vicon_markers, vicon_to_depth_idx):
             break
     return depth_markers_tmp, vicon_markers_tmp, idx
 
+
+def reorder_markers(markers, model, names):
+    model_marker_names = [_convert_string(model.markerNames()[i].to_string()) for i in range(model.nbMarkers())]
+    assert len(model_marker_names) == len(names)
+    assert len(model_marker_names) == markers.shape[1]
+    count = 0
+    reordered_markers = np.zeros((markers.shape[0], len(model_marker_names), markers.shape[2]))
+    for i in range(len(names)):
+        if names[i] == "elb":
+            names[i] = "elbow"
+        if _convert_string(names[i]) in model_marker_names:
+            reordered_markers[:, model_marker_names.index(_convert_string(names[i])),
+            :] = markers[:, count, :]
+            count += 1
+    return reordered_markers
+
+
 def load_data(part, file, end_idx=None):
     data = load(f"{processed_data_path}/{part}/{file}")
     markers_depth = data["markers_depth_interpolated"][..., :end_idx] if end_idx else data["markers_depth_interpolated"]
     markers_vicon = data["truncated_markers_vicon"][..., :end_idx] if end_idx else data["truncated_markers_vicon"]
-    sensix_data = data["sensix_data_interpolated"][:, :end_idx] if end_idx else data["sensix_data_interpolated"]
+    names_from_source = [data["depth_markers_names"], data["vicon_markers_names"]]
+    sensix_data = data["sensix_data_interpolated"]
+    for key in sensix_data.keys():
+        sensix_data[key] = sensix_data[key][..., :end_idx] if end_idx else sensix_data[key]
+
     depth_markers_names = data["depth_markers_names"]
     vicon_markers_names = data["vicon_markers_names"]
     vicon_to_depth_idx = _get_vicon_to_depth_idx(depth_markers_names, vicon_markers_names)
     markers_depth, markers_vicon, idx = refine_synchro(markers_depth, markers_vicon, vicon_to_depth_idx)
-    emg = data["emg_proc_interpolated"][:, :end_idx - idx] if end_idx else data["emg_proc_interpolated"]
+    if data["emg_proc_interpolated"] is []:
+        emg = None
+    else:
+        emg = data["emg_proc_interpolated"][:, :int(end_idx - idx)] if end_idx else data["emg_proc_interpolated"]
 
     markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
+    names_from_source.append(np.array(vicon_markers_names)[vicon_to_depth_idx])
     markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
     for i in range(3):
         markers_depth_filtered[i, :, :] = OfflineProcessing().butter_lowpass_filter(markers_depth[i, :, :],
@@ -118,28 +144,43 @@ def load_data(part, file, end_idx=None):
                       sensix_data["RFY"],
                       -sensix_data["RFX"],
                       sensix_data["RFZ"]])
-    return markers_from_source, forces, f_ext, emg
+    return markers_from_source, names_from_source, forces, f_ext, emg
 
-def main(model_dir, participants, processed_data_path):
-    model_paths = [model_dir + "wu_bras_gauche_depth.bioMod", model_dir + "wu_bras_gauche_vicon.bioMod",
-                   model_dir + "wu_bras_gauche_depth.bioMod"]
+
+def main(model_dir, participants, processed_data_path, save_data=False):
     source = ["depth", "vicon", "minimal_vicon"]
     for part in participants:
         all_files = os.listdir(f"{processed_data_path}/{part}")
         all_files = [file for file in all_files if "gear" in file]
         for file in all_files:
-            markers_from_source, forces, f_ext, emg = load_data(part, file, end_idx=150)
-            if len(model_paths) != len(markers_from_source):
-                raise ValueError("The number of models and the number of sources are different")
-            for s in range(len(markers_from_source)):
-                msk_function = MskFunctions(model=model_paths[s], data_buffer_size=6, system_rate=120)
-                result_biomech = process_all_frames(markers_from_source[s][:, :-3, :], msk_function,
+            print(f"Processing participant {part}, trial : {file}")
+            markers_from_source, names_from_source, forces, f_ext, emg = load_data(part, file, end_idx=150)
+            # if len(model_paths) != len(markers_from_source):
+            #     raise ValueError("The number of models and the number of sources are different")
+            all_resutls = {}
+            for s in range(0, len(markers_from_source)):
+                model_path = f"{model_dir}/{part}/model_scaled_{source[s]}.bioMod"
+                model = biorbd.Model(model_path)
+                reorder_marker_from_source = reorder_markers(markers_from_source[s][:, :-3, :],
+                                             biorbd.Model(model_path),
+                                             names_from_source[s][:-3])
+
+                msk_function = MskFunctions(model=model, data_buffer_size=6, system_rate=120)
+                result_biomech = process_all_frames(reorder_marker_from_source, msk_function,
                                                     forces, (1, 1), emg,
-                f_ext, save_data=False, data_path=f"{processed_data_path}/{part}/result_biomech_{file}_{source[s]}.bio")
+                f_ext,
+                                                    save_data=False,
+                data_path=f"{processed_data_path}/{part}/result_biomech_{file}_{source[s]}.bio",
+                                                    compute_id=False, compute_so=False, compute_jrf=False
+                                                    )
+                all_resutls[source[s]] = result_biomech
+                print("Done for source ", source[s])
+            if save_data:
+                save(all_resutls, f"{processed_data_path}/{part}/result_biomech_{file}.bio")
 
 
 if __name__ == '__main__':
-    model_dir = "models/"
+    model_dir = "data_files"
     participants = ["P9"]#, "P10", "P11", "P12", "P13", "P14"]  # ,"P9", "P10",
     processed_data_path = "Q:\Projet_hand_bike_markerless/process_data"
     main(model_dir, participants, processed_data_path)

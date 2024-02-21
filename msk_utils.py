@@ -1,5 +1,6 @@
 import os.path
 
+import biorbd
 import numpy as np
 import time
 from biosiglive import InverseKinematicsMethods, RealTimeProcessingMethod, RealTimeProcessing, save
@@ -54,33 +55,26 @@ def get_tracking_idx(model):
 
 
 def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, dic_to_save=None):
-    initial_guess = None
+    tic_init = time.time()
     if frame_idx == 0:
         q, q_dot = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
                                                            InverseKinematicsMethods.BiorbdLeastSquare, )
         msk_function.clean_all_buffers()
-        initial_guess = [q[:, 0], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
-        # import bioviz
-        # b = bioviz.Viz(loaded_model=msk_function.model)
-        # b.load_movement(np.repeat(q, 5, axis=1))
-        # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis],5, axis=2))
-        # b.viz()
-    tic_init = time.time()
-    if len(msk_function.kin_buffer) > 1:
-        while abs(msk_function.kin_buffer[0][11, -1]) > 1.5:
-            msk_function.kin_buffer[0][11, -1] = msk_function.kin_buffer[0][11, -1] - 3.14 if \
-                msk_function.kin_buffer[0][11, -1] > 0 else msk_function.kin_buffer[0][11, -1] + 3.14
-            msk_function.kin_buffer[0][13, -1] = msk_function.kin_buffer[0][13, -1] - 3.14 if \
-                msk_function.kin_buffer[0][13, -1] > 0 else msk_function.kin_buffer[0][13, -1] + 3.14
-        # while abs(msk_function.kin_buffer[0][5, -1]) > 1.5:
-        #     msk_function.kin_buffer[0][11, -1] = msk_function.kin_buffer[0][11, -1] - 3.14 if \
-        #     msk_function.kin_buffer[0][11, -1] > 0 else msk_function.kin_buffer[0][5, -1] + 3.14
-        #     msk_function.kin_buffer[0][13, -1] = msk_function.kin_buffer[0][7, -1] - 3.14 if \
-        #     msk_function.kin_buffer[0][13, -1] > 0 else msk_function.kin_buffer[0][7, -1] + 3.14
-
-    initial_guess = [msk_function.kin_buffer[0][:, -1],
-                     np.zeros_like(msk_function.kin_buffer[0])[:, 0],
-                     np.zeros_like(msk_function.kin_buffer[0])[:, 0]] if not initial_guess else initial_guess
+        model_path = msk_function.model.path().absolutePath().to_string()
+        with open(model_path, "r") as file:
+            data = file.read()
+        if data.find("RT 0 0 0 xyz 0 0 0 // thorax") == -1:
+            print("Impossible to find the thorax marker in the model file")
+        data = data.replace(
+            "RT 0 0 0 xyz 0 0 0 // thorax",
+            f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax",
+        )
+        with open(model_path, "w") as file:
+            file.write(data)
+        msk_function.model = biorbd.Model(model_path)
+    else:
+        q = msk_function.kin_buffer[0].copy()
+    initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
     msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
                                             method=InverseKinematicsMethods.BiorbdKalman,
                                             kalman_freq=kalman_freq,
@@ -183,6 +177,7 @@ def process_next_frame(markers, msk_function, frame_idx, external_loads=None,
                                              markers,
                                              frame_idx,
                                              kalman_freq=kalman_freq, times=times, dic_to_save=dic_to_save)
+
         # import bioviz
         # b = bioviz.Viz(loaded_model=msk_function.model)
         # b.load_movement(np.repeat(msk_function.kin_buffer[0], 5, axis=1))
@@ -211,12 +206,14 @@ def process_next_frame(markers, msk_function, frame_idx, external_loads=None,
 
 
 def process_all_frames(markers, msk_function, external_loads, scaling_factor, emg, f_ext,
-                       save_data=False, data_path=None):
+                       save_data=False, data_path=None, compute_id=True, compute_so=True, compute_jrf=True,):
     final_dic = {}
-    for i in range(len(markers.shape[2])):
-        dic_to_save = process_next_frame(markers[:, :, i], msk_function, i, external_loads,
-                                         scaling_factor, emg[:, i], f_ext=f_ext[:, i], kalman_freq=100,
-                                         emg_names=None, )
+    for i in range(markers.shape[2]):
+        emg_tmp = emg if emg is None else emg[:, i]
+        dic_to_save = process_next_frame(markers[..., i], msk_function, i, external_loads,
+                                         scaling_factor, emg_tmp, f_ext=f_ext[..., i], kalman_freq=120,
+                                         emg_names=None, compute_id=compute_id,
+                                         compute_so=compute_so, compute_jrf=compute_jrf)
         final_dic = dic_merger(final_dic, dic_to_save)
     if save_data:
         if os.path.isfile(data_path):
