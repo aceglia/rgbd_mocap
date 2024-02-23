@@ -16,6 +16,7 @@ from ..model_creation import (
     Mesh,
 )
 from ..frames.frames import Frames
+from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
 from ..camera.camera_converter import CameraConverter
 from ..tracking.utils import set_marker_pos
@@ -143,16 +144,25 @@ class KinematicModelChecker:
             file.write(data)
         os.remove("_tmp_markers_data.c3d")
 
+    def _set_previous_estimation(self, crops):
+        if self.frames.get_index() == 0:
+            return crops
+        for m, marker_set in enumerate(self.marker_sets):
+            for i in range(marker_set.nb_markers):
+                crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos,
+                                                                      marker_set.markers[i].get_visibility())]
+        return crops
+
     def _set_markers(self, markers, crops):
         start = 0
         markers_in_pixel = []
-        from rgbd_mocap.tracking.utils import print_blobs, print_estimated_positions
+        if isinstance(self.frames, SharedFrames):
+            crops = self._set_previous_estimation(crops)
         for m, marker_set in enumerate(self.marker_sets):
             _in_local = []
             end = start + marker_set.nb_markers
             markers_local = markers[:, start:end, 0]
             for i in range(marker_set.nb_markers):
-                crops[m].tracker.estimated_positions[i] = []
                 if marker_set.markers[i].is_static:
                     crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos, False)]
                     continue
@@ -161,9 +171,6 @@ class KinematicModelChecker:
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
                 _in_local.append(marker_in_local)
                 crops[m].tracker.get_blob_near_position(marker_in_local, i)
-            image = print_blobs(crops[m].frame.color , crops[m].tracker.blobs)
-            image = print_estimated_positions(image, crops[m].tracker.estimated_positions)
-            cv2.imshow(f"model fit crop{m}", image)
             crops[m].tracker.merge_positions()
             crops[m].tracker.check_tracking()
             crops[m].tracker.check_bounds(crops[m].frame)
@@ -205,17 +212,7 @@ class KinematicModelChecker:
             else InverseKinematicsMethods.BiorbdKalman
         )
 
-        q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=100)
+        q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=60)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
-        markers_in_pixel = self._set_markers(markers, crops)
-        from rgbd_mocap.tracking.utils import print_blobs
-        im = process_image.frames.color
-        im = print_blobs(im, markers_in_pixel)
-        cv2.imshow("im", im)
-        # if process_image.index > 2217:
-        #     import bioviz
-        #     b = bioviz.Viz(self.model_name)
-        #     b.load_movement(np.repeat(q, 3, axis=1))
-        #     b.load_experimental_markers(np.repeat(markers_for_ik, 3, axis=2))
-        #     b.exec()
+        self._set_markers(markers, crops)
         return q

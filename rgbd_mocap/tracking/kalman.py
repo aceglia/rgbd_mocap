@@ -9,7 +9,7 @@ class Kalman:
         """
         points: Origin of the marker
         """
-        self.dt = 1
+        self.dt = 1/fps
         self.n_states = 4
         self.n_measures = 2
 
@@ -51,7 +51,6 @@ class Kalman:
         return self.kalman.predict()[:2].reshape(2, )
 
     def correct(self, points):
-        print(points)
         return self.kalman.correct(np.array(points[:2], dtype=np.float32))[:2].reshape(2, )
 
 
@@ -64,24 +63,24 @@ class KalmanSet:
             k = Kalman(marker.get_pos())
             self.kalman_filters.append(k)
 
-    # def __getitem__(self, item):
-    #     return self.kalman_filters[item]
-    #
-    # def __iter__(self):
-    #     for f in self.kalman_filters:
-    #         yield f
+    def __getitem__(self, item):
+        return self.kalman_filters[item]
 
-    # def predict(self):
-    #     return [kalman.predict() for kalman in self]
+    def __iter__(self):
+        for f in self.kalman_filters:
+            yield f
 
-    # def correct_from_positions(self, positions: list[tuple[2]]):
-    #     [kalman.correct(positions[i]) for i, kalman in enumerate(self)]
+    def predict(self):
+        return [kalman.predict() for kalman in self]
 
-    # def correct(self):
-    #     for m, marker in enumerate(self.marker_set.markers):
-    #         if marker.is_visible:
-    #             self.kalman_filters[m].correct(marker.pos[:2])
+    def correct_from_positions(self, positions: list[tuple[2]]):
+        [kalman.correct(positions[i]) for i, kalman in enumerate(self)]
 
-    # def reinit_kalman(self):
-    #     [kalman.init_kalman(self.marker_set[i].pos[:2]) for i, kalman in enumerate(self)]
+    def correct(self):
+        for m, marker in enumerate(self.marker_set.markers):
+            if marker.is_visible:
+                self.kalman_filters[m].correct(marker.pos[:2])
+
+    def reinit_kalman(self):
+        [kalman.init_kalman(self.marker_set[i].pos[:2]) for i, kalman in enumerate(self)]
 

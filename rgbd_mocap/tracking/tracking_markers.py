@@ -24,6 +24,8 @@ class Tracker:
             self.kalman = KalmanSet(marker_set)
 
         self.naive = naive
+        self.frame = None
+        self.depth = None
 
         # Blobs and positions for tracking in each frame
         self.blobs = None
@@ -31,13 +33,8 @@ class Tracker:
         self.estimated_positions: List[List[Position]] = [None] * len(marker_set.markers)
 
     def get_blob_near_position(self, estimated_position, index):
-        # self.estimated_positions[index].append(Position(position, False))
-
         position, visible = find_closest_blob(estimated_position, self.blobs, delta=Tracker.DELTA)
-        # if visible:
         self.estimated_positions[index].append(Position(position, visible))
-            # self.estimated_positions[index][-1].set(position, visible)
-
         return visible
 
     @staticmethod
@@ -72,41 +69,15 @@ class Tracker:
         self.estimated_positions[index]: List[Position] = []
         if marker.is_static:
             return self.estimated_positions[index].append(Position(marker.pos[:2], False))
-            # return self.estimated_positions[index].append(())
 
         # If the marker is visible search for the closest blob
         if self.naive:
             self.get_blob_near_position(marker.pos[:2], index)
 
         # if we use Kalman then search the closest blob to the prediction
-        import cv2
         if self.kalman:
-            import numpy as np
             prediction = self.kalman.kalman_filters[index].predict()
-            prediction = np.array(prediction[:2]).astype(int)
-            position, visible = find_closest_blob(prediction, self.blobs, delta=Tracker.DELTA)
-            self.estimated_positions[index].append(Position(position, visible))
-
-            # self.get_blob_near_position(prediction, index)
-            #
-            # pos, visibility = self.estimated_positions[index][0].get()
-            # if index == 2 and self.marker_set.name == "crop_0":
-            #     from rgbd_mocap.utils import draw_blobs
-            #     image = draw_blobs(self.frame.color.copy(), [pos], color=(0, 255, 0))
-            #     image = draw_blobs(image, [prediction], color=(0, 0, 255))
-            #
-            #     cv2.imshow("test", image)
-            #     print(visibility, prediction, pos, self.frame.get_index())
-            if not visible:
-                import numpy as np
-                pass
-                # self.estimated_positions[index][-1].set(marker.pos[:2], visibility)
-                # self.kalman[index].statePre = np.array([marker.pos[:2][0],
-                #                                    marker.pos[:2][1], 0, 0], dtype=np.float32)
-                # self.kalman[index].statePost = np.array([marker.pos[:2][0],
-                #                                          marker.pos[:2][1], 0, 0], dtype=np.float32)
-            else:
-                self.kalman.kalman_filters[index].correct(position)
+            self.get_blob_near_position(prediction, index)
 
         # If we use optical flow get the estimation, if the flow has been found
         # and the level of error is below the threshold then take the estimation
@@ -167,7 +138,7 @@ class Tracker:
         self.depth = depth
 
         # Correct trajectories from last iteration
-        # self.correct()
+        self.correct()
 
         # Track the next position for all markers
         if self.optical_flow:
@@ -175,36 +146,16 @@ class Tracker:
 
         for marker in enumerate(self.marker_set.markers):
             self._track_marker(marker)
-        from rgbd_mocap.utils import draw_blobs
-        import cv2
-        if self.marker_set.name == "crop_0" and frame.get_index() == 2135:
-            positions = [pos[0].position for p, pos in enumerate(self.estimated_positions) if p > 0]
-            image = draw_blobs(self.frame.color.copy(), positions)
-            cv2.imwrite(
-                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_kalman.png"
-                , image)
-            positions = [pos[0].position for p, pos in enumerate(self.estimated_positions) if p > 0]
-            image = draw_blobs(self.frame.color.copy(), positions)
-            cv2.imwrite(
-                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_optical_flow.png"
-                , image)
-            if self.optical_flow:
-                cv2.imwrite(
-                    r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_image_optical_flow.png"
-                    , self.optical_flow.frame)
-                cv2.imwrite(
-                    r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_depth_optical_flow.png"
-                    , self.optical_flow.depth)
-        # self.merge_positions()
-        self.positions = [pos[0] for pos in self.estimated_positions]
 
-        # self.check_tracking()
+        self.merge_positions()
+
+        self.check_tracking()
         self.check_bounds(frame)
         return self.positions, self.estimated_positions
 
     def correct(self):
-        # if self.kalman:
-            # self.kalman.correct()
+        if self.kalman:
+            self.kalman.correct()
 
         if self.optical_flow:
             self.optical_flow.set_positions([marker.pos[:2] for marker in self.marker_set])
