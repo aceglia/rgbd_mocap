@@ -1,4 +1,5 @@
 from typing import List, Tuple
+import numpy as np
 
 from ..utils import find_closest_blob
 from ..markers.marker_set import MarkerSet, Marker
@@ -11,13 +12,14 @@ from ..frames.crop_frames import CropFrames
 class Tracker:
     DELTA = 10
 
-    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True, **kwargs):
+    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True, depth_range=None, **kwargs):
         self.marker_set = marker_set
 
         # Tracking method
         self.optical_flow = None
         if optical_flow:
-            self.optical_flow = OpticalFlow(frame.color, frame.depth, marker_set.get_markers_pos_2d())
+            depth_clipped = np.where((frame.depth > depth_range[1]), -1, frame.depth)
+            self.optical_flow = OpticalFlow(frame.color, depth_clipped, marker_set.get_markers_pos_2d())
 
         self.kalman = None
         if kalman:
@@ -143,7 +145,6 @@ class Tracker:
         # Track the next position for all markers
         if self.optical_flow:
             self.optical_flow.get_optical_flow_pos(frame.color, self.depth)
-
         for marker in enumerate(self.marker_set.markers):
             self._track_marker(marker)
 

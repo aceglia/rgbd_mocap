@@ -49,7 +49,6 @@ class OpticalFlow:
         self.frame = image_gray_and_blur(frame, OpticalFlow.BLUR)
         self.previous_frame = self.frame.copy()
         self.previous_positions = np.array(positions, dtype=np.float32)
-
         self.value = None
 
     def get_optical_flow_pos(self, frame, depth):
@@ -58,9 +57,6 @@ class OpticalFlow:
                                    100, use_contour=True)
         self.depth = depth
         self.frame = image_gray_and_blur(frame, OpticalFlow.BLUR)
-        # cv2.imshow("frame", frame)
-        # cv2.imshow("previous frame", self.previous_frame)
-        # cv2.waitKey(0)
         self.value = cv2.calcOpticalFlowPyrLK(
             self.previous_frame,
             self.frame,

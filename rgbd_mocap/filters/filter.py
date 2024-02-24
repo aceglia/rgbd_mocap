@@ -51,7 +51,8 @@ class Filter:
         mask[self.frame.depth < min_dist] = 0
         mask[self.frame.depth > max_dist] = 0
         self.filtered_depth = np.where((self.frame.depth > max_dist), -1, self.frame.depth)
-
+        # cv2.imshow("depth", self.filtered_depth)
+        # cv2.waitKey(0)
         if not self.options["use_contour"]:
             return mask
 
