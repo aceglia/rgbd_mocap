@@ -139,8 +139,8 @@ class Tracker:
         self.frame = frame
         self.depth = depth
 
-        # Correct trajectories from last iteration
-        self.correct()
+        if self.optical_flow:
+            self.optical_flow.set_positions([marker.pos[:2] for marker in self.marker_set])
 
         # Track the next position for all markers
         if self.optical_flow:
@@ -152,6 +152,10 @@ class Tracker:
 
         self.check_tracking()
         self.check_bounds(frame)
+
+        if self.kalman:
+            self.kalman.correct()
+
         return self.positions, self.estimated_positions
 
     def correct(self):

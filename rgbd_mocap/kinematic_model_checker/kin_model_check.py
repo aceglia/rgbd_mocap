@@ -166,6 +166,7 @@ class KinematicModelChecker:
                 if marker_set.markers[i].is_static:
                     crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos, False)]
                     continue
+                crops[m].tracker.estimated_positions[i] = []
                 marker_in_pixel = self.converter.get_marker_pos_in_pixel(markers_local[:, i][np.newaxis, :])[0, :]
                 markers_in_pixel.append(marker_in_pixel)
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
@@ -185,7 +186,7 @@ class KinematicModelChecker:
 
         if isinstance(handler, MultiProcessHandler):
             blobs = []
-            while True:
+            while len(blobs) != len(crops):
                 try:
                     blobs.append(handler.queue_blobs.get_nowait())
                 except Exception as e:

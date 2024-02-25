@@ -75,7 +75,7 @@ class Crop:
         self.tracking_option = method
         # Image computing
         self.filter = Filter(filter_option)
-        self.tracker = Tracker(self.frame, marker_set, **method)
+        self.tracker = Tracker(self.frame, marker_set, depth_range=[self.depth_min, self.depth_max], **method)
 
     def attribute_depth_from_position(self, positions: list[Position]):
         assert len(positions) == len(self.marker_set.markers)

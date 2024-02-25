@@ -9,7 +9,8 @@ class Kalman:
         """
         points: Origin of the marker
         """
-        self.dt = 1/fps
+        # self.dt = 1/fps
+        self.dt = 1
         self.n_states = 4
         self.n_measures = 2
 
