@@ -266,6 +266,8 @@ class VideoEdit(QLabel):
         :type depth: Mat | ndarray[Any, dtype[generic]] | ndarray
         :return: None
         """
+        if color is None or depth is None:
+            return
         self.color_frame = color[self.area[1]:self.area[3], self.area[0]:self.area[2]]
         self.depth_frame = depth[self.area[1]:self.area[3], self.area[0]:self.area[2]]
         self.filtered_frame = self.color_frame.copy()
