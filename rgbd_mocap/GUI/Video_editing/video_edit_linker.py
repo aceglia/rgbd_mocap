@@ -4,6 +4,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import sys
 from rgbd_mocap.GUI.Video_editing.video_filters import VideoFilters, VideoEdit, ImageOptions
+from rgbd_mocap.GUI.Utils.popup import ErrorPopUp
 
 
 class VideoEditLinker(QMainWindow):
@@ -46,7 +47,12 @@ class VideoEditLinker(QMainWindow):
             self.mask = np.ones(self.ve.color_frame.shape[:2], dtype=np.uint8)
         else:
             self.mask = np.ones_like(self.ve.color_frame)
-            self.mask[np.array(mask[0]), np.array(mask[1])] = 0
+            if max(mask[0]) < self.mask.shape[0] and max(mask[1]) < self.mask.shape[1]:
+                self.mask[np.array(mask[0]), np.array(mask[1])] = 0
+            else:
+                ErrorPopUp('Mask from loaded parameters is not compatible with the current image shape.'
+                           'Mask are modified to handle the new shape.')
+
 
     def update_image(self):
         self.ve.update()

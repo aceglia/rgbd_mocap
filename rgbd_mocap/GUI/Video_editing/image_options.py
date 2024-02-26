@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from rgbd_mocap.GUI.Video_editing.options import *
-from rgbd_mocap.GUI.Utils.error_popup import ErrorPopUp
+from rgbd_mocap.GUI.Utils.popup import ErrorPopUp
 from rgbd_mocap.GUI.Utils.file_dialog import SaveDialog, LoadDialog
 
 
@@ -56,8 +56,7 @@ class ImageOptionsButtons(QWidget):
         with open(file, 'r') as f:
             parameters = json.load(f)
             try:
-                self.image_option.set_params(parameters)
-                self.image_option.set_mask(parameters['mask'])
+                self.image_option.set_params(parameters, parameters['mask'])
 
             except TypeError:
                 ErrorPopUp('File could not be loaded, wrong format')

@@ -145,6 +145,7 @@ class RgbdImages:
                                                                      model_name=self.model_name,
                                                                      build_model=self.build_kinematic_model,
                                                                      kin_marker_set=self.kin_marker_sets)
+
             self.kinematic_model_checker.ik_method = "kalman"
             self.kinematic_model_checker.fit_kinematics_model(self.process_image)
             if show_image:
@@ -152,7 +153,7 @@ class RgbdImages:
                 cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
                 cv2.putText(
                     im,
-                    f"Frame : {self.process_image.last_index}",
+                    f"Frame : {self.process_image.index}",
                     (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1,

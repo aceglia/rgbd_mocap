@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import *
 
 from rgbd_mocap.GUI.Marker_Setter.drag_marker import DragMarker
 from rgbd_mocap.GUI.Utils.file_dialog import LoadDialog
-from rgbd_mocap.GUI.Utils.error_popup import ErrorPopUp
+from rgbd_mocap.GUI.Utils.popup import ErrorPopUp
 
 
 class MarkerList(QWidget):

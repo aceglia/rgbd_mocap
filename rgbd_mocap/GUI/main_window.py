@@ -14,8 +14,7 @@ from video_crop_window import CropWindow
 from Utils.video_player import VideoControl
 from Video_cropping.crop_video_tab import CropVideoTab
 from Video_cropping.crop_video import VideoCropper
-from Utils.error_popup import ErrorPopUp
-from Utils.warning_popup import WarningPopUp
+from Utils.popup import WarningPopUp, ErrorPopUp, MessagePopUp
 from Utils.file_dialog import SaveDialog, LoadDialog, LoadFolderDialog
 
 
@@ -115,29 +114,31 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("RGBD MoCap")
         self.layout = QGridLayout()
 
-        ### Video cropping and editing
-        self.vce = CropWidget(self)
-
-        ### Menu bar
-        self.menu_bar = MainWindowMenuBar(self)
-        self.setMenuBar(self.menu_bar)
-
-        ### Marker Setter
-        self.marker_setter_tab = None
-
-        ### Project informations
-        self.project_dict = {}
-
-        ### Buttons
-        self.buttons = MainWindowButton(self)
-
-        ### Place in layout
-        self.layout.addWidget(self.vce, 0, 0, 1, 1,)
-        self.layout.addWidget(self.buttons, 1, 0, 1, 1, Qt.AlignBottom)
-
+        # ### Video cropping and editing
+        # self.vce = CropWidget(self)
+        #
+        # ### Menu bar
+        # self.menu_bar = MainWindowMenuBar(self)
+        # self.setMenuBar(self.menu_bar)
+        #
+        # ### Marker Setter
+        # self.marker_setter_tab = None
+        #
+        # ### Project informations
+        # self.project_dict = {}
+        #
+        # ### Buttons
+        # self.buttons = MainWindowButton(self)
+        #
+        # ### Place in layout
+        # self.layout.addWidget(self.vce, 0, 0, 1, 1,)
+        # self.layout.addWidget(self.buttons, 1, 0, 1, 1, Qt.AlignBottom)
+        self.reinit()
         self.central_video_widget = QWidget()
         self.central_video_widget.setLayout(self.layout)
         self.setCentralWidget(self.central_video_widget)
+        self.once_loaded = False
+        self.save_file = None
 
     ### Saves and Loads
     def quick_save(self):
@@ -146,6 +147,8 @@ class MainWindow(QMainWindow):
 
         else:
             self.save_project_file(self.save_file)
+            MessagePopUp('Project saved')
+
 
     def load_crop(self):
         LoadDialog(parent=self,
@@ -206,9 +209,38 @@ class MainWindow(QMainWindow):
                    filter='Save File (*.json);; Any(*)',
                    load_method=self.load_project_file)
 
+    def reinit(self):
+        ### Video cropping and editing
+        self.vce = CropWidget(self)
+
+        ### Menu bar
+        self.menu_bar = MainWindowMenuBar(self)
+        self.setMenuBar(self.menu_bar)
+
+        ### Marker Setter
+        self.marker_setter_tab = None
+
+        ### Project informations
+        self.project_dict = {}
+
+        ### Buttons
+        self.buttons = MainWindowButton(self)
+
+        ### Place in layout
+        self.layout.addWidget(self.vce, 0, 0, 1, 1,)
+        self.layout.addWidget(self.buttons, 1, 0, 1, 1, Qt.AlignBottom)
+        self.once_loaded = True
+
     def load_project_file(self, file):
+        if self.once_loaded:
+            self.reinit()
+        self.save_file = file
         with open(file, 'r') as f:
-            parameters = json.load(f)
+            try:
+                parameters = json.load(f)
+            except json.JSONDecodeError:
+                ErrorPopUp('Cannot load file')
+                return
 
             self.vce.load_project_dict(parameters)
 

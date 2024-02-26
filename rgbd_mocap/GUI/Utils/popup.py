@@ -16,6 +16,32 @@ class ErrorPopUp(QMessageBox):
         self.exec()
 
 
+class MessagePopUp(QMessageBox):
+    """
+        Pop up showing the 'error_message'
+    """
+
+    def __init__(self, message: str = "", parent=None):
+        super(MessagePopUp, self).__init__(parent)
+        self.setText(message)
+        self.setWindowTitle('Message !')
+        self.exec()
+
+
+class WarningPopUp(QMessageBox):
+    """
+        Pop up showing the 'error_message'
+    """
+
+    def __init__(self, warning_message: str = '', parent=None):
+        super(WarningPopUp, self).__init__(parent)
+        self.setText(warning_message)
+        self.setWindowTitle('Warning')
+        self.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
+
+        self.res = self.exec() == QMessageBox.Ok
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     main_window = QMainWindow()
