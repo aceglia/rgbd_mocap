@@ -190,7 +190,7 @@ class KinematicModelChecker:
                 try:
                     blobs.append(handler.queue_blobs.get_nowait())
                 except Exception as e:
-                    break
+                    pass
 
             assert len(blobs) == len(crops)
             for b, blob in enumerate(blobs):
@@ -200,7 +200,9 @@ class KinematicModelChecker:
             raise ValueError("The model file does not exist. Please initialize the model creation before.")
 
         # Get Markers Information
+
         markers, names, is_visible = self._get_global_markers_pos_in_meter()
+
 
         markers_for_ik = np.full((markers.shape[0], markers.shape[1], 1), np.nan)
         for m in range(markers_for_ik.shape[1]):
