@@ -26,6 +26,8 @@ class ProcessImage:
         self.count = 0
         self.path = config['directory']
         self.index = config['start_index']
+        self.masks = config['masks']
+        self._dispatch_mask()
         self.first_image_loaded = False
         self.color, self.depth, _ = self._load_img()
 
@@ -33,6 +35,7 @@ class ProcessImage:
         if not multi_processing:
             self.frames = Frames(self.color.copy(), self.depth.copy(), self.index)
         else:
+            self.crops = None
             self.frames = SharedFrames(self.color, self.depth, self.index)
 
         self.static_markers = static_markers
@@ -54,6 +57,15 @@ class ProcessImage:
         else:
             self.process_handler = MultiProcessHandler(self.marker_sets, self.frames, config, tracking_options)
             self.process_handler.start_process()
+
+    def _dispatch_mask(self):
+        for crop in self.config["crops"]:
+            for n, mask in enumerate(self.masks):
+                if mask is None:
+                    continue
+                if mask["name"] == crop['name']:
+                    crop["filters"]["mask"] = self.masks[n]["value"]
+                    break
 
     def _init_crops(self):
         self.crops = []

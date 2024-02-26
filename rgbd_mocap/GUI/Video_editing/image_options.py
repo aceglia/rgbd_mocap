@@ -221,7 +221,7 @@ class ImageOptions(QWidget):
         print(self.params)
         print(self.show_params)
 
-    def set_params(self, parameters):
+    def set_params(self, parameters, mask):
         ### The blend opotion is not contained in a option layout so update by hand
         self.blend_option.slider.slider.setValue(parameters['blend'])
 
@@ -234,9 +234,9 @@ class ImageOptions(QWidget):
         ### activated via .set_params()
         for key in self.show_params.keys():
             self.show_params[key] = parameters[key]
-
+        if mask is not None:
+            self.set_mask(mask)
         self.video_filter.update()
-        self.set_mask(parameters["mask"])
 
     def set_masks_options(self, vel, layout):
         self.masks_option = MaskOption(vel.select_area_button, **self.params)
@@ -255,7 +255,10 @@ class ImageOptions(QWidget):
 
         vel = self.video_filter.parent
         if parameters['masks_option'] and not np.all(vel.mask) == 1:
-            parameters['mask'] = vel.mask.astype(dtype=np.uint8).tolist()
+            mask = vel.mask.astype(dtype=np.uint8)
+            zeros_idx = np.where(mask == 0)
+            idx_to_save = [zeros_idx[0].tolist(), zeros_idx[1].tolist()]
+            parameters['mask'] = idx_to_save
         else:
             parameters['mask'] = None
 

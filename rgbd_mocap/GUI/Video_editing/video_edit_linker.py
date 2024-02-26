@@ -45,7 +45,8 @@ class VideoEditLinker(QMainWindow):
         if mask is None:
             self.mask = np.ones(self.ve.color_frame.shape[:2], dtype=np.uint8)
         else:
-            self.mask = np.array(mask, dtype=np.uint8)
+            self.mask = np.ones_like(self.ve.color_frame)
+            self.mask[np.array(mask[0]), np.array(mask[1])] = 0
 
     def update_image(self):
         self.ve.update()

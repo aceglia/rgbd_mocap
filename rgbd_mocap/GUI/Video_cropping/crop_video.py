@@ -186,8 +186,15 @@ class VideoCropper(QLabel):
             ### Add new crops to the CropVideoTab
             vel = self.new_crop(crop['area'], crop['name'])
 
+            value = None
             ### Set the filters to the newly added VideoEditLinker
-            vel.filters.image_options.set_params(crop['filters'])
+            for n, mask in enumerate(parameters["masks"]):
+                if mask is None:
+                    continue
+                if mask["name"] == crop['name']:
+                    value = parameters["masks"][n]["value"]
+                    break
+            vel.filters.image_options.set_params(crop['filters'], value)
 
     ### Resizing and updating image
     def resizeEvent(self, a0):

@@ -170,15 +170,21 @@ class MainWindow(QMainWindow):
     def project_to_dict(self):
         parameters_vce = self.vce.to_dict()
         parameters_ms = self.marker_setter_tab.to_dict()
+        mask_list = [None] * len(parameters_vce['crops'])
+        for c, crop_vce in enumerate(parameters_vce['crops']):
+            if crop_vce["filters"]["mask"] is not None:
+                mask_list[c] = {"name": crop_vce["name"], "value": crop_vce["filters"]["mask"]}
+                crop_vce["filters"]["mask"] = True
 
         for crop_ms in parameters_ms['crops']:
             for crop_vce in parameters_vce['crops']:
                 if crop_vce['name'] == crop_ms['name'] and crop_vce['markers'] == []:
                     crop_vce['markers'] = crop_ms['markers']
                     break
-            ### Way to unplace markers if crops not found rather than removing them
 
+            ### Way to unplace markers if crops not found rather than removing them
         parameters_vce['markers'] = parameters_ms['markers']
+        parameters_vce['masks'] = mask_list
         return parameters_vce
 
     def save_crops(self):

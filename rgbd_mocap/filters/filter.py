@@ -110,8 +110,10 @@ class Filter:
         masks = []
         if self.options["distance_option"]:
             masks.append(self._distance_range_mask())
-        if self.options['masks_option'] and self.options['mask']:
-            masks.append(self.options['mask'])
+        if self.options['masks_option'] and self.options['mask'] is not None:
+            mask = np.ones_like(self.filtered_frame[..., 0], dtype=np.uint8)
+            mask[np.array(self.options['mask'][0]), np.array(self.options['mask'][1])] = 0
+            masks.append(mask)
         self._apply_masks(masks)
         if self.options["clahe_option"]:
             self._clahe_filter()
