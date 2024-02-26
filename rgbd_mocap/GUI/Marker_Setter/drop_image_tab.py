@@ -167,6 +167,8 @@ class DropImageTab(QTabWidget):
 
     def load_project_dict(self, project_dict):
         crops = project_dict['crops']
+        if "markers" not in project_dict.keys():
+            project_dict['markers'] = []
         unplaced_markers = project_dict['markers']
 
         for crop in crops:

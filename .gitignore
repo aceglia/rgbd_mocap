@@ -10,6 +10,7 @@ c_generated_code/
 c_generated_code/
 pose_est/tapnet/
 rgbd_mocap/tapnet/
+rgbd_mocap/GUI/save/
 
 # video extension
 *.avi

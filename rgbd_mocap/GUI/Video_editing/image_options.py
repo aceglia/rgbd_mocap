@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+from pathlib import Path
 
 import numpy as np
 
@@ -45,6 +46,9 @@ class ImageOptionsButtons(QWidget):
 
     ### Generic method
     def save_parameters(self, file):
+        if not os.path.isdir(Path(file).parent):
+            os.makedirs(Path(file).parent)
+
         with open(file, 'w') as f:
             json.dump(self.image_option.to_dict(), f)
 

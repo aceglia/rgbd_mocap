@@ -44,7 +44,7 @@ class VideoFilters:
             self.parent.ve.apply_mask([])
             color = self.parent.ve.color_frame.copy()
             color[self.parent.ve.filtered_frame == 0] = 0
-            frame = Frames(color, self.parent.ve.depth_frame.copy())
+            frame = Frames(color, self.parent.ve.depth_frame.copy(), index=0)
             self.parent.ve.blobs = self.filter.get_blobs(frame)
             self.parent.ve.filtered_frame = self.filter.filtered_frame.copy()
             self.parent.ve.apply_blend(self.image_options["blend"])

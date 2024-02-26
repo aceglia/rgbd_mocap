@@ -124,8 +124,7 @@ class LoadAndRemoveMarkerButtons(QWidget):
 
         ### Set Layout
         layout = QGridLayout()
-        layout.addWidget(self.load_button, 0, 0, 1, 1)
-        layout.addWidget(self.save_button, 0, 1, 1, 1)
+        layout.addWidget(self.load_button, 0, 0, 1, 2)
         layout.addWidget(self.remove_button, 1, 0, 1, 1)
         layout.addWidget(self.remove_all_button, 1, 1, 1, 1)
         self.setLayout(layout)
@@ -166,9 +165,7 @@ class MarkerAdder(QWidget):
         ### Create the layout with the AddMarkerButton on the top
         layout = QVBoxLayout(self)
         self.add_marker_widget = AddMarkerButton(self.list_marker, self)
-        # self.add_marker_widget_2 = AddMarkerButton(self.list_marker, self)
         layout.addWidget(self.add_marker_widget)
-        # layout.addWidget(self.add_marker_widget_2)
 
         ### Separator between AddMarkerButton and the MarkerList
         layout.addWidget(HorizontalSeparator())

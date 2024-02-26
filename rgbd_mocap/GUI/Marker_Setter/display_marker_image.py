@@ -75,8 +75,8 @@ class DisplayMarkerImage(QLabel):
         self.markers = markers
         ### For all markers draw the circle around their positions
         for marker in self.markers:
-            x = marker[1] + marker[3]
-            y = marker[0] + marker[2]
+            y = int(marker.x + marker.area[1])
+            x = int(marker.y + marker.area[0])
             cv2.circle(
                 self.marked_image,
                 (x, y),

@@ -315,8 +315,8 @@ class DropImage(QLabel):
 
         ### For all markers draw the circle around their positions
         for marker in self.markers:
-            x = marker[1]
-            y = marker[0]
+            y = int(marker.x)
+            x = int(marker.y)
             cv2.circle(
                 self.marked_image,
                 (x, y),

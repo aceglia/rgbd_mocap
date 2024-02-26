@@ -44,6 +44,9 @@ class MarkerList(QWidget):
         self.layout = QVBoxLayout(self)
 
         for marker in l:
+            if isinstance(marker, dict):
+                marker = marker['name']
+
             btn = DragMarker(marker)
             self.list.append(btn)
             self.layout.addWidget(btn, Qt.AlignTop)
@@ -55,21 +58,6 @@ class MarkerList(QWidget):
         for drag_marker in self.list:
             yield drag_marker
 
-    def _add_marker_to_list(self, marker: str, insert=False):
-        """
-        Initialize a DragMarker from string and insert it at the end of the MarkerList
-        :param marker: Name of the marker to be init
-        :type marker: str
-        :return: None
-        """
-        btn = DragMarker(marker)
-
-        if insert:
-            self.layout.insertWidget(len(self.list), btn, 0, Qt.AlignTop)
-        else:
-            self.layout.addWidget(btn, Qt.AlignTop)
-        self.list.append(btn)
-
     def add_marker(self, marker: str):
         """
         Initialize a DragMarker from string and insert it at the end of the MarkerList
@@ -77,21 +65,23 @@ class MarkerList(QWidget):
         :type marker: str
         :return: None
         """
-        new_name = self._check_name(marker)
-        self._add_marker_to_list(new_name, insert=True)
+        btn = DragMarker(marker)
+        self.layout.insertWidget(len(self.list), btn, 0, Qt.AlignTop)
+        self.list.append(btn)
 
-        self.set_focused_marker(self.list[-1])
+        self.set_focused_marker(btn)
 
-    def _get_all_names(self):
-        return [marker.name for marker in self.list]
+    def re_add_marker(self, marker: DragMarker):
+        """
+        Add a pre-existing DragMarker back in the MarkerList
+        :param marker: DragMarker to be placed back
+        :type marker: DragMarker
+        :return: None
+        """
+        self.layout.insertWidget(len(self.list), marker, 0, Qt.AlignTop)
+        self.list.append(marker)
 
-    def _check_name(self, name):
-        if name in self._get_all_names():
-            i = 1
-            while name + str(i) in self._get_all_names():
-                i += 1
-            return name + str(i)
-        return name
+        self.set_focused_marker(marker)
 
     def remove_marker(self):
         """

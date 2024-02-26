@@ -83,16 +83,17 @@ class CropWidget(QMainWindow):
         if self.dir and self.min_index is not None:
             color_path = self.dir + os.sep + f"color_{self.video_player.value}.png"
             depth_path = self.dir + os.sep + f"depth_{self.video_player.value}.png"
-            image_color = cv2.imread(color_path)
-            if image_color is None:
+            if not os.path.exists(color_path) or not os.path.exists(depth_path):
                 return
-            tik = time.time()
-            image_color = cv2.cvtColor(image_color, cv2.COLOR_BGR2RGB)
-            image_depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
-            print('Time:', time.time() - tik)
+            try:
+                image_color = cv2.imread(color_path)
+                image_color = cv2.cvtColor(image_color, cv2.COLOR_BGR2RGB)
+                image_depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
+            except Exception as e:
+                print(f"Could not load {color_path}")
+                return
 
             ### Check if the image has been well loaded
-            print(image_color.shape, image_depth.shape)
             self.video_tab.set_image(image_color, image_depth)
 
     ### Saves and Loads
@@ -152,6 +153,7 @@ class CropWidget(QMainWindow):
 
     def get_crops(self):
         return self.video_tab.get_crops()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

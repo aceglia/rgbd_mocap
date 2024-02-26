@@ -46,8 +46,8 @@ class MainWindowMenuBar(QMenuBar):
         self.quit_app_action = QAction('Quit', self)
         self.quit_app_action.triggered.connect(main_window.close)
 
-        # self.save_crops_action = QAction('Save Crops', self)
-        # self.save_crops_action.triggered.connect(main_window.save_crops)
+        self.save_crops_action = QAction('Save Crops', self)
+        self.save_crops_action.triggered.connect(main_window.save_crops)
 
         self.load_crops_action = QAction('Load Crops', self)
         self.load_crops_action.triggered.connect(main_window.load_crop)
@@ -62,7 +62,7 @@ class MainWindowMenuBar(QMenuBar):
         file = self.addMenu('File')
         file.addAction(self.open_file_action)
         file.addSeparator()
-        # file.addAction(self.save_crops_action)
+        file.addAction(self.save_crops_action)
         file.addAction(self.load_crops_action)
         file.addSeparator()
         file.addAction(self.save_project_action)
@@ -141,12 +141,11 @@ class MainWindow(QMainWindow):
 
     ### Saves and Loads
     def quick_save(self):
-        pass
-        # if self.save_file is None:
-        #     self.save_project()
-        #
-        # else:
-        #     self.save_project_file(self.save_file)
+        if self.save_file is None:
+            self.save_project()
+
+        else:
+            self.save_project_file(self.save_file)
 
     def load_crop(self):
         LoadDialog(parent=self,
@@ -204,18 +203,15 @@ class MainWindow(QMainWindow):
     def load_project_file(self, file):
         with open(file, 'r') as f:
             parameters = json.load(f)
-            try:
-                self.vce.load_project_dict(parameters)
 
-                if self.marker_setter_tab is None:
-                    self.create_marker_setter()
+            self.vce.load_project_dict(parameters)
 
-                self.marker_setter_tab.load_project_dict(parameters)
+            if self.marker_setter_tab is None:
+                self.create_marker_setter()
 
-                self.set_vce()
-
-            except TypeError and KeyError:
-                ErrorPopUp('File could not be loaded, wrong format', self)
+            self.marker_setter_tab.load_project_dict(parameters)
+            # self.marker_setter_tab.drop_image_tab.load_project_dict(parameters)
+            self.set_vce()
 
     def set_vce(self):
         if self.marker_setter_tab is not None:

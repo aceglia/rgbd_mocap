@@ -35,6 +35,9 @@ class Tracker:
         self.estimated_positions: List[List[Position]] = [None] * len(marker_set.markers)
 
     def get_blob_near_position(self, estimated_position, index):
+        size = self.frame.color.shape
+        if not (0 <= estimated_position[0] < size[1] and 0 <= estimated_position[1] < size[0]):
+            return False
         position, visible = find_closest_blob(estimated_position, self.blobs, delta=Tracker.DELTA)
         self.estimated_positions[index].append(Position(position, visible))
         return visible
