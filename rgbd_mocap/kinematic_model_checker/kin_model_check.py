@@ -173,7 +173,13 @@ class KinematicModelChecker:
                 markers_in_pixel.append(marker_in_pixel)
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
                 _in_local.append(marker_in_local)
-                crops[m].tracker.get_blob_near_position(marker_in_local, i)
+                from rgbd_mocap.utils import find_closest_blob
+                # crops[m].tracker.get_blob_near_position(marker_in_local, i)
+                position, visible = find_closest_blob(marker_in_local, crops[m].tracker.blobs, delta=10)
+                if visible:
+                    crops[m].tracker.estimated_positions[i].append(Position(position, visible))
+                # else:
+                #     crops[m].tracker.estimated_positions[i].append(None)
             crops[m].tracker.merge_positions()
             crops[m].tracker.check_tracking()
             crops[m].tracker.check_bounds(crops[m].frame)

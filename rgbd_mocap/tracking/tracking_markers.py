@@ -56,8 +56,8 @@ class Tracker:
 
         if visibility_count == 0:
             # By default, get the last position estimated (via optical flow if used)
-            final_position = positions[-1].position
-            # return ()
+            # final_position = positions[-1].position
+            return ()
         else:
             final_position //= visibility_count
 
@@ -82,7 +82,11 @@ class Tracker:
         # if we use Kalman then search the closest blob to the prediction
         if self.kalman:
             prediction = self.kalman.kalman_filters[index].predict()
-            self.get_blob_near_position(prediction, index)
+            # self.get_blob_near_position(prediction, index)
+            position, visible = find_closest_blob(prediction, self.blobs, delta=Tracker.DELTA)
+            self.estimated_positions[index].append(Position(position, visible))
+            if not visible:
+                self.kalman.kalman_filters[index].correct(self.marker_set.markers[index].pos[:2])
 
         # If we use optical flow get the estimation, if the flow has been found
         # and the level of error is below the threshold then take the estimation
@@ -159,8 +163,8 @@ class Tracker:
         self.check_tracking()
         self.check_bounds(frame)
 
-        if self.kalman:
-            self.kalman.correct()
+        # if self.kalman:
+        #     self.kalman.correct()
 
         return self.positions, self.estimated_positions
 

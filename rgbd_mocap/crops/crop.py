@@ -111,22 +111,7 @@ class Crop:
         # Get updated frame
         self.frame.update_image()
         # Get Blobs
-        import cv2
         blobs = self.filter.get_blobs(self.frame)
-        if self.marker_set.name == "crop_0" and self.frame.get_index() == 2135:
-            cv2.imwrite(
-                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\before_new_filter.png"
-            , self.filter.frame.color)
-            cv2.imwrite(
-                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_depth.png"
-            , self.filter.filtered_depth)
-            cv2.imwrite(
-                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_filter.png"
-            , self.filter.filtered_frame)
-            image = self.draw_blobs(self.filter.filtered_frame, blobs)
-            cv2.imwrite(
-                r"D:\Documents\Programmation\pose_estimation\data_files\P16\gear_20_25-01-2024_14_46_57\test_images\new_with_blobs.png"
-            ,image)
         # Get tracking positions
         positions, estimate_positions = self.tracker.track(self.frame, self.filter.filtered_depth, blobs)
 
