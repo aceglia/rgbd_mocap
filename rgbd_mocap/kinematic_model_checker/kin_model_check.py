@@ -57,6 +57,8 @@ class KinematicModelChecker:
 
         self.ik_method = 'kalman'
 
+        self.last_q = None
+
     # utils
     def _get_all_markers(self):
         markers_pos = []
@@ -167,6 +169,7 @@ class KinematicModelChecker:
             for i in range(marker_set.nb_markers):
                 if marker_set.markers[i].is_static:
                     crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos, False)]
+                    _in_local.append(marker_set.markers[i].pos)
                     continue
                 crops[m].tracker.estimated_positions[i] = []
                 marker_in_pixel = self.converter.get_marker_pos_in_pixel(markers_local[:, i][np.newaxis, :])[0, :]
@@ -176,17 +179,34 @@ class KinematicModelChecker:
                 from rgbd_mocap.utils import find_closest_blob
                 # crops[m].tracker.get_blob_near_position(marker_in_local, i)
                 position, visible = find_closest_blob(marker_in_local, crops[m].tracker.blobs, delta=10)
-                if visible:
-                    crops[m].tracker.estimated_positions[i].append(Position(position, visible))
+                # if visible:
+                crops[m].tracker.estimated_positions[i].append(Position(position, visible))
                 # else:
                 #     crops[m].tracker.estimated_positions[i].append(None)
             crops[m].tracker.merge_positions()
+            for p, pos in enumerate(crops[m].tracker.positions):
+                if pos == ():
+                    crops[m].tracker.positions[p] = Position(_in_local[p], False)
             crops[m].tracker.check_tracking()
             crops[m].tracker.check_bounds(crops[m].frame)
             crops[m].attribute_depth_from_position(crops[m].tracker.positions)
             set_marker_pos(crops[m].marker_set, crops[m].tracker.positions)
             start += marker_set.nb_markers
         return markers_in_pixel
+
+    def _check_last_q(self, q):
+        if self.last_q is None:
+            self.last_q = q
+            return q
+
+        final_q = q.copy()
+        for i, q_tmp in enumerate(q):
+            if float(abs(q_tmp - self.last_q[i, 0])) > 0.7:
+                print(f"q{i} is too high: {q_tmp} - {self.last_q[i, 0]}")
+                final_q[i, 0] = self.last_q[i, 0]
+        self.last_q = q
+        return final_q
+
 
     def fit_kinematics_model(self, process_image):
         crops = process_image.crops
@@ -224,6 +244,7 @@ class KinematicModelChecker:
         )
 
         q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=60)
+        # q = self._check_last_q(q)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
         self._set_markers(markers, crops)
         return q
