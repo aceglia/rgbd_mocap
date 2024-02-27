@@ -148,6 +148,7 @@ class KinematicModelChecker:
         if self.frames.get_index() == 0:
             return crops
         for m, marker_set in enumerate(self.marker_sets):
+            crops[m].tracker.frame = crops[m].frame
             for i in range(marker_set.nb_markers):
                 crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos,
                                                                       marker_set.markers[i].get_visibility())]
@@ -158,6 +159,7 @@ class KinematicModelChecker:
         markers_in_pixel = []
         if isinstance(self.frames, SharedFrames):
             crops = self._set_previous_estimation(crops)
+
         for m, marker_set in enumerate(self.marker_sets):
             _in_local = []
             end = start + marker_set.nb_markers
@@ -182,6 +184,7 @@ class KinematicModelChecker:
 
     def fit_kinematics_model(self, process_image):
         crops = process_image.crops
+
         handler = process_image.process_handler
 
         if isinstance(handler, MultiProcessHandler):
@@ -202,7 +205,6 @@ class KinematicModelChecker:
         # Get Markers Information
 
         markers, names, is_visible = self._get_global_markers_pos_in_meter()
-
 
         markers_for_ik = np.full((markers.shape[0], markers.shape[1], 1), np.nan)
         for m in range(markers_for_ik.shape[1]):

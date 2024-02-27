@@ -19,12 +19,11 @@ class ProcessHandler(Handler):
             for i, crop in enumerate(self.crops):
                 blobs, positions, estimate_positions = crop.track_markers()
                 set_marker_pos(crop.marker_set, positions)
-                # crops.tracker.correct()
-                self.show_image(f"{self.crops_name[i]}",
-                                crop.filter.filtered_frame,
-                                blobs=blobs,
-                                markers=crop.marker_set,
-                                estimated_positions=estimate_positions)
+                Handler.show_image(f"{crop.marker_set.name}",
+                                   crop.filter.filtered_frame,
+                                   blobs=blobs,
+                                   markers=crop.marker_set,
+                                   estimated_positions=estimate_positions)
                 self.blobs += blobs
 
         elif order == Handler.RESET:

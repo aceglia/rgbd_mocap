@@ -56,8 +56,8 @@ class Tracker:
 
         if visibility_count == 0:
             # By default, get the last position estimated (via optical flow if used)
-            # final_position = positions[-1].position
-            return ()
+            final_position = positions[-1].position
+            # return ()
         else:
             final_position //= visibility_count
 
