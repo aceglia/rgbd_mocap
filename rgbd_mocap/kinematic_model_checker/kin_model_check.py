@@ -153,7 +153,7 @@ class KinematicModelChecker:
             crops[m].tracker.frame = crops[m].frame
             for i in range(marker_set.nb_markers):
                 crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos,
-                                                                      marker_set.markers[i].get_visibility())]
+                                                                    marker_set.markers[i].get_visibility())]
         return crops
 
     def _set_markers(self, markers, crops):
@@ -171,7 +171,7 @@ class KinematicModelChecker:
                     crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos, False)]
                     _in_local.append(marker_set.markers[i].pos)
                     continue
-                crops[m].tracker.estimated_positions[i] = []
+                # crops[m].tracker.estimated_positions[i] = []
                 marker_in_pixel = self.converter.get_marker_pos_in_pixel(markers_local[:, i][np.newaxis, :])[0, :]
                 markers_in_pixel.append(marker_in_pixel)
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
@@ -179,7 +179,6 @@ class KinematicModelChecker:
                 from rgbd_mocap.utils import find_closest_blob
                 # crops[m].tracker.get_blob_near_position(marker_in_local, i)
                 position, visible = find_closest_blob(marker_in_local, crops[m].tracker.blobs, delta=10)
-                # if visible:
                 crops[m].tracker.estimated_positions[i].append(Position(position, visible))
                 # else:
                 #     crops[m].tracker.estimated_positions[i].append(None)
@@ -206,7 +205,6 @@ class KinematicModelChecker:
                 final_q[i, 0] = self.last_q[i, 0]
         self.last_q = q
         return final_q
-
 
     def fit_kinematics_model(self, process_image):
         crops = process_image.crops
@@ -242,7 +240,6 @@ class KinematicModelChecker:
             if self.ik_method == "least_squares"
             else InverseKinematicsMethods.BiorbdKalman
         )
-
         q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=60)
         # q = self._check_last_q(q)
         markers = self.kinematics_functions.compute_direct_kinematics(q)

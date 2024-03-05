@@ -44,7 +44,6 @@ class Filter:
 
     def _distance_range_mask(self):
         from ..crops.crop import DepthCheck
-
         mask = np.ones(self.frame.depth.shape, dtype=np.uint8)
         min_dist = self.options["distance_in_centimeters"][0] / 100 / DepthCheck.DEPTH_SCALE
         max_dist = self.options["distance_in_centimeters"][1] / 100 / DepthCheck.DEPTH_SCALE
@@ -53,36 +52,40 @@ class Filter:
         self.filtered_depth = np.where((self.frame.depth > max_dist), -1, self.frame.depth)
 
         if not self.options["use_contour"]:
-            return mask
+            self.filtered_frame[mask == 0] = 20
+            return
 
         thresh = cv2.threshold(mask, 0, 1, cv2.THRESH_BINARY)[1]
         contours, hierarchy = cv2.findContours(image=thresh, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
         try:
             c = sorted(contours, key=cv2.contourArea)
         except ValueError:
-            return mask
+            self.filtered_frame[mask == 0] = 20
+            return
+
         if len(c) > 0:
             mask = np.zeros(self.frame.depth.shape, dtype=np.uint8)
             cv2.drawContours(mask, [c[-1]], contourIdx=-1, color=1, thickness=-1)
             if len(c) > 1:
                 cv2.drawContours(mask, [c[-2]], contourIdx=-1, color=1, thickness=-1)
+            self.filtered_frame[mask == 0] = 20
+            return
 
-            return mask
+        self.filtered_frame[mask == 0] = 20
+        return
 
-        return mask
-
+        # return mask
     ##### Filters functions #############################
     def _clahe_filter(self):
-        img = cv2.cvtColor(self.filtered_frame, cv2.COLOR_RGB2GRAY)
+        # img = cv2.cvtColor(self.filtered_frame, cv2.COLOR_RGB2GRAY)
 
-        img = cv2.GaussianBlur(img, (3, 3), 0)
+        self.filtered_frame = cv2.GaussianBlur(self.filtered_frame, (3, 3), 0)
 
-        img = self.clahe.apply(img)
+        self.filtered_frame = self.clahe.apply(self.filtered_frame)
 
         if self.options["gaussian_blur"] and self.options["gaussian_blur"] > 0:
-            img = cv2.GaussianBlur(img, (self.options["gaussian_blur"] * 2 + 1,
+            self.filtered_frame = cv2.GaussianBlur(self.filtered_frame, (self.options["gaussian_blur"] * 2 + 1,
                                          self.options["gaussian_blur"] * 2 + 1), 0)
-        self.filtered_frame = img
 
     ##### Blob detection ###############################
     def _blob_detector(self):
@@ -90,9 +93,7 @@ class Filter:
             return []
         self.blobs_detector = cv2.SimpleBlobDetector_create(self.blobs_param)
         keypoints = self.blobs_detector.detect(self.filtered_frame)
-        centers = []
-        for blob in keypoints:
-            centers.append((int(blob.pt[0]), int(blob.pt[1])))
+        centers = [(int(blob.pt[0]), int(blob.pt[1])) for blob in keypoints]
         return centers
 
     ##### Main functions ####################################
@@ -107,14 +108,10 @@ class Filter:
     def apply_filters(self):
         # Clahe filters
         # Masks
-        masks = []
         if self.options["distance_option"]:
-            masks.append(self._distance_range_mask())
+            self._distance_range_mask()
         if self.options['masks_option'] and self.options['mask'] is not None:
-            mask = np.ones_like(self.filtered_frame[..., 0], dtype=np.uint8)
-            mask[np.array(self.options['mask'][0]), np.array(self.options['mask'][1])] = 0
-            masks.append(mask)
-        self._apply_masks(masks)
+            self.filtered_frame[self.options['mask'][0], self.options['mask'][1]] = 20
         if self.options["clahe_option"]:
             self._clahe_filter()
 
