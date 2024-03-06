@@ -87,7 +87,8 @@ class CropWidget(QMainWindow):
                 return
             try:
                 image_color = cv2.imread(color_path)
-                image_color = cv2.cvtColor(image_color, cv2.COLOR_BGR2RGB)
+                if len(image_color.shape) == 3:
+                    image_color = cv2.cvtColor(image_color, cv2.COLOR_BGR2RGB)
                 image_depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
             except Exception as e:
                 print(f"Could not load {color_path}")

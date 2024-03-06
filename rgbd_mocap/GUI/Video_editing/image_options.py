@@ -114,16 +114,16 @@ class ImageOptions(QWidget):
         self.video_filter = video_filter
 
         self.params = {
-            "blend": 50,
+            "blend": 100,
             "white_range": (100, 255),
             "blob_area": (1, 200),
             "convexity": 5,
             "circularity": 5,
-            "distance_between_blobs": 10,
+            "distance_between_blobs": 1,
             "distance_in_centimeters": (5, 500),
             "clahe_clip_limit": 1,
             "clahe_grid_size": 3,
-            "gaussian_blur": 2,
+            "gaussian_blur": 0,
             "use_contour": True,
             "mask": None,
         }

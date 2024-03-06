@@ -46,7 +46,7 @@ class MainWindowMenuBar(QMenuBar):
         self.quit_app_action.triggered.connect(main_window.close)
 
         self.save_crops_action = QAction('Save Crops', self)
-        self.save_crops_action.triggered.connect(main_window.save_crops)
+        self.save_crops_action.triggered.connect(main_window.save_crop)
 
         self.load_crops_action = QAction('Load Crops', self)
         self.load_crops_action.triggered.connect(main_window.load_crop)
@@ -149,7 +149,6 @@ class MainWindow(QMainWindow):
             self.save_project_file(self.save_file)
             MessagePopUp('Project saved')
 
-
     def load_crop(self):
         LoadDialog(parent=self,
                    caption='Load crops file',
@@ -163,6 +162,25 @@ class MainWindow(QMainWindow):
                    suffix='json',
                    save_method=self.save_project_file)
 
+    def save_crop(self):
+        SaveDialog(parent=self,
+                   caption='Save Crops',
+                   filter='Save File (*json)',
+                   suffix='json',
+                   save_method=self.save_crop_file)
+
+    def save_crop_file(self, file):
+        infos = {}
+        with open(file, 'w') as file:
+            for tab in self.vce.video_tab.tabs[1:]:
+                infos[tab.name] = [
+                         int(tab.ve.area[0]),
+                         int(tab.ve.area[1]),
+                         int(tab.ve.area[2]),
+                         int(tab.ve.area[3])]
+            json.dump(infos, file, indent=2)
+        MessagePopUp('Crops saved')
+
     def save_project_file(self, file):
         self.save_file = file
 
@@ -170,8 +188,12 @@ class MainWindow(QMainWindow):
         with open(file, 'w') as file:
             json.dump(self.project_to_dict(), file, indent=2)
 
+        MessagePopUp('Project saved')
+
     def project_to_dict(self):
         parameters_vce = self.vce.to_dict()
+        if self.marker_setter_tab is None:
+            self.create_marker_setter()
         parameters_ms = self.marker_setter_tab.to_dict()
         mask_list = [None] * len(parameters_vce['crops'])
         for c, crop_vce in enumerate(parameters_vce['crops']):
@@ -192,7 +214,7 @@ class MainWindow(QMainWindow):
 
     def save_crops(self):
         crops = []
-        for tab in self.video_tab.tabs[1:]:
+        for tab in self.vce.video_tab.tabs[1:]:
             tab_dict = tab.save_dic()
 
             # If marker_setter is placed then
@@ -281,8 +303,8 @@ class MainWindow(QMainWindow):
         ### Else a MarkerSetter as already been loaded then reload it to apply eventual changes
         if self.marker_setter_tab is None:
             self.create_marker_setter()
-        else:
-            self.marker_setter_tab.reload(self.project_to_dict())
+        # else:
+        #     self.marker_setter_tab.reload(self.project_to_dict())
 
         self.set_marker_setter()
 

@@ -131,10 +131,12 @@ class RgbdImages:
         file_path = file_path if file_path else save_dir + os.sep + "markers_pos_test.bio"
         if not fit_model:
             ProcessImage.SHOW_IMAGE = show_image
-        if not self.process_image.process_next_image(process_while_loading=False):
+        tic = time.time()
+        if not self.process_image.process_next_image(process_while_loading=True):
             if self.video_object is not None:
                 self.video_object.release()
             return False
+        print(f"Time to process image: {time.time() - tic}")
         fit_model_time = 0
         if fit_model:
             tic = time.time()
@@ -148,8 +150,11 @@ class RgbdImages:
 
             self.kinematic_model_checker.ik_method = "kalman"
             self.kinematic_model_checker.fit_kinematics_model(self.process_image)
+            fit_model_time = time.time() - tic
+
             if show_image:
-                im = print_marker_sets(self.process_image.frames.color.copy(), self.kinematic_model_checker.marker_sets)
+                im = cv2.cvtColor(self.process_image.frames.color, cv2.COLOR_GRAY2RGB)
+                im = print_marker_sets(im, self.kinematic_model_checker.marker_sets)
                 cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
                 cv2.putText(
                     im,
@@ -167,22 +172,20 @@ class RgbdImages:
                         self.video_object.release()
                     return False
 
-            fit_model_time = time.time() - tic
-
         for marker_set in self.marker_sets:
             for marker in marker_set:
                 if marker.get_visibility():
                     marker.set_reliability(0.5)
                 if marker.is_depth_visible:
                     marker.set_reliability(0.5)
-
+        # print(self.process_image.computation_time)
         # print(occlusions)
         if save_data:
             if self.iter == 0 and os.path.isfile(file_path):
                 os.remove(file_path)
             markers_pos, markers_names, occlusions = self._get_all_markers()
             markers_in_meter = self.converter.get_markers_pos_in_meter(markers_pos)
-            # print(occlusions)
+            print(self.process_image.computation_time + fit_model_time)
             dic = {
                 "markers_in_meters": markers_in_meter[:, :, np.newaxis],
                 "markers_in_pixel": np.array(markers_pos).T[:, :, np.newaxis],

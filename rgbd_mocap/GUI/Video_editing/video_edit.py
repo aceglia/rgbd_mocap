@@ -111,7 +111,8 @@ class VideoEdit(QLabel):
             return
 
         blend /= 100
-        img = cv2.cvtColor(self.filtered_frame, cv2.COLOR_RGB2BGR)
+        img = self.filtered_frame if len(self.filtered_frame.shape) == 3 else cv2.cvtColor(self.filtered_frame,
+                                                                                         cv2.COLOR_GRAY2RGB)
         self.filtered_frame = cv2.addWeighted(self.color_frame,
                                               1 - blend,
                                               img,
@@ -130,8 +131,13 @@ class VideoEdit(QLabel):
             return
 
         for blob in self.blobs:
-            self.filtered_frame[blob[1] - blob_size:blob[1] + blob_size,
-                                blob[0] - blob_size:blob[0] + blob_size] = [255, 0, 0]
+            self.filtered_frame = cv2.circle(self.filtered_frame,
+                                                (blob[0], blob[1]),
+                                                blob_size,
+                                                (255, 0, 0),
+                                                -1)
+            # self.filtered_frame[blob[1] - blob_size:blob[1] + blob_size,
+            #                     blob[0] - blob_size:blob[0] + blob_size] = [255, 0, 0]
 
     def mousePressEvent(self, eventQMouseEvent):
         """
@@ -234,12 +240,12 @@ class VideoEdit(QLabel):
         """
         if self.filtered_frame is None:
             return
-
+        format = QImage.Format_RGB888 if len(self.filtered_frame.shape) == 3 else QImage.Format_Grayscale8
         image = QImage(self.filtered_frame,
                        self.filtered_frame.shape[1],
                        self.filtered_frame.shape[0],
                        self.filtered_frame.strides[0],
-                       QImage.Format_RGB888)
+                       format)
 
         self.resized_image = QPixmap.fromImage(image).scaled(self.size().width(),
                                                              self.size().height(),
@@ -284,11 +290,13 @@ if __name__ == '__main__':
     vt = VideoEdit(area, main_window)
     main_window.setCentralWidget(vt)
 
-    path = "../../../../../rgbd_mocap/data_files/P4_session2/gear_20_15-08-2023_10_52_14/"
+    path = "D:\Documents\Programmation\pose_estimation\data_files\P9\gear_5_11-01-2024_16_59_32/"
 
-    frame_color = cv2.flip(cv2.cvtColor(cv2.imread(path + "color_600.png"), cv2.COLOR_BGR2RGB), -1)
-    frame_depth = cv2.flip(cv2.imread(path + "depth_600.png", cv2.IMREAD_ANYDEPTH), -1)
+    frame_color = cv2.flip(cv2.cvtColor(cv2.imread(path + "color_1372.png"), cv2.COLOR_BGR2RGB), -1)
+    frame_depth = cv2.flip(cv2.imread(path + "depth_1372.png", cv2.IMREAD_ANYDEPTH), -1)
 
-    vt.set_image(frame_color, frame_depth)
+    # vt.set_image(frame_color, frame_depth)
+    vt.set_image(None, frame_depth)
+
     main_window.show()
     sys.exit(app.exec_())

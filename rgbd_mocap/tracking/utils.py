@@ -23,6 +23,7 @@ def get_blobs(frame):
 def print_blobs(frame, blobs, size=5, color=(0, 255, 0)):
     img = frame.copy()
     for blob in blobs:
+        color = color if len(img.shape) == 3 else 0
         img[blob[1] - size:blob[1] + size, blob[0] - size:blob[0] + size] = color
 
     return img

@@ -60,7 +60,7 @@ class DepthCheck:
 class Crop:
     def __init__(self, area, frame: Frames, marker_set: MarkerSet, filter_option, method):
         if isinstance(frame, SharedFrames):
-            frame.color = np.frombuffer(frame.color_array, dtype=np.uint8).reshape((frame.width, frame.height, 3))
+            frame.color = np.frombuffer(frame.color_array, dtype=np.uint8).reshape((frame.width, frame.height))
             frame.depth = np.frombuffer(frame.depth_array, dtype=np.int32).reshape((frame.width, frame.height))
             for marker in marker_set:
                 marker.pos = np.frombuffer(marker.raw_array_pos, dtype=np.int32)
@@ -110,8 +110,10 @@ class Crop:
 
         # Get updated frame
         self.frame.update_image()
+
         # Get Blobs
         blobs = self.filter.get_blobs(self.frame)
+
         # Get tracking positions
         positions, estimate_positions = self.tracker.track(self.frame, self.filter.filtered_depth, blobs)
 

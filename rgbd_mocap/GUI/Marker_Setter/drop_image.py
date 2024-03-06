@@ -358,11 +358,13 @@ class DropImage(QLabel):
             return
 
         # From array to QPixmap
+        format = QImage.Format_RGB888 if len(self.image.shape) == 3 else QImage.Format_Grayscale8
+
         image = QImage(self.marked_image,
                        self.marked_image.shape[1],
                        self.marked_image.shape[0],
                        self.marked_image.strides[0],
-                       QImage.Format_RGB888)
+                       format)
 
         # Convert frame into image and apply the resize
         self.resized_image = (QPixmap.fromImage(image).scaled(self.size().width(),

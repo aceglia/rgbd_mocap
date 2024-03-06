@@ -176,8 +176,8 @@ class VideoCropper(QLabel):
 
         with open(file, 'r') as file:
             parameters = json.load(file)
-            for crop in parameters['crops']:
-                self.new_crop(crop['area'], crop['name'])
+            for crop in parameters.keys():
+                self.new_crop(parameters[crop], crop)
 
     def load_project(self, parameters):
         crops = parameters['crops']
@@ -207,12 +207,13 @@ class VideoCropper(QLabel):
         """
         if self.image is None:
             return
-
+        format = QImage.Format_RGB888 if len(self.image.shape) == 3 else QImage.Format_Grayscale8
         image = QImage(self.image,
                        self.image.shape[1],
                        self.image.shape[0],
                        self.image.strides[0],
-                       QImage.Format_RGB888)
+                       format
+                       )
 
         self.resized_image = QPixmap.fromImage(image).scaled(self.size().width(),
                                                              self.size().height(),

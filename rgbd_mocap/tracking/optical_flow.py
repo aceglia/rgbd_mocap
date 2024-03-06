@@ -3,11 +3,11 @@ import numpy as np
 
 
 def image_gray_and_blur(image, blur_size):
-    return cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY), (blur_size, blur_size), 0)
+    return cv2.GaussianBlur(image, (blur_size, blur_size), 0)
 
 
 def background_remover(frame, depth, clipping_distance, depth_scale, clipping_color, min_dist=0, use_contour=True):
-    depth_image_3d = np.dstack((depth, depth, depth))
+    depth_image_3d = depth #np.dstack((depth, depth, depth))
     final = np.where(
         (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= min_dist / depth_scale),
         clipping_color,
@@ -20,7 +20,8 @@ def background_remover(frame, depth, clipping_distance, depth_scale, clipping_co
             clipping_color,
             white_frame,
         )
-        gray = cv2.cvtColor(im_for_mask, cv2.COLOR_BGR2GRAY)
+        # gray = cv2.cvtColor(im_for_mask, cv2.COLOR_BGR2GRAY)
+        gray = im_for_mask
         ret, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
         contours, hierarchy = cv2.findContours(image=thresh, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
         try:

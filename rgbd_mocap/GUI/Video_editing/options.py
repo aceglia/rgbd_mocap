@@ -117,8 +117,8 @@ class BlobOption(CollapsibleBox):
         the image options for white parameters.
     """
 
-    def __init__(self, parent=None, blob_area=(10, 100), convexity=10,
-                 circularity=10, distance_between_blobs=10, **kwargs):
+    def __init__(self, parent=None, blob_area=(10, 100), convexity=1,
+                 circularity=1, distance_between_blobs=1, **kwargs):
         """
         Initialize a BlobOption widget.
         :param parent: QObject container parent
@@ -149,7 +149,7 @@ class BlobOption(CollapsibleBox):
         self.activate = self.option_layout.activate
         self.setContentLayout(self.option_layout)
 
-    def set_params(self, blob_option, blob_area, convexity, circularity, distance_between_blobs=10, **kwargs):
+    def set_params(self, blob_option, blob_area, convexity, circularity, distance_between_blobs=1, **kwargs):
         ### Set activate
         self.option_layout.activate.setChecked(not blob_option)
         self.option_layout.activate.on_pressed(blob_option)
@@ -167,7 +167,7 @@ class ClaheOption(CollapsibleBox):
         the image options for white parameters.
         """
 
-    def __init__(self, parent=None, clahe_clip_limit=1, clahe_grid_size=1, gaussian_blur=2, **kwargs):
+    def __init__(self, parent=None, clahe_clip_limit=3, clahe_grid_size=1, gaussian_blur=0, **kwargs):
         """
         Initialize a ClaheOption widget.
         :param parent: QObject container parent

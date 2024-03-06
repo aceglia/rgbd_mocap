@@ -19,8 +19,9 @@ class VideoFilters:
     def update_params(self):
         ### Update the blob detector params
         if self.image_options.show_params["blob_option"]:
-            self.filter.blobs_param.minThreshold = self.image_options["white_range"][0]
-            self.filter.blobs_param.maxThreshold = self.image_options["white_range"][1]
+            # self.filter.blobs_param.minThreshold = self.image_options["white_range"][0]
+            # self.filter.blobs_param.maxThreshold = self.image_options["white_range"][1]
+            self.filter.white_range = self.image_options["white_range"]
             self.filter.blobs_param.minArea = self.image_options["blob_area"][0]
             self.filter.blobs_param.maxArea = self.image_options["blob_area"][1]
             self.filter.blobs_param.minCircularity = self.image_options["circularity"] / 100

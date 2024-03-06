@@ -142,7 +142,7 @@ class DropImageTab(QTabWidget):
     def dict_to_markers(self, crop):
         for i in range(1, self.count()):
             if self.tabs[i].name == crop['name'] and self.tabs[i].markers == []:
-                self.tabs[i].area = crop['area']
+                # self.tabs[i].area = crop['area']
                 self.tabs[i].load_markers(crop['markers'])
                 return True
 
@@ -159,11 +159,11 @@ class DropImageTab(QTabWidget):
 
     def load_markers_file(self, file):
         with open(file, 'r') as f:
-            project = json.load(f)
             try:
-                self.load_project_dict(project)
+                project = json.load(f)
             except TypeError and KeyError:
                 ErrorPopUp('File could not be loaded, wrong format')
+            self.load_project_dict(project)
 
     def load_project_dict(self, project_dict):
         crops = project_dict['crops']
@@ -173,8 +173,8 @@ class DropImageTab(QTabWidget):
 
         for crop in crops:
             if not self.dict_to_markers(crop):
-                unplaced_markers.extend([marker['name'] for marker in crop['markers']])
-
+                continue
+            # unplaced_markers.extend([marker['name'] for marker in crop['markers']])
         self.marker_adder.load_markers(unplaced_markers)
         self.change_window(self.currentIndex())
 
