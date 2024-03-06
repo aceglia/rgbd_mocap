@@ -131,12 +131,10 @@ class RgbdImages:
         file_path = file_path if file_path else save_dir + os.sep + "markers_pos_test.bio"
         if not fit_model:
             ProcessImage.SHOW_IMAGE = show_image
-        tic = time.time()
         if not self.process_image.process_next_image(process_while_loading=True):
             if self.video_object is not None:
                 self.video_object.release()
             return False
-        print(f"Time to process image: {time.time() - tic}")
         fit_model_time = 0
         if fit_model:
             tic = time.time()
@@ -147,8 +145,8 @@ class RgbdImages:
                                                                      model_name=self.model_name,
                                                                      build_model=self.build_kinematic_model,
                                                                      kin_marker_set=self.kin_marker_sets)
-
-            self.kinematic_model_checker.ik_method = "kalman"
+                self.kinematic_model_checker.ik_method = "kalman"
+                self.kinematic_model_checker.markers_to_exclude = self.markers_to_exclude_for_ik
             self.kinematic_model_checker.fit_kinematics_model(self.process_image)
             fit_model_time = time.time() - tic
 
@@ -180,11 +178,13 @@ class RgbdImages:
                     marker.set_reliability(0.5)
         # print(self.process_image.computation_time)
         # print(occlusions)
+
         if save_data:
             if self.iter == 0 and os.path.isfile(file_path):
                 os.remove(file_path)
             markers_pos, markers_names, occlusions = self._get_all_markers()
             markers_in_meter = self.converter.get_markers_pos_in_meter(markers_pos)
+
             print(self.process_image.computation_time + fit_model_time)
             dic = {
                 "markers_in_meters": markers_in_meter[:, :, np.newaxis],
@@ -230,7 +230,7 @@ class RgbdImages:
         use_kalman=True,
         use_optical_flow=True,
         images_path=None,
-        static_markers=None
+        static_markers=None,
     ):
         self.static_markers = static_markers if static_markers else self.static_markers
         self.tracking_config = load_json(tracking_config_dict)

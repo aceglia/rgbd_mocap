@@ -90,11 +90,12 @@ class KinematicModelChecker:
                 origin = marker_set.markers[0].name
                 second_marker = marker_set.markers[1].name
                 third_marker = marker_set.markers[2].name
+
                 kinematic_model[marker_set.name] = Segment(
                     name=marker_set.name,
                     # parent_name='ground',
-                    translations=Translations.XYZ,
-                    rotations=Rotations.XYZ,
+                    translations=marker_set.translations,
+                    rotations=marker_set.rotations,
                     segment_coordinate_system=SegmentCoordinateSystem(
                         origin=origin,
                         first_axis=Axis(name=Axis.Name.X, start=origin, end=second_marker),
@@ -111,13 +112,12 @@ class KinematicModelChecker:
                 # origin, first_axis, second_axis = build_axis(marker_set)
                 origin = self.kin_marker_sets[i - 1].markers[-1].name
                 # origin = marker_set.markers[0].name
-
                 second_marker = marker_set.markers[0].name
                 third_marker = marker_set.markers[1].name
                 kinematic_model[marker_set.name] = Segment(
                     name=marker_set.name,
-                    rotations=Rotations.XYZ,
-                    # translations=Translations.XYZ,
+                    translations=marker_set.translations,
+                    rotations=marker_set.rotations,
                     parent_name=self.kin_marker_sets[i - 1].name,
                     segment_coordinate_system=SegmentCoordinateSystem(
                         origin=origin,
@@ -171,7 +171,7 @@ class KinematicModelChecker:
                     crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos, False)]
                     _in_local.append(marker_set.markers[i].pos)
                     continue
-                crops[m].tracker.estimated_positions[i] = []
+                # crops[m].tracker.estimated_positions[i] = []
                 marker_in_pixel = self.converter.get_marker_pos_in_pixel(markers_local[:, i][np.newaxis, :])[0, :]
                 markers_in_pixel.append(marker_in_pixel)
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
@@ -218,7 +218,6 @@ class KinematicModelChecker:
                     blobs.append(handler.queue_blobs.get_nowait())
                 except Exception as e:
                     pass
-
             assert len(blobs) == len(crops)
             for b, blob in enumerate(blobs):
                 crops[blob[0]].tracker.blobs = blob[1]
@@ -231,6 +230,7 @@ class KinematicModelChecker:
         markers, names, is_visible = self._get_global_markers_pos_in_meter()
 
         markers_for_ik = np.full((markers.shape[0], markers.shape[1], 1), np.nan)
+
         for m in range(markers_for_ik.shape[1]):
             if names[m] not in self.markers_to_exclude:
                 markers_for_ik[:, m, 0] = markers[:, m]

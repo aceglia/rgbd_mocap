@@ -132,8 +132,11 @@ class ProcessImage:
         # Update frame
         color, depth, count = self._load_img()
 
+        tic = time.time()
         # Process image
         self.process_handler.send_and_receive_process()
+
+        self.computation_time = time.time() - tic
 
         return color, depth, count
 
@@ -182,7 +185,7 @@ class ProcessImage:
         # Get next image
         # self.index += 1
         tok = time.time() - tik
-        self.computation_time = tok
+        # self.computation_time = tok
 
         return True
 
@@ -237,7 +240,7 @@ def load_img(path, index, rotation=None):  # Possibly change it to also allow th
     if not os.path.isfile(color_file) or not os.path.isfile(depth_file):
         return None, None
     try:
-        color_image = cv2.imread(color_file)
+        color_image = cv2.imread(color_file, cv2.IMREAD_GRAYSCALE)
         depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
     except:
         return None, None
