@@ -83,6 +83,7 @@ class ProcessData:
 
     def _sensix_from_file(self, file_path):
         sensix_file = self._find_corresponding_sensix_file(file_path)
+
         if sensix_file is None:
             self.sensix_data = {}
             return
@@ -100,8 +101,7 @@ class ProcessData:
             nb_frame = ceil(100 * dif / 2160)
         else:
             nb_frame = 0
-        all_data_int = all_data_int[:, nb_frame + ceil(self.delay_from_depth_image * 100/60)
-                                       + ceil(self.delay_for_synchro * 100/120):100 * 120]
+        all_data_int = all_data_int[:, nb_frame + ceil(self.overall_start_idx * 100 / 120):ceil(self.overall_end_idx * 100 / 120)]
         dic_data = {"time": all_data_int[0, :],
                     "RFX": all_data_int[1, :],
                     "RFY": all_data_int[2, :],
@@ -241,27 +241,33 @@ class ProcessData:
         for i in range(len(vicon_to_depth_idx)):
             markers_vicon_tmp[:, i, :] = markers_vicon[:3, vicon_to_depth_idx[i], :]
         list_nan_idx = list(np.unique(np.argwhere(np.isnan(markers_vicon_tmp))[:, 1]))
-        #list_nan_idx += [0, 10, 11, 12]
+        list_nan_idx += [1, 3, 4, 5]
         list_zeros = list(np.unique(np.argwhere(markers_vicon_tmp == 0)[:, 1]))
 
         list_union = list(np.unique(np.array(list_zeros + list_nan_idx)))
         list_union = [i for i in range(markers_vicon_tmp.shape[1]) if i not in list_union]
-        r, T, f, c = [], [], np.inf, 0
-        for i in range(0, 100):
+        r, T, error, c = [], [], [], 0
+        for i in range(0, 50):
             r_tmp, T_tmp, f_tmp = self._homogeneous_transform_optimization(
                 markers_depth[:, list_union, 0],
                 markers_vicon_tmp[:, list_union, self.delay_for_synchro + i]
             )
-            if f_tmp < f:
-                r, T, f = r_tmp, T_tmp, f_tmp
-                c = i
-            else:
-                break
-        if c >= 99:
-            print("waring: optimisation iteration exceeded")
-        else:
-            print("number of iteration needed: ", c)
-        #self.delay_from_depth_image += c
+            r.append(r_tmp)
+            T.append(T_tmp)
+            error.append(f_tmp)
+            # if f_tmp < f:
+            #     r, T, f = r_tmp, T_tmp, f_tmp
+            #     c = i
+            # else:
+            #     break
+        c = error.index(min(error))
+        T = T[c]
+        r = r[c]
+        # if c >= 99:
+        #     print("waring: optimisation iteration exceeded")
+        # else:
+        print("number of iteration needed: ", c)
+        # self.delay_from_depth_image += c
         self.delay_for_synchro += c
         new_markers_depth = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
         count = 0
@@ -270,18 +276,27 @@ class ProcessData:
                                                 np.array(markers_depth[:, :, count])
                                                 ) + np.array(T)
             count += 1
+        self.optimal_r, self.optimal_t, _ = self._homogeneous_transform_optimization(
+
+            markers_vicon_tmp[:, list_union, self.delay_for_synchro + c],
+            markers_depth[:, list_union, 0],
+        )
         return new_markers_depth
 
     def _load_depth_markers(self, file):
         corresponding_depth_file = self._find_corresponding_depth_file(file)
-        depth_markers_data = load(corresponding_depth_file + os.sep + "markers_pos.bio")
-        self.img_idx = depth_markers_data["camera_frame_idx"]
+        depth_markers_data = load(corresponding_depth_file + os.sep + "marker_pos_multi_proc.bio")
+        self.img_idx = depth_markers_data["frame_idx"]
+        self.time_to_process = depth_markers_data["time_to_process"]
         self.delay_from_depth_image = self.img_idx[0] - self.depth_first_image_idx[
             self.depth_files.index(corresponding_depth_file)]
         depth_markers = depth_markers_data["markers_in_meters"]
         depth_markers_names = depth_markers_data["markers_names"][:13]
+        self.is_depth_visible = np.array(depth_markers_data["occlusions"]).reshape((-1, 13)).T
+
         reordered_markers_depth = self._reorder_markers_from_names(depth_markers, depth_markers_names,
                                                                    self.depth_markers_names)
+
         return reordered_markers_depth
 
     def _load_vicon_markers(self, file):
@@ -297,6 +312,36 @@ class ProcessData:
         reordered_markers = self._reorder_markers_from_names(markers_data, markers_names_tmp, final_markers_names)
         return reordered_markers
 
+    @staticmethod
+    def compute_error(markers_depth, markers_vicon, vicon_to_depth_idx):
+        n_markers_depth = markers_depth.shape[1]
+        err_markers = np.zeros((n_markers_depth, 1))
+        for i in range(len(vicon_to_depth_idx)):
+            nan_index = np.argwhere(np.isnan(markers_vicon[:, vicon_to_depth_idx[i], :]))
+            new_markers_depth_tmp = np.delete(markers_depth[:, i, :], nan_index, axis=1)
+            new_markers_vicon_int_tmp = np.delete(markers_vicon[:, vicon_to_depth_idx[i], :], nan_index, axis=1)
+            nan_index = np.argwhere(np.isnan(new_markers_depth_tmp))
+            new_markers_depth_tmp = np.delete(new_markers_depth_tmp, nan_index, axis=1)
+            new_markers_vicon_int_tmp = np.delete(new_markers_vicon_int_tmp, nan_index, axis=1)
+            err_markers[i, 0] = np.median(np.sqrt(
+                np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0)))
+        return err_markers
+
+    def refine_synchro(self, depth_markers, vicon_markers, vicon_to_depth_idx):
+        error_list = []
+        for i in range(100):
+            vicon_markers_tmp = vicon_markers[:, :, :-i] if i != 0 else vicon_markers
+            depth_markers_tmp = self._interpolate_data(depth_markers, vicon_markers_tmp.shape[2])
+            error_markers = self.compute_error(
+                depth_markers_tmp, vicon_markers_tmp, vicon_to_depth_idx)
+            error_tmp = np.mean(error_markers)
+            error_list.append(error_tmp)
+        idx = error_list.index(min(error_list))
+        if idx == 0:
+            return depth_markers, vicon_markers, idx
+
+        return self._interpolate_data(depth_markers, vicon_markers[..., :-idx].shape[2]), vicon_markers[..., :-idx], idx
+
     def _markers_from_file(self, file):
         measurement_file_path = self.measurements_dir_path + os.sep + f"measurements_{self.participant}.json"
         sources = ["with_depth", "with_depth"]
@@ -307,47 +352,18 @@ class ProcessData:
 
         markers_names_list = [self.depth_markers_names, self.vicon_markers_names]
         measurement_data = json.load(open(measurement_file_path))
-        #self.delay_from_depth_image = 105
-        end_file_idx = self.all_idx_img[self.depth_files.index(self._find_corresponding_depth_file(file))][-1]
+        end_file_idx = self.img_idx[-1]
         start_idx_file = self.depth_first_image_idx[self.depth_files.index(self._find_corresponding_depth_file(file))]
         start_idx_file = start_idx_file + self.delay_from_depth_image
         end = (end_file_idx - start_idx_file) * 2
-        start = int(self.trigger_idx[0] / 18) + self.delay_from_depth_image * 2
-        reordered_markers_list[2] = reordered_markers_list[2][:, :, start:start+end]
+        start = int(self.trigger_idx[0] / 18) + self.delay_from_depth_image * 2 - 20
+        reordered_markers_list[2] = reordered_markers_list[2][:, :, start:start + end]
         self.delay_for_synchro = 0
         self.rotated_depth = self._rotate_markers(reordered_markers_list[0], reordered_markers_list[2])
-        reordered_markers_list[2] = reordered_markers_list[1][:, :, start+self.delay_for_synchro:start+end+self.delay_for_synchro]
-
+        self.overall_end_idx = start + end + self.delay_for_synchro + 40
+        self.overall_start_idx = start + self.delay_for_synchro
         reordered_markers_list[0] = self.rotated_depth
-        # fig = plt.figure("test")
-        # ax = fig.add_subplot(111, projection='3d')
-        # ax.set_box_aspect([1, 1, 1])
-        end_plot = 500
-        vicon_to_depth_idx = self._get_vicon_to_depth_idx() #names_depth=self.depth_markers_names_post,
-                                                          #names_vicon=self.vicon_markers_names_post)
-
-        # plt.figure()
-        # t_d = np.linspace(0, 100, reordered_markers_list[0].shape[2])
-        # t_v = np.linspace(0, 100, reordered_markers_list[2].shape[2])
-        # for i in range(len(vicon_to_depth_idx)):
-        #     plt.subplot(4, 4, i + 1)
-        #     for j in range(3):
-        #         # plt.plot(markers_depth_filtered[j, i, :], "b")
-        #         plt.plot(t_d, reordered_markers_list[0][j, i, :])
-        #         plt.plot(t_v, reordered_markers_list[2][j, vicon_to_depth_idx[i], :], "r")
-        # plt.show()
-
-        # for i in range(len(vicon_to_depth_idx)):
-        #     ax.scatter(reordered_markers_list[2][0, vicon_to_depth_idx[i], :end_plot],
-        #                reordered_markers_list[2][1, vicon_to_depth_idx[i], :end_plot],
-        #                reordered_markers_list[2][2, vicon_to_depth_idx[i], :end_plot], c='r')
-        #     ax.scatter(reordered_markers_list[0][0, i, :end_plot],
-        #                reordered_markers_list[0][1, i, :end_plot],
-        #                reordered_markers_list[0][2, i, :end_plot], c='b')
-        #     ax.set_xlabel('X Label')
-        #     ax.set_ylabel('Y Label')
-        #     ax.set_zlabel('Z Label')
-        # plt.show()
+        reordered_markers_list[2] = reordered_markers_list[1][:, :, self.overall_start_idx:self.overall_end_idx]
         for s, source in enumerate(sources):
             measurements = measurement_data[f"{source}"]["measure"]
             calibration_matrix = self.calibration_matrix_dir + os.sep + measurement_data[f"{source}"][
@@ -357,19 +373,18 @@ class ProcessData:
                                                                                 reordered_markers_list[s][:,
                                                                                 -3:, :] * 1000)
             first_idx = markers_names_list[s].index("clavac")
-            reordered_markers_list[s] = np.concatenate((reordered_markers_list[s][:3, :first_idx+1, :],
+            reordered_markers_list[s] = np.concatenate((reordered_markers_list[s][:3, :first_idx + 1, :],
                                                         anato_from_cluster[:3, :, :] * 0.001,
-                                                        reordered_markers_list[s][:3, first_idx+1:, :]),
+                                                        reordered_markers_list[s][:3, first_idx + 1:, :]),
                                                        axis=1)
         reordered_markers_list[2] = reordered_markers_list[1][:, :,
-        ceil(self.trigger_idx[0] / 18) + self.delay_from_depth_image * 2:ceil(
-            self.trigger_idx[1] / 18)]
+                                   self.overall_start_idx:self.overall_end_idx]
 
         self.depth_markers_names_post = ['ster', 'xiph', 'clavsc', 'clavac', 'scapaa', 'scapts', 'scapia',
-                                    'delt', 'arml', 'epicl', 'larml', 'stylr', 'stylu', 'm1', 'm2', 'm3']
+                                         'delt', 'arml', 'epicl', 'larml', 'stylr', 'stylu', 'm1', 'm2', 'm3']
         self.vicon_markers_names_post = ['ster', 'xiph', 'c7', 't10', 'clavsc', 'clavac', 'scapaa', 'scapts', 'scapia',
-                                    'delt', 'arml', 'epicm', 'epicl', 'elbow', 'larml', 'stylr', 'stylu',
-                                    'm1', 'm2', 'm3']
+                                         'delt', 'arml', 'epicm', 'epicl', 'elbow', 'larml', 'stylr', 'stylu',
+                                         'm1', 'm2', 'm3']
         self.reordered_markers_list = reordered_markers_list
 
     @staticmethod
@@ -401,10 +416,7 @@ class ProcessData:
                                                                  mvc_list=self.mvc)
         self.emg_proc = emg_proc
         self.emg = emg
-        self.truncated_emg = emg[
-                             :,
-                             self.trigger_idx[0] + self.delay_from_depth_image * 36 + self.delay_for_synchro * 18
-                             :self.trigger_idx[1] + self.delay_for_synchro * 18]
+        self.truncated_emg = emg_proc[:, int(self.overall_start_idx * 18):int(self.overall_end_idx * 18)]
 
     def _trigger_from_file(self, file):
         try:
@@ -440,7 +452,15 @@ class ProcessData:
         mvc = list(OfflineProcessing.compute_mvc(mvc_data[0].shape[0], mvc_trials=mvc_mat, window_size=2160))
         self.mvc = mvc
 
-    def _get_files(self):
+    def _check_for_trials(self, files, trials):
+        final_files = []
+        for trial in trials:
+            for file in files:
+                if self._convert_string(trial) in self._convert_string(file):
+                    final_files.append(file)
+        return final_files
+
+    def _get_files(self, trials):
         vicon_files = glob.glob(self.vicon_path + f"{self.participant}/Session_1/**.c3d")
         if len(vicon_files) == 0:
             vicon_files = glob.glob(self.vicon_path + f"{self.participant}/**.c3d")
@@ -448,11 +468,19 @@ class ProcessData:
             vicon_files = glob.glob(self.vicon_path + f"{self.participant}/session_1/**.c3d")
         if len(vicon_files) == 0:
             raise ValueError(f"no c3d files found for participant {self.participant}")
-        depth_files = os.listdir(self.depth_path + f"{self.participant}")
+
+        depth_files = [d for d in os.listdir(self.depth_path + f"{self.participant}") if
+                       os.path.isdir(self.depth_path + f"{self.participant}" + os.sep + d)]
         self.depth_files = [self.depth_path + f"{self.participant}" + os.sep + file for file in depth_files if
-                            "gear" in file and len(os.listdir(self.depth_path + f"{self.participant}" + os.sep + file)) >= 10000
-                            #or "anato" in file
+                            len(os.listdir(self.depth_path + f"{self.participant}" + os.sep + file)) >= 10000
                             ]
+        self.depth_files = self._check_for_trials(self.depth_files, trials)
+        self.vicon_files = [file for file in vicon_files if "process" not in file
+                            ]
+        self.vicon_files = self._check_for_trials(self.vicon_files, trials)
+        sensix_files = os.listdir(self.sensix_path + f"{self.participant}")
+        self.sensix_files = [self.sensix_path + f"{self.participant}" + os.sep + file for file in sensix_files if "result" in self._convert_string(file)]
+        self.sensix_files = self._check_for_trials(self.sensix_files, trials)
         self.depth_first_image_idx = []
         self.all_idx_img = []
         for depth_files in self.depth_files:
@@ -464,15 +492,7 @@ class ProcessData:
             self.all_idx_img.append(idx)
             self.depth_first_image_idx.append(idx[0])
         self.mvc_files = [file for file in vicon_files if "sprint" in file and "process" not in file
-]
-        self.vicon_files = [file for file in vicon_files if "gear_20" in file
-                            # or "anato" in file and "cluster" not in file
-                            and "process" not in file
-
-                            ]
-        sensix_files = os.listdir(self.sensix_path + f"{self.participant}")
-        self.sensix_files = [self.sensix_path + f"{self.participant}" + os.sep + file for file in sensix_files if
-                             "gear" in file and "result" in self._convert_string(file)]
+                          ]
 
     def _interpolate_all_data(self, file):
         self.emg_interp = []
@@ -481,37 +501,75 @@ class ProcessData:
                                                        idx=self.img_idx,
                                                        shape=self.reordered_markers_list[2].shape[2],
                                                        fill=True)
-        #rotated_depth = self._rotate_markers(self.depth_interp, self.reordered_markers_list[2])
+        v_to_d_idx = self._get_vicon_to_depth_idx(self.depth_markers_names_post, self.vicon_markers_names_post)
+        self.depth_interp, self.reordered_markers_list[2], idx = self.refine_synchro(
+            self.depth_interp,
+            self.reordered_markers_list[2][:3, :, :],
+            v_to_d_idx
+        )
+        self.rotate_vicon = np.zeros((3,
+                                 self.reordered_markers_list[2].shape[1],
+                                 self.reordered_markers_list[2].shape[2])
+                                )
+        self.initial_depth = np.zeros((3,
+                                    self.depth_interp.shape[1],
+                                    self.depth_interp.shape[2]))
+
+        for i in range(self.reordered_markers_list[2].shape[2]):
+            self.rotate_vicon[:, :, i] = np.dot(np.array(self.optimal_r),
+                                           np.array(self.reordered_markers_list[2][:, :, i])
+                                           ) + np.array(self.optimal_t)
+            self.initial_depth[:, :, i] = np.dot(np.array(self.optimal_r),
+                                             np.array(self.depth_interp[:, :, i])
+                                             ) + np.array(self.optimal_t)
+
+        # plt.figure()
+        # t_d = np.linspace(0, 100, self.depth_interp.shape[2])
+        # # t_d = np.linspace(0, 100, self.reordered_markers_list[0].shape[2])
+        #
+        # t_v = np.linspace(0, 100, self.reordered_markers_list[2].shape[2])
+        # for i in range(len(v_to_d_idx)):
+        #     plt.subplot(4, 4, i + 1)
+        #     for j in range(2, 3):
+        #         # plt.plot(markers_depth_filtered[j, i, :], "b")
+        #         plt.plot(t_d, self.initial_depth[j, i, :])
+        #         # plt.plot(t_d, self.depth_interp[j, i, :])
+        #         plt.plot(t_v, self.rotate_vicon[j, v_to_d_idx[i], :], "r")
+        # plt.show()
+        # plt.savefig(f"{self.participant}_{Path(file).stem}.png")
 
         if self.is_emg:
+            self.truncated_emg = self.truncated_emg[..., :-int(idx * 18)] if idx > 0 else self.truncated_emg
             self.emg_interp = self._fill_and_interpolate(data=self.truncated_emg,
                                                          shape=self.reordered_markers_list[2].shape[2],
                                                          fill=False)
 
         if self.sensix_data != {}:
             for key in self.sensix_data.keys():
+                if idx > 0:
+                    self.sensix_data[key] = self.sensix_data[key][..., :-ceil(idx * 100 / 120)]
                 self.sensix_interp[key] = self._fill_and_interpolate(data=self.sensix_data[key],
                                                                      shape=self.reordered_markers_list[2].shape[2],
                                                                      fill=False)
 
-        fig = plt.figure("vicon")
-        ax = fig.add_subplot(111, projection='3d')
-        ax.set_box_aspect([1, 1, 1])
         end_plot = 200
         vicon_to_depth_idx = self._get_vicon_to_depth_idx(names_depth=self.depth_markers_names_post,
                                                           names_vicon=self.vicon_markers_names_post)
+        fig = plt.figure("vicon")
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_box_aspect([1, 1, 1])
         for i in range(len(vicon_to_depth_idx)):
-            if i not in [4,5,6]:
+            if i not in [4, 5, 6]:
                 ax.scatter(self.reordered_markers_list[2][0, vicon_to_depth_idx[i], :end_plot],
                            self.reordered_markers_list[2][1, vicon_to_depth_idx[i], :end_plot],
                            self.reordered_markers_list[2][2, vicon_to_depth_idx[i], :end_plot], c='r')
-                ax.scatter( self.depth_interp[0, i, :end_plot],  self.depth_interp[1, i, :end_plot],
-                            self.depth_interp[2, i, :end_plot], c='b')
+                ax.scatter(self.depth_interp[0, i, :end_plot], self.depth_interp[1, i, :end_plot],
+                           self.depth_interp[2, i, :end_plot], c='b')
             ax.set_xlabel('X Label')
             ax.set_ylabel('Y Label')
             ax.set_zlabel('Z Label')
-        plt.show()
-        # plt.savefig(f"{self.participant}_{Path(file).stem}.png")
+        # plt.show()
+        plt.savefig(f"{self.participant}_{Path(file).stem}.png")
 
     @staticmethod
     def _convert_string(string):
@@ -568,8 +626,10 @@ class ProcessData:
     def _save_file(self, file):
         dic_to_save = {"file_name": file,
                        "markers_depth": self.reordered_markers_list[0],
+                       "markers_depth_initial": self.initial_depth,
                        "markers_depth_interpolated": self.depth_interp,
                        "markers_vicon": self.reordered_markers_list[1],
+                       "markers_vicon_rotated": self.rotate_vicon,
                        "truncated_markers_vicon": self.reordered_markers_list[2],
                        "truncated_emg_proc": self.truncated_emg,
                        "emg_proc": self.emg_proc,
@@ -582,7 +642,10 @@ class ProcessData:
                        "mvc": self.mvc,
                        "sensix_data": self.sensix_data,
                        "sensix_data_interpolated": self.sensix_interp,
-                       "trigger_idx": self.trigger_idx}
+                       "trigger_idx": self.trigger_idx,
+                       "process_time_depth": self.time_to_process,
+                       "is_visible": self.is_depth_visible
+                       }
 
         if os.path.isfile(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed.bio"):
             os.remove(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed.bio")
@@ -591,13 +654,13 @@ class ProcessData:
         save(dic_to_save, f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed.bio", add_data=False)
         print(f"file {self.participant}/{Path(file).stem}_processed.bio saved")
 
-    def process(self, output_data_path, participant, vicon_path, rgbd_path, sensix_path):
+    def process(self, output_data_path, participant, vicon_path, rgbd_path, sensix_path, trials):
         self.depth_path = rgbd_path
         self.vicon_path = vicon_path
         self.sensix_path = sensix_path
         self.participant = participant
         self.process_file_path = output_data_path
-        self._get_files()
+        self._get_files(trials)
         self._compute_mvc()
         for f, file in enumerate(self.vicon_files):
             print("processing trial: ", file)
@@ -611,17 +674,23 @@ class ProcessData:
             self._interpolate_all_data(file)
             self._save_file(file)
 
-def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path):
+
+def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, trials):
     process_class = ProcessData()
     for p, part in enumerate(participants):
         print(f"processing participant {part}")
-        process_class.process(processed_data_path, part, vicon_path, rgbd_path, sensix_path)
+        process_class.process(processed_data_path, part, vicon_path, rgbd_path, sensix_path, trials)
 
 
 if __name__ == '__main__':
-    participants = ["P10", "P11", "P10", "P11", "P12", "P13", "P14"]  #,"P9", "P10",
+    participants = ["P9", "P10", "P11", "P13", "P14", "P16"]  # ,"P9", "P10",
+    # participants = ["P13", "P14", "P16"]  # ,"P9", "P10",
+
+    trials = ["gear_5", "gear_10", "gear_15", "gear_20"]
+    # trials = ["gear_20"]
+
     processed_data_path = "Q:\Projet_hand_bike_markerless/process_data"
     vicon_data_files = "Q:\Projet_hand_bike_markerless/vicon/"
     depth_data_files = "Q:\Projet_hand_bike_markerless/RGBD/"
     sensix_path = "Q:\Projet_hand_bike_markerless/sensix/"
-    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path)
+    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials)
