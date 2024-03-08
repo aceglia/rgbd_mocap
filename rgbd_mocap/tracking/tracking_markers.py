@@ -127,6 +127,7 @@ class Tracker:
 
     # Check new_positions are within the crops
     def check_bounds(self, frame: CropFrames = None, size: [int, int] = None):
+        max_x, max_y, min_x, min_y = 0, 0, 0, 0
         if frame is not None:
             max_x = frame.width - 1
             max_y = frame.height - 1
@@ -138,8 +139,12 @@ class Tracker:
             raise ValueError("Frame and size must have the same dimensions")
 
         for i in range(len(self.positions)):
+            if self.marker_set.markers[i].is_bounded:
+                [max_x_tmp, max_y_tmp, min_x_tmp, min_y_tmp] = self.marker_set.markers[i].get_bounds()
+            else:
+                max_x_tmp, max_y_tmp, min_x_tmp, min_y_tmp = max_x, max_y, min_x, min_y
             if self.positions[i] != ():
-                self.positions[i].check_bounds(max_x, max_y)
+                self.positions[i].check_bounds(max_x=max_x_tmp, max_y=max_y_tmp, min_x=min_x_tmp, min_y=min_y_tmp)
 
     def track(self, frame: CropFrames, depth, blobs):
         self.blobs = blobs

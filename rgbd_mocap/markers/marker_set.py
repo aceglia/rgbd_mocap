@@ -48,6 +48,17 @@ class MarkerSet:
         """
         return [marker.pos for marker in self]
 
+    def get_markers_bounds(self):
+        """
+        Get the bounds of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        return [marker.bounds for marker in self]
+
     def get_markers_pos_2d(self):
         """
         Get the position of the markers

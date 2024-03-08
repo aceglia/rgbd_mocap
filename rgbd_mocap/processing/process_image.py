@@ -15,7 +15,7 @@ class ProcessImage:
     ROTATION = None
     SHOW_IMAGE = False
 
-    def __init__(self, config, tracking_options, static_markers=None, multi_processing=False):
+    def __init__(self, config, tracking_options, static_markers=None, bounded_markers=None, multi_processing=False):
         # Options
         self.config = config
 
@@ -39,9 +39,13 @@ class ProcessImage:
             self.frames = SharedFrames(self.color, self.depth, self.index)
 
         self.static_markers = static_markers
+        self.bounded_markers, self.bounded_markers_bounds = bounded_markers
 
         # Init Markers
-        self.marker_sets = self._init_marker_set(self.static_markers, multi_processing)
+        self.marker_sets = self._init_marker_set(self.static_markers,
+                                                 self.bounded_markers,
+                                                 self.bounded_markers_bounds,
+                                                 multi_processing)
         self.loading_time = 0
         self.last_index = 0
 
@@ -75,7 +79,7 @@ class ProcessImage:
                         self.tracking_options))
 
     # Init
-    def _init_marker_set(self, static_markers, multi_processing):
+    def _init_marker_set(self, static_markers, bounded_markers, bounds, multi_processing):
         set_names = []
         off_sets = []
         marker_names = []
@@ -102,6 +106,8 @@ class ProcessImage:
                 marker.set_depth(DepthCheck.check(marker.get_pos(), depth_cropped, 0, 10000)[0])
                 if static_markers and marker.name in static_markers:
                     marker.is_static = True
+                if bounded_markers and marker.name in bounded_markers:
+                    marker.set_bounds(bounds[bounded_markers.index(marker.name)])
             marker_sets.append(marker_set)
 
         return marker_sets

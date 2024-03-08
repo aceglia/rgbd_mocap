@@ -68,6 +68,8 @@ class RgbdImages:
 
         self.ik_method = "least_squares"
         self.markers_to_exclude_for_ik = []
+        self.quasi_static_markers = []
+        self.quasi_static_bounds = []
         self.video_object = None
 
         self.process_image: ProcessImage = None
@@ -85,6 +87,25 @@ class RgbdImages:
         if not isinstance(markers, list):
             markers = [markers]
         self.static_markers = markers
+
+    def set_quasi_static_markers(self, markers, bounds=(-15, 15), x_bounds=None, y_bounds=None):
+        # if not isinstance(bounds, list):
+        #     bounds = [bounds]
+        # if len(bounds) != len(markers):
+        #     bounds * len(markers)
+        if bounds and not x_bounds and not y_bounds:
+            x_bounds = y_bounds = bounds
+        if not bounds and not x_bounds and not y_bounds:
+            raise ValueError("Please provide bounds")
+        # if x_bounds
+        # assert len(x_bounds) == len(markers), "The number of bounds should be equal to the number of markers"
+        if not isinstance(markers, list):
+            markers = [markers]
+        self.quasi_static_markers = markers
+        markers_bounds = []
+        for m in range(len(markers)):
+            markers_bounds.append([x_bounds[m], y_bounds[m]])
+        self.quasi_static_bounds = markers_bounds
 
     def _get_all_markers(self):
         markers_pos = []
@@ -132,10 +153,9 @@ class RgbdImages:
         if not fit_model:
             ProcessImage.SHOW_IMAGE = show_image
         if not self.process_image.process_next_image(process_while_loading=True):
-            if self.video_object is not None:
-                self.video_object.release()
             return False
         fit_model_time = 0
+        process_image = None
         if fit_model:
             tic = time.time()
             if not self.kinematic_model_checker:
@@ -149,13 +169,21 @@ class RgbdImages:
                 self.kinematic_model_checker.markers_to_exclude = self.markers_to_exclude_for_ik
             self.kinematic_model_checker.fit_kinematics_model(self.process_image)
             fit_model_time = time.time() - tic
-
+            process_image = None
             if show_image:
                 im = cv2.cvtColor(self.process_image.frames.color, cv2.COLOR_GRAY2RGB)
-                im = print_marker_sets(im, self.kinematic_model_checker.marker_sets)
+                process_image = print_marker_sets(im, self.kinematic_model_checker.marker_sets)
+                for marker_set in self.kinematic_model_checker.marker_sets:
+                    for marker in marker_set:
+                        if marker.is_bounded:
+                            x_offset, y_offset = marker.crop_offset
+                            process_image = cv2.rectangle(process_image, (marker.x_bounds.min + x_offset, marker.y_bounds.min + y_offset),
+                                          (marker.x_bounds.max + x_offset, marker.y_bounds.max + y_offset), (255, 0, 0),
+                                                          1)
+
                 cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
                 cv2.putText(
-                    im,
+                    process_image,
                     f"Frame : {self.process_image.index}",
                     (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX,
@@ -164,10 +192,8 @@ class RgbdImages:
                     2,
                     cv2.LINE_AA,
                 )
-                cv2.imshow('Main image :', im)
+                cv2.imshow('Main image :', process_image)
                 if cv2.waitKey(1) == ord('q'):
-                    if self.video_object is not None:
-                        self.video_object.release()
                     return False
 
         for marker_set in self.marker_sets:
@@ -176,16 +202,12 @@ class RgbdImages:
                     marker.set_reliability(0.5)
                 if marker.is_depth_visible:
                     marker.set_reliability(0.5)
-        # print(self.process_image.computation_time)
-        # print(occlusions)
-
         if save_data:
             if self.iter == 0 and os.path.isfile(file_path):
                 os.remove(file_path)
             markers_pos, markers_names, occlusions = self._get_all_markers()
             markers_in_meter = self.converter.get_markers_pos_in_meter(markers_pos)
 
-            print(self.process_image.computation_time + fit_model_time)
             dic = {
                 "markers_in_meters": markers_in_meter[:, :, np.newaxis],
                 "markers_in_pixel": np.array(markers_pos).T[:, :, np.newaxis],
@@ -201,9 +223,21 @@ class RgbdImages:
             video_path = save_dir + os.sep + "images_processed.avi"
             if self.iter == 0 and os.path.isfile(video_path):
                 os.remove(video_path)
-            color_for_video = self.process_image.get_processed_image()
+
+            if process_image is None:
+                im = cv2.cvtColor(self.process_image.frames.color, cv2.COLOR_GRAY2RGB)
+                process_image = print_marker_sets(im, self.kinematic_model_checker.marker_sets)
+                for marker_set in self.kinematic_model_checker.marker_sets:
+                    for marker in marker_set:
+                        if marker.is_bounded:
+                            x_offset, y_offset = marker.crop_offset
+                            process_image = cv2.rectangle(process_image, (
+                            marker.x_bounds.min + x_offset, marker.y_bounds.min + y_offset),
+                                                          (marker.x_bounds.max + x_offset,
+                                                           marker.y_bounds.max + y_offset), (255, 0, 0),
+                                                          1)
             cv2.putText(
-                color_for_video,
+                process_image,
                 f"Frame : {self.process_image.index}",
                 (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX,
@@ -212,8 +246,8 @@ class RgbdImages:
                 2,
                 cv2.LINE_AA,
             )
-            self.video_object = _save_video(color_for_video,
-                                            (color_for_video.shape[1], color_for_video.shape[0]),
+            self.video_object = _save_video(process_image,
+                                            (process_image.shape[1], process_image.shape[0]),
                                             video_path,
                                             self.converter.color.fps,
                                             self.video_object)
@@ -247,7 +281,8 @@ class RgbdImages:
             "optical_flow": use_optical_flow,
         }
 
-        self.process_image = ProcessImage(self.tracking_config, tracking_options, self.static_markers, multi_processing=multi_processing)
+        self.process_image = ProcessImage(self.tracking_config, tracking_options, self.static_markers, multi_processing=multi_processing,
+                                          bounded_markers=[self.quasi_static_markers, self.quasi_static_bounds])
         self.model_name = self.tracking_config['directory'] + os.sep + model_name if model_name else None
         self.build_kinematic_model = build_kinematic_model
         if build_kinematic_model:
