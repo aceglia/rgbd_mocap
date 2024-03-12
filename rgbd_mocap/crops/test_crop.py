@@ -1,6 +1,6 @@
 import cv2
 
-from ..filter.filter import Frames
+from ..filters.filter import Frames
 from ..frames.shared_frames import SharedFrames
 from crop import Crop
 from ..markers.marker_set import MarkerSet
@@ -88,7 +88,7 @@ def main():
         set_marker_pos(marker_set, positions)
 
         img = crop.filter.get_filtered_frame()
-        # img = cv2.cvtColor(crop.tracker.optical_flow.frame, cv2.COLOR_GRAY2RGB)
+        # img = cv2.cvtColor(crops.tracker.optical_flow.frame, cv2.COLOR_GRAY2RGB)
 
         img = print_blobs(img, blobs)
         img = print_estimated_positions(img, estimated)

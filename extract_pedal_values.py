@@ -41,7 +41,7 @@ if __name__ == '__main__':
     all_data_int = np.zeros((all_data.shape[0], q.shape[1]))
     x_new = np.linspace(0, 1, q.shape[1])
     for d, data in enumerate(all_data):
-        # filter before interpolation
+        # filters before interpolation
         # data = OfflineProcessing().butter_lowpass_filter(data, 60, 250, 6)
         f = interp1d(np.linspace(0, 1, all_data.shape[1]), data)
         all_data_int[d, :] = f(x_new)

@@ -12,12 +12,12 @@ if __name__ == '__main__':
     # server_to_copy = "Q:\Projet_hand_bike_markerless\RGBD\config_camera_files"
     for part in participant:
         all_files = os.listdir(image_path + os.sep + part + os.sep )
-        all_files = [file for file in all_files if "anato" in file or "gear" in file and os.path.isdir(image_path + os.sep + part + os.sep + file)]
+        all_files = [file for file in all_files if "gear" in file and os.path.isdir(image_path + os.sep + part + os.sep + file)]
         # all_files = glob.glob(image_path + os.sep + os.sep + "config**")
         for dir in all_files:
             # if not part in dir:
             #     continue
-            src_file = image_path + os.sep + part + os.sep + dir + os.sep + "tracking_config.json"
+            src_file = image_path + os.sep + part + os.sep + dir + os.sep + "tracking_config_gui.json"
             # src_file = dir
             # src_file = glob.glob(image_path + os.sep + part + os.sep + dir + os.sep + "kinematic**")
             # if src_file != []:

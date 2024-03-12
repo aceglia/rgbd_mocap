@@ -189,7 +189,7 @@ def find_closest_node(point, node_list):
         except ValueError:
             print("point", point)
             print("node", node)
-            raise ValueError
+            return None, None, None
         if distance < smallest_distance:
             closest_node = node
             smallest_distance = distance

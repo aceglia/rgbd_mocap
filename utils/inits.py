@@ -62,12 +62,12 @@ def init_no_camera(start_idx, images_dir, config_file, **kwargs):
 def init_tracking_conf(images_dir, tracking_files, **kwargs):
     print(images_dir)
     if os.path.isfile(rf"{images_dir}{os.sep}tracking_config.json"):
-        tracking_conf = {"crop": False, "mask": False, "label": False, "build_kinematic_model": True}
+        tracking_conf = {"crops": False, "mask": False, "label": False, "build_kinematic_model": True}
     else:
         if len(tracking_files) == 0:
-            tracking_conf = {"crop": True, "mask": True, "label": True, "build_kinematic_model": True}
+            tracking_conf = {"crops": True, "mask": True, "label": True, "build_kinematic_model": True}
         else:
             shutil.copy(tracking_files[0], rf"{images_dir}{os.sep}t" + f"racking_config.json")
-            tracking_conf = {"crop": False, "mask": False, "label": False, "build_kinematic_model": True}
+            tracking_conf = {"crops": False, "mask": False, "label": False, "build_kinematic_model": True}
 
     return tracking_conf
