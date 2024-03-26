@@ -94,6 +94,8 @@ class CropWidget(QMainWindow):
                 print(f"Could not load {color_path}")
                 return
 
+            cv2.putText(image_color, f"Frame {self.video_player.value}",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
             ### Check if the image has been well loaded
             self.video_tab.set_image(image_color, image_depth)
 

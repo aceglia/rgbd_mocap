@@ -10,7 +10,7 @@ from ..frames.crop_frames import CropFrames
 
 
 class Tracker:
-    DELTA = 15
+    DELTA = 10
 
     def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True, depth_range=None, **kwargs):
         self.marker_set = marker_set
