@@ -312,14 +312,14 @@ class ProcessData:
 
     def _load_depth_markers(self, file):
         corresponding_depth_file = self._find_corresponding_depth_file(file)
-        depth_markers_data = load(corresponding_depth_file + os.sep + "marker_pos_multi_proc_3_crops.bio")
+        depth_markers_data = load(corresponding_depth_file + os.sep + "marker_pos_multi_proc_3_crops_pp.bio")
         self.img_idx = depth_markers_data["frame_idx"]
         self.time_to_process = depth_markers_data["time_to_process"]
         self.delay_from_depth_image = self.img_idx[0] - self.depth_first_image_idx[
             self.depth_files.index(corresponding_depth_file)]
         depth_markers = depth_markers_data["markers_in_meters"]
-        depth_markers_names = depth_markers_data["markers_names"][:13]
-        self.is_depth_visible = np.array(depth_markers_data["occlusions"]).reshape((-1, 13)).T
+        depth_markers_names = list(depth_markers_data["markers_names"][:, 0])
+        self.is_depth_visible = depth_markers_data["occlusions"]
 
         reordered_markers_depth = self._reorder_markers_from_names(depth_markers, depth_markers_names,
                                                                    self.depth_markers_names)
@@ -721,15 +721,15 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, 
 
 
 if __name__ == '__main__':
-    participants = ["P9","P10", "P11", "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
+    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
 
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     # trials[0] = ["gear_10"]
-    trials[0] = ["gear_10", "gear_15"]
-    trials[1] = ["gear_10"]
-    trials[2] = ["gear_5", "gear_10", "gear_15"]
-    trials[5] = ["gear_5", "gear_10"]
+    # trials[0] = ["gear_5", "gear_20"]
+    # trials[1] = ["gear_5", "gear_15", "gear_20"]
+    # trials[3] = ["gear_20"]
+    # trials[5] = ["gear_5", "gear_10"]
     # trials = ["gear_20"]
 
     processed_data_path = "Q:\Projet_hand_bike_markerless/process_data"
