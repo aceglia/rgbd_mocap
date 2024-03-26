@@ -46,8 +46,8 @@ def load_results(participants, processed_data_path, trials=None):
     for p, part in enumerate(participants):
         all_data[part] = {}
         all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if "gear" in file and "result_biomech" in file and "wt_filter" not in file
-                     and "3_crops" in file]
+        all_files = [file for file in all_files if "gear" in file and "result_biomech" in file and "wt_filter" in file
+                     and "3_crops" in file and "3_crops_3_crops" not in file]
         trials_tmp = []
         for file in all_files:
             for trial in trials[p]:
@@ -97,6 +97,7 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
     vicon_markers_names[idx_ts] = "scapia"
     vicon_markers_names[idx_ai] = "scapts"
     vicon_to_depth_idx = _get_vicon_to_depth_idx(depth_markers_names, vicon_markers_names)
+
     emg = data["emg_proc_interpolated"]
     if not isinstance(emg, np.ndarray):
         emg = None

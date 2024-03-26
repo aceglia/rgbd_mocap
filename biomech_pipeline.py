@@ -132,6 +132,18 @@ def plot_results(all_results, markers, track_idx, vicon_to_depth, sources=("dept
         results_from_sources.append(all_results[key]) if not cycle else results_from_sources.append(all_results[key]["cycles"])
         print(f"mean time for source: {key} ", np.mean(all_results[key]["time"]["tot"]))
 
+    if cycle:
+        results_from_sources_tmp = []
+        for result in results_from_sources:
+            dic_tmp = {}
+            for key in result.keys():
+                if isinstance(result[key], np.ndarray):
+                    dic_tmp[key] = np.median(result[key], axis=0)
+                else:
+                    dic_tmp[key] = result[key]
+            results_from_sources_tmp.append(dic_tmp)
+        results_from_sources = results_from_sources_tmp
+
     # plot markers
     plt.figure("markers")
     stop_frame = markers[0].shape[2] if stop_frame is None else stop_frame
@@ -218,26 +230,25 @@ def process_cycles(all_results, peaks, n_peaks=None):
         data_size = all_results[key]["q_raw"].shape[1]
         dic_tmp = {}
         for key2 in all_results[key].keys():
+            if key2 == "cycle":
+                continue
             array_tmp = None
             if not isinstance(all_results[key][key2], np.ndarray):
                 dic_tmp[key2] = []
                 continue
-            k = 0
-            range_values = range(len(peaks) - 1) if n_peaks is None else range(n_peaks)
             if n_peaks and n_peaks > len(peaks) - 1:
                 raise ValueError("n_peaks should be less than the number of peaks")
             for k in range(len(peaks) - 1):
                 if peaks[k + 1] > data_size:
                     break
-                if not isinstance(all_results[key][key2], np.ndarray):
-                    array_tmp = []
-                    continue
                 interp_function = _interpolate_data_2d if len(all_results[key][key2].shape) == 2 else _interpolate_data
                 if array_tmp is None:
                     array_tmp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    array_tmp = array_tmp[None, ...]
                 else:
-                    array_tmp += interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
-            dic_tmp[key2] = array_tmp if not isinstance(array_tmp, np.ndarray) else array_tmp / k
+                    data_interp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    array_tmp = np.concatenate((array_tmp, data_interp[None, ...]), axis=0)
+            dic_tmp[key2] = array_tmp
         all_results[key]["cycles"] = dic_tmp
     return all_results
 
@@ -250,9 +261,9 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
         all_files = [file for file in all_files if "gear" in file and "result_biomech" not in file and "3_crops" in file]
         for file in all_files:
             print(f"Processing participant {part}, trial : {file}")
-            markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth, peaks = load_data(processed_data_path, part, file, True)
-            # if len(model_paths) != len(markers_from_source):
-            #     raise ValueError("The number of models and the number of sources are different")
+            markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth, peaks = load_data(
+                processed_data_path, part, file, False
+            )
             model_path = f"{model_dir}/{part}/model_scaled_{source[0]}.bioMod"
             track_idx = get_tracking_idx(biorbd.Model(model_path))
             if not results_from_file:
@@ -267,11 +278,9 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                                                  names_from_source[s][:-3])
 
                     msk_function = MskFunctions(model=model, data_buffer_size=6, system_rate=120)
-                    # result_biomech = load(f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}.bio")
-                    # result_biomech = result_biomech[source[s]]
                     result_biomech = process_all_frames(reorder_marker_from_source, msk_function,
                                                         forces, (1000, 10), emg,
-                    f_ext,
+                                                        f_ext,
                                                         compute_id=True, compute_so=True, compute_jrf=False,
                                                         stop_frame=stop_frame,
                                                         file=f"{processed_data_path}/{part}" + "/" + file,
@@ -292,18 +301,19 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                     # b.load_experimental_markers(reorder_marker_from_source)
                     # b.exec()
                 if save_data:
-                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_3_crops.bio",
+                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_wt_filter.bio",
                          safe=False)
             else:
-                all_results = load(f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}.bio")
+                all_results = load(f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_wt_filter.bio")
+                all_results = process_cycles(all_results, peaks, n_peaks=None)
                 processed_source = list(all_results.keys())
             if plot:
                 plot_results(all_results, markers_from_source, track_idx, vicon_to_depth,
-                             stop_frame=stop_frame, sources=processed_source, cycle=False)
+                             stop_frame=stop_frame, sources=processed_source, cycle=True)
 
 
 if __name__ == '__main__':
     model_dir = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
-    participants = ["P9"] #, "P10", "P11", "P12",  "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
+    participants = ["P9", "P10", "P11", "P12",  "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
     processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data"
-    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=2500, plot=True)
+    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None, plot=False)
