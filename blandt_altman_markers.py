@@ -5,7 +5,7 @@ from utils import load_data, _get_vicon_to_depth_idx, _convert_string
 from utils import *
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11", "P13", "P14", "P15", "P16"]
+    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     #trials = [["gear_5", "gear_10"]] * len(participants)
     all_data, trials = load_all_data(participants,
                               "/mnt/shared/Projet_hand_bike_markerless/process_data",
