@@ -4,7 +4,9 @@ import glob
 from pathlib import Path
 
 if __name__ == '__main__':
-    participants = ["P10" ] #, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
+    # participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
+    participants = ["P13"]
+
     data_files = r"D:\Documents\Programmation\pose_estimation\data_files"
     for participant in participants:
         files = os.listdir(f"{data_files}{os.sep}{participant}")
@@ -22,6 +24,26 @@ if __name__ == '__main__':
                         continue
             else:
                 continue
+            # path = f"{data_files}{os.sep}{participant}{os.sep}{file}{os.sep}tracking_config_gui.json"
+            # if os.path.isfile(path):
+            #     with open(path, "r") as f:
+            #         try:
+            #             gui_dic = json.load(f)
+            #         except json.decoder.JSONDecodeError:
+            #             # in case of empty file
+            #             continue
+            # else:
+            #     continue
+            # for i in range(len(conf["start_crop"])):
+            #     gui_dic["crops"][i]["markers"] = []
+            #     for key in conf["first_frame_markers"][i].keys():
+            #         gui_dic["crops"][i]["markers"].append(
+            #             {
+            #                 "name": key,
+            #                 "pos": [int(conf["first_frame_markers"][i][key][0][1]),
+            #                         int(conf["first_frame_markers"][i][key][0][0])],
+            #             }
+            #         )
 
             all_files = glob.glob(f"{data_files}{os.sep}{participant}{os.sep}{file}{os.sep}color**.png")
             # if len(all_files) < 50:
@@ -34,7 +56,8 @@ if __name__ == '__main__':
             dic = {'directory': f"{data_files}{os.sep}{participant}{os.sep}{file}",
             'start_index': idx[conf["start_frame"]],
             'end_index': idx[-1],
-            'crops': [],}
+            'crops': [],
+            "masks": []}
             for i in range(len(conf["start_crop"])):
                 if conf["mask_params"][i]["min_dist"] == 0:
                     conf["mask_params"][i]["min_dist"] = 0.01
@@ -90,7 +113,7 @@ if __name__ == '__main__':
                         }
                     )
                 dic[f"crops"][-1]["markers"] = markers
-            with open(path[:-5] + "_gui.json", "w") as f:
+            with open(path[:-5] + "_gui_new_markers.json", "w") as f:
                 json.dump(dic, f, indent=4)
             print(f"File {file} has been converted")
 
