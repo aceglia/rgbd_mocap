@@ -33,7 +33,9 @@ def background_remover(frame, depth, clipping_distance, depth_scale, clipping_co
             cv2.drawContours(mask, [c[-1]], contourIdx=-1, color=(255, 255, 255), thickness=-1)
             if len(c) > 1:
                 cv2.drawContours(mask, [c[-2]], contourIdx=-1, color=(255, 255, 255), thickness=-1)
-            final = np.where(mask == (255, 255, 255), frame, clipping_color)
+            # final = np.where(mask == (255, 255, 255), frame, clipping_color)
+            final = np.where(mask == 255, frame, clipping_color)
+
     return final
 
 

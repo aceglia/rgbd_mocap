@@ -87,15 +87,36 @@ class DisplayMarkerImage(QLabel):
 
             ### If flag show_marker_name is set at True then display the DragMarker name above it
             if self.show_marker_name:
-                cv2.putText(
-                    self.marked_image,
-                    marker.text(),
-                    (x + 10, y + 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
+                shapes = self.marked_image.copy()
+                if marker.text() == "ster":
+                    delta = 25
+                    delta_x = 5
+                else:
+                    delta = 15
+                    delta_x = 10
+
+                (w, h), _ = cv2.getTextSize(
+                    marker.text(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                cv2.rectangle(
+                    shapes,
+                    (x + delta_x, y + delta + 4),
+                    (x + delta_x + 2 + w, y + delta - h),
                     color,
+                    -1,
+                )
+                cv2.putText(
+                    shapes,
+                    marker.text(),
+                    (x + delta_x, y + delta),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 0, 0),
                     1,
                 )
+                alpha = 0.8
+                self.marked_image = cv2.addWeighted(shapes,
+                     alpha,  self.marked_image, 1 - alpha, 0, self.marked_image)
+
 
         ### Update the image to show the difference
         self.update_image()

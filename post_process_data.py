@@ -235,39 +235,36 @@ class ProcessData:
                 count += 1
         return reordered_markers
 
-    def _rotate_markers(self, markers_depth, markers_vicon):
-        markers_vicon_tmp = np.zeros((3, markers_depth.shape[1], markers_vicon.shape[2]))
-        vicon_to_depth_idx = self._get_vicon_to_depth_idx()
-        for i in range(len(vicon_to_depth_idx)):
-            markers_vicon_tmp[:, i, :] = markers_vicon[:3, vicon_to_depth_idx[i], :]
-        list_nan_idx = list(np.unique(np.argwhere(np.isnan(markers_vicon_tmp))[:, 1]))
-        list_nan_idx += [1, 3, 4, 5]
+    def _rotate_markers(self, markers_depth, markers_vicon, vicon_to_depth_idx=None, end_range=None):
+        vicon_to_depth_idx = self._get_vicon_to_depth_idx() if vicon_to_depth_idx is None else vicon_to_depth_idx
+        markers_vicon_tmp = markers_vicon[:3, vicon_to_depth_idx, :]
+        list_nan_idx = [0]
         list_zeros = list(np.unique(np.argwhere(markers_vicon_tmp == 0)[:, 1]))
 
         list_union = list(np.unique(np.array(list_zeros + list_nan_idx)))
         list_union = [i for i in range(markers_vicon_tmp.shape[1]) if i not in list_union]
         r, T, error, c = [], [], [], 0
-        for i in range(0, 50):
+        end_range = 200 if end_range is None else end_range
+        for i in range(end_range):
+            if len(list(np.argwhere(np.isnan(markers_vicon_tmp[:, list_union, i])))) > 1:
+                continue
             r_tmp, T_tmp, f_tmp = self._homogeneous_transform_optimization(
                 markers_depth[:, list_union, 0],
-                markers_vicon_tmp[:, list_union, self.delay_for_synchro + i]
+                markers_vicon_tmp[:, list_union, i]
             )
+            new_markers_depth = np.zeros((3, markers_depth.shape[1], 200))
+            for k in range(new_markers_depth.shape[2]):
+                new_markers_depth[:, :, k] = np.dot(np.array(r_tmp), markers_depth[:, :, k]) + np.array(T_tmp)
+            error_tmp = self.compute_error(new_markers_depth[:, :, :200], markers_vicon[:, :, i::2][:, :, :200], vicon_to_depth_idx)
+            error_tmp = np.mean(error_tmp)
+            # error_tmp = np.mean(np.sqrt(np.mean(((depth_tmp * 1000 - markers_vicon_tmp[:, :, i] * 1000) ** 2), axis=0)))
             r.append(r_tmp)
             T.append(T_tmp)
-            error.append(f_tmp)
-            # if f_tmp < f:
-            #     r, T, f = r_tmp, T_tmp, f_tmp
-            #     c = i
-            # else:
-            #     break
+            error.append(error_tmp)
         c = error.index(min(error))
-        T = T[c]
-        r = r[c]
-        # if c >= 99:
-        #     print("waring: optimisation iteration exceeded")
-        # else:
-        print("number of iteration needed: ", c)
-        # self.delay_from_depth_image += c
+        T = T[error.index(min(error))]
+        r = r[error.index(min(error))]
+        print("number of iteration needed: ", c, "error", min(error))
         self.delay_for_synchro += c
         new_markers_depth = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
         count = 0
@@ -276,23 +273,53 @@ class ProcessData:
                                                 np.array(markers_depth[:, :, count])
                                                 ) + np.array(T)
             count += 1
+        # rt_matrix = np.eye(4, 4)
+        # rt_matrix[:3, :3] = r
+        # rt_matrix[:3, 3] = np.array(T)[:, 0]
+        # from scipy.linalg import inv
+        # inv_rt = inv(rt_matrix)
+        # new_markers_vicon = np.zeros((3, markers_vicon.shape[1], markers_vicon.shape[2]))
+        # count = 0
+        # for i in range(markers_vicon.shape[2]):
+        #     new_markers_vicon[:, :, i] = np.dot(np.array(inv_rt[:3, :3]),
+        #                                         np.array(markers_vicon[:, :, count])
+        #                                         ) + inv_rt[:3, 3][:, None]
+        if self.plot_fig:
+            plt.figure("rotate")
+            t_d = np.linspace(0, 100, new_markers_depth.shape[2])
+            t_v = np.linspace(0, 100, markers_vicon_tmp[:, :, c:].shape[2])
+            for i in range(len(vicon_to_depth_idx)):
+                plt.subplot(4, 4, i + 1)
+                for j in range(0, 3):
+                    plt.plot(t_v, markers_vicon_tmp[j, i, c:], "b")
+                    plt.plot(t_d , new_markers_depth[j, i, :], 'r')
+
+            # plt.figure("rotate depth coordinate")
+            # t_d = np.linspace(0, 100, new_markers_depth.shape[2])
+            # t_v = np.linspace(0, 100, markers_vicon_tmp[:, :, c:].shape[2])
+            # for i in range(len(vicon_to_depth_idx)):
+            #     plt.subplot(4, 4, i + 1)
+            #     for j in range(0, 3):
+            #         plt.plot(t_v, new_markers_vicon[j, i, c:], "b")
+            #         plt.plot(t_d , markers_depth[j, i, :], 'r')
+
         self.optimal_r, self.optimal_t, _ = self._homogeneous_transform_optimization(
 
-            markers_vicon_tmp[:, list_union, self.delay_for_synchro + c],
+            markers_vicon_tmp[:, list_union, c],
             markers_depth[:, list_union, 0],
         )
         return new_markers_depth
 
     def _load_depth_markers(self, file):
         corresponding_depth_file = self._find_corresponding_depth_file(file)
-        depth_markers_data = load(corresponding_depth_file + os.sep + "marker_pos_multi_proc.bio")
+        depth_markers_data = load(corresponding_depth_file + os.sep + "marker_pos_multi_proc_3_crops_pp.bio")
         self.img_idx = depth_markers_data["frame_idx"]
         self.time_to_process = depth_markers_data["time_to_process"]
         self.delay_from_depth_image = self.img_idx[0] - self.depth_first_image_idx[
             self.depth_files.index(corresponding_depth_file)]
         depth_markers = depth_markers_data["markers_in_meters"]
-        depth_markers_names = depth_markers_data["markers_names"][:13]
-        self.is_depth_visible = np.array(depth_markers_data["occlusions"]).reshape((-1, 13)).T
+        depth_markers_names = list(depth_markers_data["markers_names"][:, 0])
+        self.is_depth_visible = depth_markers_data["occlusions"]
 
         reordered_markers_depth = self._reorder_markers_from_names(depth_markers, depth_markers_names,
                                                                    self.depth_markers_names)
@@ -316,27 +343,36 @@ class ProcessData:
     def compute_error(markers_depth, markers_vicon, vicon_to_depth_idx):
         n_markers_depth = markers_depth.shape[1]
         err_markers = np.zeros((n_markers_depth, 1))
+        markers_vicon = markers_vicon[:, vicon_to_depth_idx, :]
         for i in range(len(vicon_to_depth_idx)):
-            nan_index = np.argwhere(np.isnan(markers_vicon[:, vicon_to_depth_idx[i], :]))
+            nan_index = np.argwhere(np.isnan(markers_vicon[:, i, :]))
             new_markers_depth_tmp = np.delete(markers_depth[:, i, :], nan_index, axis=1)
-            new_markers_vicon_int_tmp = np.delete(markers_vicon[:, vicon_to_depth_idx[i], :], nan_index, axis=1)
-            nan_index = np.argwhere(np.isnan(new_markers_depth_tmp))
-            new_markers_depth_tmp = np.delete(new_markers_depth_tmp, nan_index, axis=1)
-            new_markers_vicon_int_tmp = np.delete(new_markers_vicon_int_tmp, nan_index, axis=1)
-            err_markers[i, 0] = np.median(np.sqrt(
-                np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0)))
+            new_markers_vicon_int_tmp = np.delete(markers_vicon[:, i, :], nan_index, axis=1)
+            err_markers[i, 0] = np.sqrt(
+                np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=1)).mean()
         return err_markers
 
     def refine_synchro(self, depth_markers, vicon_markers, vicon_to_depth_idx):
         error_list = []
-        for i in range(100):
+        for i in range(1500):
             vicon_markers_tmp = vicon_markers[:, :, :-i] if i != 0 else vicon_markers
             depth_markers_tmp = self._interpolate_data(depth_markers, vicon_markers_tmp.shape[2])
             error_markers = self.compute_error(
-                depth_markers_tmp, vicon_markers_tmp, vicon_to_depth_idx)
-            error_tmp = np.mean(error_markers)
+                depth_markers_tmp[:, ...], vicon_markers_tmp[:, ...], vicon_to_depth_idx)
+            error_tmp = np.abs(np.mean(error_markers))
             error_list.append(error_tmp)
+
         idx = error_list.index(min(error_list))
+        vicon_markers_tmp = vicon_markers[:, vicon_to_depth_idx, :-idx] if idx != 0 else vicon_markers[:, vicon_to_depth_idx, :]
+        depth_markers_tmp = self._interpolate_data(depth_markers, vicon_markers_tmp.shape[2])
+        if self.plot_fig:
+            plt.figure("refine synchro")
+            for i in range(len(vicon_to_depth_idx)):
+                plt.subplot(4, 4, i + 1)
+                for j in range(0, 3):
+                    plt.plot(vicon_markers_tmp[j, i, :], "b")
+                    plt.plot(depth_markers_tmp[j, i, :], 'r')
+        print("idx to refine synchro : ", idx, "error",  min(error_list))
         if idx == 0:
             return depth_markers, vicon_markers, idx
 
@@ -355,15 +391,22 @@ class ProcessData:
         end_file_idx = self.img_idx[-1]
         start_idx_file = self.depth_first_image_idx[self.depth_files.index(self._find_corresponding_depth_file(file))]
         start_idx_file = start_idx_file + self.delay_from_depth_image
-        end = (end_file_idx - start_idx_file) * 2
-        start = int(self.trigger_idx[0] / 18) + self.delay_from_depth_image * 2 - 20
-        reordered_markers_list[2] = reordered_markers_list[2][:, :, start:start + end]
+        end = (end_file_idx - self.img_idx[0]) * 2
+        start = int(self.trigger_idx[0] / 18) + self.delay_from_depth_image * 2 - 15
+        end_vicon = int(np.round((self.trigger_idx[1] - self.trigger_idx[0]) / 18, 0))
         self.delay_for_synchro = 0
-        self.rotated_depth = self._rotate_markers(reordered_markers_list[0], reordered_markers_list[2])
-        self.overall_end_idx = start + end + self.delay_for_synchro + 40
+        names = [f"name{i}" for i in range(reordered_markers_list[2].shape[1])]
+        data_filled_extr = np.zeros((3, reordered_markers_list[2].shape[1], reordered_markers_list[2].shape[2]))
+        for i in range(3):
+            data_df = pd.DataFrame(reordered_markers_list[2][i, :, :], names)
+            data_filled_extr[i, :, :] = data_df.interpolate(method='linear', axis=1)
+        reordered_markers_list[2] = data_filled_extr
+        self.rotated_depth = self._rotate_markers(reordered_markers_list[0],
+                                                  reordered_markers_list[2][:, :, start:start + end + 20])
+        self.overall_end_idx = start + end + 900
         self.overall_start_idx = start + self.delay_for_synchro
         reordered_markers_list[0] = self.rotated_depth
-        reordered_markers_list[2] = reordered_markers_list[1][:, :, self.overall_start_idx:self.overall_end_idx]
+
         for s, source in enumerate(sources):
             measurements = measurement_data[f"{source}"]["measure"]
             calibration_matrix = self.calibration_matrix_dir + os.sep + measurement_data[f"{source}"][
@@ -501,7 +544,9 @@ class ProcessData:
                                                        idx=self.img_idx,
                                                        shape=self.reordered_markers_list[2].shape[2],
                                                        fill=True)
+
         v_to_d_idx = self._get_vicon_to_depth_idx(self.depth_markers_names_post, self.vicon_markers_names_post)
+
         self.depth_interp, self.reordered_markers_list[2], idx = self.refine_synchro(
             self.depth_interp,
             self.reordered_markers_list[2][:3, :, :],
@@ -514,7 +559,6 @@ class ProcessData:
         self.initial_depth = np.zeros((3,
                                     self.depth_interp.shape[1],
                                     self.depth_interp.shape[2]))
-
         for i in range(self.reordered_markers_list[2].shape[2]):
             self.rotate_vicon[:, :, i] = np.dot(np.array(self.optimal_r),
                                            np.array(self.reordered_markers_list[2][:, :, i])
@@ -523,20 +567,10 @@ class ProcessData:
                                              np.array(self.depth_interp[:, :, i])
                                              ) + np.array(self.optimal_t)
 
-        # plt.figure()
-        # t_d = np.linspace(0, 100, self.depth_interp.shape[2])
-        # # t_d = np.linspace(0, 100, self.reordered_markers_list[0].shape[2])
-        #
-        # t_v = np.linspace(0, 100, self.reordered_markers_list[2].shape[2])
-        # for i in range(len(v_to_d_idx)):
-        #     plt.subplot(4, 4, i + 1)
-        #     for j in range(2, 3):
-        #         # plt.plot(markers_depth_filtered[j, i, :], "b")
-        #         plt.plot(t_d, self.initial_depth[j, i, :])
-        #         # plt.plot(t_d, self.depth_interp[j, i, :])
-        #         plt.plot(t_v, self.rotate_vicon[j, v_to_d_idx[i], :], "r")
-        # plt.show()
-        # plt.savefig(f"{self.participant}_{Path(file).stem}.png")
+        # self.rotated_depth = self._rotate_markers(self.initial_depth[:, :, -1:],
+        #                                           self.reordered_markers_list[2][:3, :, -1:],
+        #                                           vicon_to_depth_idx=v_to_d_idx,
+        #                                           end_range=1)
 
         if self.is_emg:
             self.truncated_emg = self.truncated_emg[..., :-int(idx * 18)] if idx > 0 else self.truncated_emg
@@ -555,21 +589,20 @@ class ProcessData:
         end_plot = 200
         vicon_to_depth_idx = self._get_vicon_to_depth_idx(names_depth=self.depth_markers_names_post,
                                                           names_vicon=self.vicon_markers_names_post)
-        fig = plt.figure("vicon")
-        ax = fig.add_subplot(111, projection='3d')
-        ax.set_box_aspect([1, 1, 1])
-        for i in range(len(vicon_to_depth_idx)):
-            if i not in [4, 5, 6]:
-                ax.scatter(self.reordered_markers_list[2][0, vicon_to_depth_idx[i], :end_plot],
-                           self.reordered_markers_list[2][1, vicon_to_depth_idx[i], :end_plot],
-                           self.reordered_markers_list[2][2, vicon_to_depth_idx[i], :end_plot], c='r')
-                ax.scatter(self.depth_interp[0, i, :end_plot], self.depth_interp[1, i, :end_plot],
-                           self.depth_interp[2, i, :end_plot], c='b')
-            ax.set_xlabel('X Label')
-            ax.set_ylabel('Y Label')
-            ax.set_zlabel('Z Label')
-        # plt.show()
-        plt.savefig(f"{self.participant}_{Path(file).stem}.png")
+        if self.plot_fig:
+            fig = plt.figure("markers_3d")
+            ax = fig.add_subplot(111, projection='3d')
+            ax.set_box_aspect([1, 1, 1])
+            for i in range(len(vicon_to_depth_idx)):
+                if i not in [4, 5, 6]:
+                    ax.scatter(self.reordered_markers_list[2][0, vicon_to_depth_idx[i], :end_plot],
+                               self.reordered_markers_list[2][1, vicon_to_depth_idx[i], :end_plot],
+                               self.reordered_markers_list[2][2, vicon_to_depth_idx[i], :end_plot], c='r')
+                    ax.scatter(self.depth_interp[0, i, :end_plot], self.depth_interp[1, i, :end_plot],
+                               self.depth_interp[2, i, :end_plot], c='b')
+                ax.set_xlabel('X Label')
+                ax.set_ylabel('Y Label')
+                ax.set_zlabel('Z Label')
 
     @staticmethod
     def _convert_string(string):
@@ -612,6 +645,7 @@ class ProcessData:
         optimal_t = solution["x"][:3]
         optimal_R = np.ndarray((3, 3))
         f = float(solution["f"])
+
         optimal_R[0, 0] = solution["x"][3]
         optimal_R[0, 1] = solution["x"][4]
         optimal_R[0, 2] = solution["x"][5]
@@ -647,14 +681,15 @@ class ProcessData:
                        "is_visible": self.is_depth_visible
                        }
 
-        if os.path.isfile(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed.bio"):
-            os.remove(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed.bio")
+        if os.path.isfile(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops.bio"):
+            os.remove(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops.bio")
         if not os.path.isdir(f"{processed_data_path}/{self.participant}"):
             os.mkdir(f"{processed_data_path}/{self.participant}")
-        save(dic_to_save, f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed.bio", add_data=False)
-        print(f"file {self.participant}/{Path(file).stem}_processed.bio saved")
+        save(dic_to_save, f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops.bio", add_data=False)
+        print(f"file {self.participant}/{Path(file).stem}_processed_3_crops.bio saved")
 
-    def process(self, output_data_path, participant, vicon_path, rgbd_path, sensix_path, trials):
+    def process(self, output_data_path, participant, vicon_path, rgbd_path, sensix_path, trials, plot=False, save_data=False):
+        self.plot_fig = plot
         self.depth_path = rgbd_path
         self.vicon_path = vicon_path
         self.sensix_path = sensix_path
@@ -672,25 +707,34 @@ class ProcessData:
             else:
                 self.is_emg = False
             self._interpolate_all_data(file)
-            self._save_file(file)
+            if self.plot_fig:
+                plt.show()
+            if save_data:
+                self._save_file(file)
 
 
-def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, trials):
+def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, trials, plot=False, save_data=False):
     process_class = ProcessData()
     for p, part in enumerate(participants):
         print(f"processing participant {part}")
-        process_class.process(processed_data_path, part, vicon_path, rgbd_path, sensix_path, trials)
+        process_class.process(processed_data_path, part, vicon_path, rgbd_path, sensix_path, trials[p], plot=plot, save_data=save_data)
 
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11", "P13", "P14", "P16"]  # ,"P9", "P10",
-    # participants = ["P13", "P14", "P16"]  # ,"P9", "P10",
+    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
+    # participants = ["P16"]  # ,"P9", "P10",
 
-    trials = ["gear_5", "gear_10", "gear_15", "gear_20"]
+    trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    # trials[0] = ["gear_10"]
+    # trials[0] = ["gear_5", "gear_20"]
+    # trials[1] = ["gear_5", "gear_15", "gear_20"]
+    # trials[3] = ["gear_20"]
+    # trials[5] = ["gear_5", "gear_10"]
     # trials = ["gear_20"]
 
     processed_data_path = "Q:\Projet_hand_bike_markerless/process_data"
     vicon_data_files = "Q:\Projet_hand_bike_markerless/vicon/"
     depth_data_files = "Q:\Projet_hand_bike_markerless/RGBD/"
     sensix_path = "Q:\Projet_hand_bike_markerless/sensix/"
-    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials)
+    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials, plot=False,
+         save_data=True)
