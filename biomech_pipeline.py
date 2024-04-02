@@ -279,12 +279,13 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
 
                     msk_function = MskFunctions(model=model, data_buffer_size=6, system_rate=120)
                     result_biomech = process_all_frames(reorder_marker_from_source, msk_function,
+                                                        source[s],
                                                         forces, (1000, 10), emg,
                                                         f_ext,
                                                         compute_id=True, compute_so=True, compute_jrf=False,
                                                         stop_frame=stop_frame,
                                                         file=f"{processed_data_path}/{part}" + "/" + file,
-                                                        print_optimization_status=False
+                                                        print_optimization_status=False, filter_depth=True,
                                                         )
                     result_biomech["markers"] = markers_from_source[s][..., :stop_frame]
                     result_biomech["track_idx"] = track_idx
@@ -301,7 +302,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                     # b.load_experimental_markers(reorder_marker_from_source)
                     # b.exec()
                 if save_data:
-                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_wt_filter.bio",
+                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_depth_filtered_with_kalman_full.bio",
                          safe=False)
             else:
                 all_results = load(f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_wt_filter.bio")
@@ -316,4 +317,5 @@ if __name__ == '__main__':
     model_dir = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
     participants = ["P9", "P10", "P11", "P12",  "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
     processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data"
-    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None, plot=False)
+    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
+         plot=False)

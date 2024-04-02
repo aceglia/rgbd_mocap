@@ -74,7 +74,7 @@ def get_tracking_idx(model):
 
 def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, dic_to_save=None, file_path=None):
     tic_init = time.time()
-    if frame_idx == 0:
+    if frame_idx == 14:
         # q, q_dot = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
         #                                                    InverseKinematicsMethods.BiorbdLeastSquare, )
         # # import bioviz
@@ -95,8 +95,8 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, di
             file.write(data)
 
         msk_function.model = biorbd.Model(new_model_path)
-        q, q_dot = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
-                                                           InverseKinematicsMethods.BiorbdLeastSquare, )
+        q, q_dot, qddot = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
+                                                           InverseKinematicsMethods.BiorbdLeastSquare)
         # import bioviz
         # b = bioviz.Viz(loaded_model=msk_function.model)
         # b.load_movement(np.repeat(q,  5, axis=1))
@@ -176,9 +176,11 @@ def _compute_id(msk_function, f_ext, external_loads, times, dic_to_save):
     vecteur_OB = B[:3]
     f_ext_mat[:3, 0] = f_ext[:3] + np.cross(vecteur_OB, f_ext[3:6])
     f_ext_mat[3:, 0] = f_ext[3:]
-    external_loads.update_external_load_value(-f_ext_mat, name="hand_pedal")
+    external_loads.update_external_load_value(f_ext_mat, name="hand_pedal")
     tau = msk_function.compute_inverse_dynamics(positions_from_inverse_kinematics=True,
-                                                state_idx_to_process=[0],
+                                                velocities_from_inverse_kinematics=True,
+                                                accelerations_from_inverse_kinematics=True,
+                                                state_idx_to_process=[],
                                                 windows_length=5,
                                                 external_load=external_loads)
     time_id = time.time() - tic
@@ -205,9 +207,9 @@ def _compute_so(msk_function, emg, times, dic_to_save, scaling_factor, print_opt
         compile_only_first_call=True,
         emg=emg,
         muscle_track_idx=track_idx,
-        weight={"tau": 1000000000, "act": 1000,
-                "tracking_emg": 1000000000000000,
-                "pas_tau": 10000000000},
+        weight={"tau": 10000000000, "act": 100000,
+                "tracking_emg": 100000000000000,
+                "pas_tau": 100000000000},
         print_optimization_status=print_optimization_status,
         torque_tracking_as_objective=True,
     )
@@ -258,10 +260,10 @@ def _compute_jrf(msk_function, times, dic_to_save, external_loads=None):
     return times, dic_to_save
 
 
-def process_next_frame(markers, msk_function, frame_idx, external_loads=None,
+def process_next_frame(markers, msk_function, frame_idx, source, external_loads=None,
                        scaling_factor=None, emg=None, kalman_freq=120, emg_names=None, f_ext=None,
                        compute_so=False, compute_id=False, compute_jrf=False, compute_ik=True, file=None,
-                       print_optimization_status=False):
+                       print_optimization_status=False, filter_depth=False, markers_process=None, n_window=14, ):
     times = {}
     dic_to_save = {"q": None, "q_dot": None, "q_ddot": None,
                    "q_raw": None,
@@ -274,10 +276,27 @@ def process_next_frame(markers, msk_function, frame_idx, external_loads=None,
 
     if markers[0, 0].mean() != 0:
         if compute_ik:
+            if filter_depth:
+                # if source == "depth":
+                markers_filtered = []
+                for j in range(3):
+                    markers_filtered.append(markers_process[j].process_emg(
+                        markers[j, :, None],
+                        moving_average=True,
+                        band_pass_filter=False,
+                        centering=False,
+                        absolute_value=False,
+                        moving_average_window=n_window,
+                        # window_weights=[1,1,1,1,1,1, 1,5,5,5,5,5,5,5]
+                    )[:, -1:])
+                markers = np.array(markers_filtered).reshape(3, -1)
+                if frame_idx < n_window:
+                    return None
             times, dic_to_save = _compute_ik(msk_function,
                                              markers,
                                              frame_idx,
-                                             kalman_freq=kalman_freq, times=times, dic_to_save=dic_to_save, file_path=file)
+                                             kalman_freq=kalman_freq, times=times, dic_to_save=dic_to_save,
+                                             file_path=file)
 
         # import bioviz
         # b = bioviz.Viz(loaded_model=msk_function.model)
@@ -308,19 +327,28 @@ def process_next_frame(markers, msk_function, frame_idx, external_loads=None,
         return None
 
 
-def process_all_frames(markers, msk_function, external_loads, scaling_factor, emg, f_ext,
+def process_all_frames(markers, msk_function, source, external_loads, scaling_factor, emg, f_ext,
                        compute_id=True, compute_so=True, compute_jrf=True,stop_frame=None, file=None,
-                       print_optimization_status=False):
+                       print_optimization_status=False, filter_depth=False):
     final_dic = {}
     stop_frame = markers.shape[2] if stop_frame is None else stop_frame
+
+    n_window = 14
+    if filter_depth:
+        markers_process = [RealTimeProcessing(120, n_window), RealTimeProcessing(120, n_window),
+                           RealTimeProcessing(120, n_window)]
+    else:
+        markers_process = None
     for i in range(stop_frame):
         emg_tmp = emg if emg is None else emg[:, i]
-        dic_to_save = process_next_frame(markers[..., i], msk_function, i, external_loads,
-                                         scaling_factor, emg_tmp, f_ext=f_ext[:, 0, i], kalman_freq=120,
+        dic_to_save = process_next_frame(markers[..., i], msk_function, i, source, external_loads,
+                                         scaling_factor, emg_tmp, f_ext=f_ext[:, 0, i], kalman_freq=100,
                                          emg_names=None, compute_id=compute_id,
                                          compute_so=compute_so, compute_jrf=compute_jrf, file=file,
-                                         print_optimization_status=print_optimization_status)
-        final_dic = dic_merger(final_dic, dic_to_save)
+                                         print_optimization_status=print_optimization_status, filter_depth=filter_depth,
+                                         markers_process=markers_process)
+        if dic_to_save is not None:
+            final_dic = dic_merger(final_dic, dic_to_save)
     return final_dic
 
 

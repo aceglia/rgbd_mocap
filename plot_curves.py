@@ -6,7 +6,7 @@ import seaborn as sns
 
 
 def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vicon", "minimal_vicon"),
-                 stop_frame=None, cycle=False, init_subplots=None):
+                 stop_frame=None, cycle=False, init_subplots=None, fig_suffix=""):
     joints_names = ["Pro/retraction", "Depression/Elevation",
                     "Pro/retraction", "Lateral/medial rotation", "Tilt",
                     "Plane of elevation", "Elevation", "Axial rotation",
@@ -14,10 +14,6 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
 
     sources = []
     results_from_sources = []
-    if init_subplots is None:
-        final_subplots = []
-    else:
-        final_subplots = init_subplots
     for key in all_results.keys():
         sources.append(key)
         results_from_sources.append(all_results[key]) if not cycle else results_from_sources.append(all_results[key]["cycles"])
@@ -28,26 +24,32 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
         for result in results_from_sources:
             dic_tmp = {}
             for key in result.keys():
+                dic_tmp[key] = {}
                 if isinstance(result[key], np.ndarray):
-                    #dic_tmp[key] = np.median(result[key][:1, ...], axis=0)
-                    dic_tmp[key] = result[key][0, ...]
-
+                    dic_tmp[key]["mean"] = np.mean(result[key][:, ...], axis=0)
+                    dic_tmp[key]["std"] = np.std(result[key][:, ...], axis=0)
+                    # dic_tmp[key] = result[key][0, ...]
                 else:
                     dic_tmp[key] = result[key]
             results_from_sources_tmp.append(dic_tmp)
         results_from_sources = results_from_sources_tmp
 
-    stop_frame = results_from_sources[0]["markers"].shape[2] if stop_frame is None else stop_frame
+    # import bioviz
+    # b = bioviz.Viz(f"/mnt/shared/Projet_hand_bike_markerless/process_data/{part}/models/gear_10_processed_3_model_scaled_vicon.bioMod")
+    # b.load_movement(results_from_sources[1]["q"])
+    # b.exec()
+
+    # stop_frame = results_from_sources[0]["markers"].shape[2] if stop_frame is None else stop_frame
     color = ["b", "orange", "g"]
     line = ["-", "-", "-"]
 
     plt.figure("markers")
-    for i in range(results_from_sources[0]["markers"].shape[1]):
-        plt.subplot(4, ceil(results_from_sources[0]["markers"].shape[1] / 4), i+1)
+    for i in range(results_from_sources[0]["markers"]["mean"].shape[1]):
+        plt.subplot(4, ceil(results_from_sources[0]["markers"]["mean"].shape[1] / 4), i+1)
         for j in range(3):
             for k in range(len(results_from_sources)):
                 idx = vicon_to_depth[i] if sources[k] == "vicon" else i
-                plt.plot(results_from_sources[k]["markers"][j, idx, :stop_frame], line[k], color=color[k])
+                plt.plot(results_from_sources[k]["markers"]["mean"][j, idx, :], line[k], color=color[k])
 
         plt.legend(sources)
     font_size = 18
@@ -60,24 +62,33 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
     metrics = ["Joint angle (°)", "Joint angular velocity (°/s)", "Joint angular acceleration (°/s²)", "Torque (N.m)"]
     for p, plt_name in enumerate(["q", "q_dot", "q_ddot", "tau"]):
         factor = factors[p]
-        t = np.linspace(0, 100, results_from_sources[0][plt_name].shape[1])
-        color = ["b", "r", "r"]
-        line = ["-", "-", "--"]
-        fig = plt.figure(num=plt_name, constrained_layout=False)
-        if init_subplots is not None:
-            subplots = init_subplots[p]
-        else:
-            subplots = fig.subplots(4, 3, sharex=False, sharey=False)
-            final_subplots.append(subplots)
-
+        t = np.linspace(0, 100, results_from_sources[0][plt_name]["mean"].shape[1])
+        color = ["b", "r", "g"]
+        line = ["-", "-", "-"]
+        fig = plt.figure(num=plt_name + fig_suffix, constrained_layout=False)
+        subplots = fig.subplots(4, 3, sharex=False, sharey=False)
         count = 0
-        for i in range(results_from_sources[0][plt_name].shape[0] + 2):
+        # for i in range(results_from_sources[0][plt_name]["mean"].shape[0] + 2):
+        #     if i in [2, 11]:
+        #         subplots.flat[i].remove()
+        #         continue
+        #     ax = subplots.flat[i]
+        #     for k in range(len(results_from_sources)):
+        #         ax.fill_between(t, (results_from_sources[k][plt_name]["mean"][count, :] - results_from_sources[k][plt_name]["std"][count, :]) * factor,
+        #                         (results_from_sources[k][plt_name]["mean"][count, :] + results_from_sources[k][plt_name]["std"][count, :]) * factor,
+        #                         color=color[k], alpha=0.3)
+        for i in range(results_from_sources[0][plt_name]["mean"].shape[0] + 2):
             if i in [2, 11]:
                 subplots.flat[i].remove()
                 continue
             ax = subplots.flat[i]
             for k in range(len(results_from_sources)):
-                ax.plot(t, results_from_sources[k][plt_name][count, :] * factor, line[k], color=color[k], alpha=0.7)
+                ax.fill_between(t, (
+                            results_from_sources[k][plt_name]["mean"][count, :] - results_from_sources[k][plt_name][
+                                                                                      "std"][count, :]) * factor,
+                                                        (results_from_sources[k][plt_name]["mean"][count, :] + results_from_sources[k][plt_name]["std"][count, :]) * factor,
+                                                        color=color[k], alpha=0.3)
+                ax.plot(t, results_from_sources[k][plt_name]["mean"][count, :] * factor, line[k], color=color[k], alpha=0.7)
             ax.set_title(joints_names[count], fontsize=font_size)
             ax.tick_params(axis='y', labelsize=font_size - 2)
             if i not in [8, 9, 10]:
@@ -94,14 +105,14 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
                    loc='upper right', bbox_to_anchor=(0.98, 0.95), fontsize=font_size, frameon=False)
         fig.align_ylabels(subplots)
         #fig.tight_layout()
-    #subplots = None
+    subplots = None
     ax = None
     fig = None
     muscle_names = [
-        "Trapezius (superior)",
         "Deltoid (anterior)",
         "Deltoid (medial)",
         "Deltoid (posterior)",
+        "Trapezius (superior)",
         "Biceps brachii",
         "Triceps brachii",
         "Supraspinatus",
@@ -109,10 +120,10 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
         "Subscapularis",
     ]
     muscle_model_format_names = [
-        "TRP2_left",
         "DELT1_left",
         "DELT2_left",
         "DELT3_left",
+        "TRP2_left",
         "bic_l_left",
         "tric_long_left",
         "SUPSP_left",
@@ -122,21 +133,18 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
     import biorbd
     model = biorbd.Model("/mnt/shared/Projet_hand_bike_markerless/RGBD/P9/model_scaled_depth.bioMod")
     muscle_model_names = [model.muscleNames()[i].to_string() for i in range(model.nbMuscles())]
-    t = np.linspace(0, 100, results_from_sources[0]["mus_force"].shape[1])
-    color = ["b", "r", "r"]
-    line = ["-", "-", "--"]
+    t = np.linspace(0, 100, results_from_sources[0]["mus_force"]["mean"].shape[1])
     # plot joints
-    fig = plt.figure(num="Muscle forces", constrained_layout=False)
-    if init_subplots is not None:
-        subplots = init_subplots[-1]
-    else:
-        subplots = fig.subplots(3, ceil(len(muscle_names) / 3), sharex=False, sharey=False)
-        final_subplots.append(subplots)
+    fig = plt.figure(num="Muscle forces" + fig_suffix, constrained_layout=False)
+    subplots = fig.subplots(3, ceil(len(muscle_names) / 3), sharex=False, sharey=False)
     for i in range(len(muscle_names)):
         ax = subplots.flat[i]
         for k in range(len(results_from_sources)):
             idx = muscle_model_names.index(muscle_model_format_names[i])
-            ax.plot(t, results_from_sources[k]["mus_force"][idx, :], line[k], color=color[k], alpha=0.7)
+            ax.plot(t, results_from_sources[k]["mus_force"]["mean"][idx, :], line[k], color=color[k], alpha=0.7)
+            ax.fill_between(t, (results_from_sources[k]["mus_force"]["mean"][idx, :] - results_from_sources[k]["mus_force"]["std"][idx, :]),
+                            (results_from_sources[k]["mus_force"]["mean"][idx, :] + results_from_sources[k]["mus_force"]["std"][idx, :]),
+                            color=color[k], alpha=0.3)
         ax.set_title(muscle_names[i], fontsize=font_size)
         ax.tick_params(axis='y', labelsize=font_size - 2)
         if i not in [6, 7, 8]:
@@ -172,31 +180,40 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
     #             plt.plot(results_from_sources[k]["mus_force"][i, :], line[k], color=color[k])
     #         plt.legend(sources)
 
-    if not isinstance(results_from_sources[0]["res_tau"], list):
+    if not isinstance(results_from_sources[0]["res_tau"]["mean"], list):
         # plot residual tau
-        plt.figure("residual tau")
-        for i in range(results_from_sources[0]["res_tau"].shape[0]):
-            plt.subplot(4, ceil(results_from_sources[0]["res_tau"].shape[0] / 4), i+1)
+        fig  = plt.figure("residual tau")
+        for i in range(results_from_sources[0]["res_tau"]["mean"].shape[0]):
+            plt.subplot(4, ceil(results_from_sources[0]["res_tau"]["mean"].shape[0] / 4), i+1)
             for k in range(len(results_from_sources)):
-                plt.plot(results_from_sources[k]["res_tau"][i, :], line[k], color=color[k])
-            plt.legend(sources)
-    return final_subplots
+                plt.plot(results_from_sources[k]["res_tau"]["mean"][i, :], line[k], color=color[k])
+            fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
+                       loc='upper center', fontsize=font_size, frameon=False, ncol=3)  # bbox_to_anchor=(0.98, 0.95)
+
 
 if __name__ == '__main__':
-    participants = ["P13", "P14"]
+    participants = ["P13"]
     trials = [["gear_20"]] * len(participants)
     all_data, _ = load_results(participants,
                             "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                            trials)
+                            trials, file_name="_depth_filtered_with_kalman")
     all_errors_minimal = []
     all_errors_vicon = []
     count = 0
-    ax = None
-    subplots = None
     for part in all_data.keys():
         for file in all_data[part].keys():
-            subplots = plot_results(all_data[part][file],
+            plot_results(all_data[part][file],
                          all_data[part][file]["depth"]["track_idx"],
                          all_data[part][file]["depth"]["vicon_to_depth"], sources=("depth", "vicon", "minimal_vicon"),
-                 stop_frame=None, cycle=True, init_subplots=subplots)
+                 stop_frame=None, cycle=True)
+
+    # all_data, _ = load_results(participants,
+    #                         "/mnt/shared/Projet_hand_bike_markerless/process_data",
+    #                         trials, "wt_kalman")
+    # for part in all_data.keys():
+    #     for file in all_data[part].keys():
+    #         plot_results(all_data[part][file],
+    #                      all_data[part][file]["depth"]["track_idx"],
+    #                      all_data[part][file]["depth"]["vicon_to_depth"], sources=("depth", "vicon", "minimal_vicon"),
+    #              stop_frame=None, cycle=False, fig_suffix="_wt_kalman")
     plt.show()

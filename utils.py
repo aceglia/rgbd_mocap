@@ -39,14 +39,14 @@ def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
     return vicon_to_depth_idx
 
 
-def load_results(participants, processed_data_path, trials=None):
+def load_results(participants, processed_data_path, trials=None, file_name=""):
     if trials is None:
         trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     all_data = {}
     for p, part in enumerate(participants):
         all_data[part] = {}
         all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if "gear" in file and "result_biomech" in file and "wt_filter" in file
+        all_files = [file for file in all_files if "gear" in file and "result_biomech" in file and file_name in file
                      and "3_crops" in file and "3_crops_3_crops" not in file]
         trials_tmp = []
         for file in all_files:
@@ -135,11 +135,11 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
         name="hand_pedal",
         load=np.zeros((6, 1)),
     )
-    f_ext = np.array([sensix_data["RMY"],
-                      -sensix_data["RMX"],
+    f_ext = np.array([-sensix_data["RMY"],
+                      sensix_data["RMX"],
                       sensix_data["RMZ"],
-                      sensix_data["RFY"],
-                      -sensix_data["RFX"],
+                      -sensix_data["RFY"],
+                      sensix_data["RFX"],
                       sensix_data["RFZ"]])
     return markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth_idx, peaks
 
@@ -237,7 +237,7 @@ def remove_nan(data1, data2):
     return mean, diff
 
 
-def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None):
+def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None, markers=None):
     # mean = (data1 + data2) / 2
     # diff = data1 - data2
     mean, diff = remove_nan(data1, data2)
@@ -294,10 +294,11 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     )
     plt.figure(title)
     ax = plt.axes()
+    markers = markers if markers is not None else 'o'
     if color is not None:
         for i in range(len(color)):
             ax.scatter(mean[i * len(color[i]):(i+1) * len(color[i])],
-                       diff[i * len(color[i]):(i+1) * len(color[i])], c=color[i], s=100, alpha=0.6, marker='o')
+                       diff[i * len(color[i]):(i+1) * len(color[i])], c=color[i], s=100, alpha=0.6, marker=markers)
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
     ax.axhline(y=0, c='k', lw=0.5)
