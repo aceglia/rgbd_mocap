@@ -79,8 +79,10 @@ class Crop:
 
     def attribute_depth_from_position(self, positions: list[Position]):
         assert len(positions) == len(self.marker_set.markers)
-
         for i in range(len(positions)):
+            if self.marker_set[i].is_static:
+                continue
+
             if isinstance(positions[i], Position):
                 depth, visibility = DepthCheck.check(positions[i].position,
                                                      self.frame.depth,
