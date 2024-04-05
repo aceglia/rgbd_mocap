@@ -5,6 +5,7 @@ from pathlib import Path
 
 if __name__ == '__main__':
     participant = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
+    participant = ["P16"]
     image_path = fr"D:\Documents\Programmation\pose_estimation\data_files"
     # image_path = fr"D:\Documents\Programmation\pose_estimation\config_camera_files"
 
@@ -13,7 +14,7 @@ if __name__ == '__main__':
     for part in participant:
         # all_files = glob.glob(image_path + os.sep + part + os.sep + "model**")
         all_files = os.listdir(image_path + os.sep + part + os.sep )
-        all_files = [file for file in all_files if "gear" in file and os.path.isdir(image_path + os.sep + part + os.sep + file)]
+        all_files = [file for file in all_files if "only" in file and os.path.isdir(image_path + os.sep + part + os.sep + file)]
         # all_files = glob.glob(image_path + os.sep + os.sep + "config**")
         for dir in all_files:
             # src_file = dir

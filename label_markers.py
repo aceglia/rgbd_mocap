@@ -63,8 +63,7 @@ def main():
     data_files = "Q:\Projet_hand_bike_markerless\RGBD"
     for p, part in enumerate(participants):
         files = os.listdir(f"{data_files}{os.sep}{part}")
-        files = [file for file in files if
-                 "gear" in file and os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)
+        files = [file for file in files if os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)
                  ]
         final_files = files if not trials else []
         if trials:
@@ -72,7 +71,6 @@ def main():
                 for file in files:
                     if trial in file:
                         final_files.append(file)
-                        break
         files = final_files
         path_to_camera_config_file = f"Q:\Projet_hand_bike_markerless\RGBD\config_camera_files\config_camera_{part}.json"
         for f, file in enumerate(files):
