@@ -8,9 +8,9 @@ def plot_cycle(data_dic, participant, trial):
         return
     fig = plt.figure("Markers 3D")
     ax = fig.add_subplot(111, projection='3d')
-    vicon_markers = data_dic[participant][f"result_biomech_{trial}_processed_3_crops_3_crops.bio"]["vicon"]["cycles"]["markers"] * 1000
-    depth_markers = data_dic[participant][f"result_biomech_{trial}_processed_3_crops_3_crops.bio"]["depth"]["cycles"]["markers"] * 1000
-    vicon_to_depth = data_dic[participant][f"result_biomech_{trial}_processed_3_crops_3_crops.bio"]["vicon"]["vicon_to_depth"]
+    vicon_markers = np.mean(data_dic[participant][f"result_biomech_{trial}_processed_3_crops_wt_filter.bio"]["vicon"]["cycles"]["markers"] * 1000, axis=0)
+    depth_markers = np.mean(data_dic[participant][f"result_biomech_{trial}_processed_3_crops_wt_filter.bio"]["depth"]["cycles"]["markers"] * 1000, axis=0)
+    vicon_to_depth = data_dic[participant][f"result_biomech_{trial}_processed_3_crops_wt_filter.bio"]["vicon"]["vicon_to_depth"]
     ax.set_box_aspect([1, 1, 1])
     for i in range(0, len(vicon_markers)):
         for j in range(0, len(vicon_to_depth)):

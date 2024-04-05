@@ -14,7 +14,8 @@ if __name__ == '__main__':
     #trials[-1] = ["gear_10"]
 
     all_data, trials = load_results(participants,
-                            "/mnt/shared/Projet_hand_bike_markerless/process_data",
+                            "/mnt/shared/Projet_hand_bike_markerless/process_data"
+    , file_name = "_depth_filtered_with_kalman"
                             )
 
     keys = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_act", "mus_force"]
