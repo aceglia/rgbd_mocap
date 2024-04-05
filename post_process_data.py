@@ -115,6 +115,18 @@ class ProcessData:
                     "LMX": all_data_int[12, :],
                     "LMY": all_data_int[13, :],
                     "LMZ": all_data_int[14, :],
+                    "raw_RFX": all_data_int[1, :],
+                    "raw_RFY": all_data_int[2, :],
+                    "raw_RFZ": all_data_int[3, :],
+                    "raw_RMX": all_data_int[4, :],
+                    "raw_RMY": all_data_int[5, :],
+                    "raw_RMZ": all_data_int[6, :],
+                    "raw_LFX": all_data_int[9, :],
+                    "raw_LFY": all_data_int[10, :],
+                    "raw_LFZ": all_data_int[11, :],
+                    "raw_LMX": all_data_int[12, :],
+                    "raw_LMY": all_data_int[13, :],
+                    "raw_LMZ": all_data_int[14, :],
                     "crank_angle": all_data_int[19, :],
                     "right_pedal_angle": all_data_int[17, :],
                     "left_pedal_angle": all_data_int[18, :],
@@ -124,15 +136,17 @@ class ProcessData:
             dic_data[key] = self._smooth_sensix_angle(dic_data[key]) if "angle" in key else dic_data[key]
 
         for i in range(all_data_int.shape[1]):
+            dic_data["crank_angle"][i] = dic_data["crank_angle"][i] + np.pi
             crank_angle = dic_data["crank_angle"][i]
             left_angle = dic_data["left_pedal_angle"][i]
             right_angle = dic_data["right_pedal_angle"][i]
             force_vector_l = [dic_data["LFX"][i], dic_data["LFY"][i], dic_data["LFZ"][i]]
             force_vector_r = [dic_data["RFX"][i], dic_data["RFY"][i], dic_data["RFZ"][i]]
-            force_vector_l = self._express_forces_in_global(-left_angle, force_vector_l)
-            force_vector_r = self._express_forces_in_global(-right_angle, force_vector_r)
+
             force_vector_l = self._express_forces_in_global(crank_angle, force_vector_l)
             force_vector_r = self._express_forces_in_global(crank_angle, force_vector_r)
+            force_vector_l = self._express_forces_in_global(-left_angle, force_vector_l)
+            force_vector_r = self._express_forces_in_global(-right_angle, force_vector_r)
             dic_data["LFX"][i] = force_vector_l[0]
             dic_data["LFY"][i] = force_vector_l[1]
             dic_data["LFZ"][i] = force_vector_l[2]
@@ -238,7 +252,7 @@ class ProcessData:
     def _rotate_markers(self, markers_depth, markers_vicon, vicon_to_depth_idx=None, end_range=None):
         vicon_to_depth_idx = self._get_vicon_to_depth_idx() if vicon_to_depth_idx is None else vicon_to_depth_idx
         markers_vicon_tmp = markers_vicon[:3, vicon_to_depth_idx, :]
-        list_nan_idx = [0]
+        list_nan_idx = [1]
         list_zeros = list(np.unique(np.argwhere(markers_vicon_tmp == 0)[:, 1]))
 
         list_union = list(np.unique(np.array(list_zeros + list_nan_idx)))
@@ -295,7 +309,9 @@ class ProcessData:
         self.delay_from_depth_image = self.img_idx[0] - self.depth_first_image_idx[
             self.depth_files.index(corresponding_depth_file)]
         depth_markers = depth_markers_data["markers_in_meters"]
-        depth_markers_names = list(depth_markers_data["markers_names"][:, 0])
+        if [True for part in ["P12", "P13", "P15"] if part in corresponding_depth_file]:
+            depth_markers[:, 0, :] = np.repeat(depth_markers[:, 0, 0:1], depth_markers.shape[2], axis=1)
+        depth_markers_names = depth_markers_data["markers_names"][:, 0]
         self.is_depth_visible = depth_markers_data["occlusions"]
         nan_depth_markers = depth_markers.copy()
         nan_depth_markers[:, 1:, :] = nan_depth_markers[:, 1:, :] * self.is_depth_visible[None, 1:, :]
@@ -734,11 +750,11 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, 
 
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
+    participants = ["P12", "P12"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
 
-    trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    # trials[0] = ["gear_10"]
+    trials = [["gear_20", "gear_10", "gear_15", "gear_20"]] * len(participants)
+   # trials[0] = ["gear_10"]
     # trials[0] = ["gear_5", "gear_20"]
     # trials[1] = ["gear_5", "gear_15", "gear_20"]
     # trials[3] = ["gear_20"]
@@ -749,5 +765,5 @@ if __name__ == '__main__':
     vicon_data_files = "Q:\Projet_hand_bike_markerless/vicon/"
     depth_data_files = "Q:\Projet_hand_bike_markerless/RGBD/"
     sensix_path = "Q:\Projet_hand_bike_markerless/sensix/"
-    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials, plot=False,
-         save_data=True)
+    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials, plot=True,
+         save_data=False)
