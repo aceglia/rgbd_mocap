@@ -39,7 +39,7 @@ def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
     return vicon_to_depth_idx
 
 
-def load_results(participants, processed_data_path, trials=None, file_name=""):
+def load_results(participants, processed_data_path, trials=None, file_name="", to_exclude=None):
     if trials is None:
         trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     all_data = {}
@@ -108,7 +108,6 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
     # plt.plot(peaks, sensix_data["crank_angle"][0, peaks], "x")
     # plt.show()
 
-
     markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
     names_from_source.append(np.array(vicon_markers_names)[vicon_to_depth_idx])
     markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
@@ -135,12 +134,15 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
         name="hand_pedal",
         load=np.zeros((6, 1)),
     )
-    f_ext = np.array([-sensix_data["RMY"],
+    f_ext = np.array([sensix_data["RMY"],
                       sensix_data["RMX"],
                       sensix_data["RMZ"],
-                      -sensix_data["RFY"],
+                      sensix_data["RFY"],
                       sensix_data["RFX"],
                       sensix_data["RFZ"]])
+    if part not in ["P9", "P10", "P11", "P13"]:
+        f_ext = -f_ext
+    f_ext = f_ext[:, 0, :]
     return markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth_idx, peaks
 
 
@@ -231,16 +233,18 @@ def compute_error(depth_dic, vicon_dic):
 def remove_nan(data1, data2):
     mean = data1
     diff = data2
-    # nan_index = np.argwhere(np.isnan(mean))
-    # mean = np.delete(mean, nan_index, axis=0)
-    # diff = np.delete(diff, nan_index, axis=0)
+    nan_index = np.argwhere(np.isnan(mean))
+    mean = np.delete(mean, nan_index, axis=0)
+    diff = np.delete(diff, nan_index, axis=0)
     return mean, diff
 
 
-def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None, markers=None):
+def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None, markers=None, ax = None):
     # mean = (data1 + data2) / 2
     # diff = data1 - data2
-    mean, diff = remove_nan(data1, data2)
+    mean_to_plot = data1
+    diff_to_plot  = data2
+    mean, diff= remove_nan(data1, data2)
     # Average difference (aka the bias)
     bias = np.mean(diff)
     # Sample standard deviation
@@ -292,13 +296,14 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
         f'Bias = {np.round(bias, 2)}, 95% CI {np.round(ci_bias, 2)}\n',
         f'Upper LOA = {np.round(upper_loa, 2)}, 95% CI {np.round(ci_upper_loa, 2)}'
     )
-    plt.figure(title)
-    ax = plt.axes()
+    if ax is None:
+        plt.figure(title)
+    ax = plt.axes() if ax is None else ax
     markers = markers if markers is not None else 'o'
     if color is not None:
         for i in range(len(color)):
-            ax.scatter(mean[i * len(color[i]):(i+1) * len(color[i])],
-                       diff[i * len(color[i]):(i+1) * len(color[i])], c=color[i], s=100, alpha=0.6, marker=markers)
+            ax.scatter(mean_to_plot[i * len(color[i]):(i+1) * len(color[i])],
+                       diff_to_plot[i * len(color[i]):(i+1) * len(color[i])], c=color[i], s=100, alpha=0.6, marker=markers)
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
     ax.axhline(y=0, c='k', lw=0.5)
@@ -352,3 +357,4 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     if show:
         plt.show()
 
+    return bias, lower_loa, upper_loa

@@ -254,6 +254,22 @@ def process_cycles(all_results, peaks, n_peaks=None):
 
 
 def main(model_dir, participants, processed_data_path, save_data=False, plot=True, results_from_file=False, stop_frame=None):
+    emg_names = ["PectoralisMajorThorax_M",
+                 "BIC",
+                 "TRI_lat",
+                 "LatissimusDorsi_S",
+                 'TrapeziusScapula_S',
+                 "DeltoideusClavicle_A",
+                 'DeltoideusScapula_M',
+                 'DeltoideusScapula_P']
+    # emg_names = ["PECM",
+    #              "bic",
+    #              "tri",
+    #              "LAT",
+    #              'TRP1',
+    #              "DELT1",
+    #              'DELT2',
+    #              'DELT3']
     source = ["depth", "vicon", "minimal_vicon"]
     processed_source = []
     for part in participants:
@@ -264,12 +280,12 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
             markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth, peaks = load_data(
                 processed_data_path, part, file, False
             )
-            model_path = f"{model_dir}/{part}/model_scaled_{source[0]}.bioMod"
-            track_idx = get_tracking_idx(biorbd.Model(model_path))
+            # model_path = f"{model_dir}/{part}/model_scaled_{source[0]}_seth.bioMod"
             if not results_from_file:
                 all_results = {}
                 for s in range(0, len(markers_from_source)):
-                    model_path = f"{model_dir}/{part}/model_scaled_{source[s]}.bioMod"
+                    model_path = f"{model_dir}/{part}/model_scaled_{source[s]}_seth.bioMod"
+                    track_idx = get_tracking_idx(biorbd.Model(model_path), emg_names)
                     processed_source.append(source[s])
 
                     model = biorbd.Model(model_path)
@@ -285,7 +301,8 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                                                         compute_id=True, compute_so=True, compute_jrf=False,
                                                         stop_frame=stop_frame,
                                                         file=f"{processed_data_path}/{part}" + "/" + file,
-                                                        print_optimization_status=False, filter_depth=True,
+                                                        print_optimization_status=True, filter_depth=True,
+                                                        emg_names=emg_names
                                                         )
                     result_biomech["markers"] = markers_from_source[s][..., :stop_frame]
                     result_biomech["track_idx"] = track_idx
@@ -302,7 +319,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                     # b.load_experimental_markers(reorder_marker_from_source)
                     # b.exec()
                 if save_data:
-                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_depth_filtered_with_kalman_full.bio",
+                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_seth.bio",
                          safe=False)
             else:
                 all_results = load(f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_wt_filter.bio")
@@ -310,12 +327,12 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                 processed_source = list(all_results.keys())
             if plot:
                 plot_results(all_results, markers_from_source, track_idx, vicon_to_depth,
-                             stop_frame=stop_frame, sources=processed_source, cycle=True)
+                             stop_frame=stop_frame, sources=processed_source, cycle=False)
 
 
 if __name__ == '__main__':
     model_dir = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
     participants = ["P9", "P10", "P11", "P12",  "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
     processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data"
-    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
+    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=2000,
          plot=False)
