@@ -18,14 +18,14 @@ def _map_activation(emg_proc, muscle_track_idx, model, emg_names, emg_init=None,
     #              "DeltoideusClavicle_A",
     #              'DeltoideusScapula_M',
     #              'DeltoideusScapula_P']
-    emg_names = ["PECM",
-                 "bic",
-                 "tri",
-                 "LAT",
-                 'TRP1',
-                 "DELT1",
-                 'DELT2',
-                 'DELT3']
+    # emg_names = ["PECM",
+    #              "bic",
+    #              "tri",
+    #              "LAT",
+    #              'TRP1',
+    #              "DELT1",
+    #              'DELT2',
+    #              'DELT3']
     if mvc_normalized:
         emg_proc = emg_init
     act = np.zeros((len(muscle_track_idx), int(emg_proc.shape[1])))
@@ -43,7 +43,7 @@ def _map_activation(emg_proc, muscle_track_idx, model, emg_names, emg_init=None,
     return act, act_init
 
 
-def get_tracking_idx(model):
+def get_tracking_idx(model, emg_names =None):
     muscle_list = []
     for i in range(model.nbMuscles()):
         muscle_list.append(model.muscleNames()[i].to_string())
@@ -55,14 +55,14 @@ def get_tracking_idx(model):
     #              "DeltoideusClavicle_A",
     #              'DeltoideusScapula_M',
     #              'DeltoideusScapula_P']
-    emg_names = ["PECM",
-                 "bic",
-                 "tri",
-                 "LAT",
-                 'TRP1',
-                 "DELT1",
-                 'DELT2',
-                 'DELT3']
+    # emg_names = ["PECM",
+    #              "bic",
+    #              "tri",
+    #              "LAT",
+    #              'TRP1',
+    #              "DELT1",
+    #              'DELT2',
+    #              'DELT3']
 
     muscle_track_idx = []
     for i in range(len(emg_names)):
@@ -192,14 +192,14 @@ def _compute_id(msk_function, f_ext, external_loads, times, dic_to_save):
     return times, dic_to_save
 
 
-def _compute_so(msk_function, emg, times, dic_to_save, scaling_factor, print_optimization_status=False):
+def _compute_so(msk_function, emg, times, dic_to_save, scaling_factor, print_optimization_status=False, emg_names=None):
     if msk_function.model.nbQ() > 12:
         msk_function.tau_buffer[:6, :] = np.zeros((6, msk_function.tau_buffer.shape[1]))
 
     tic = time.time()
-    track_idx = get_tracking_idx(msk_function.model)
+    track_idx = get_tracking_idx(msk_function.model, emg_names)
     if emg is not None:
-        emg = _map_activation(emg[:, np.newaxis], track_idx, msk_function.model, emg_names=None, emg_init=emg[:, np.newaxis], mvc_normalized=True)[0]
+        emg = _map_activation(emg[:, np.newaxis], track_idx, msk_function.model, emg_names=emg_names, emg_init=emg[:, np.newaxis], mvc_normalized=True)[0]
     mus_act, res_tau = msk_function.compute_static_optimization(
         # q=q_df[:, -1:], q_dot=q_dot_df[:, -1:], tau=tau[:, -1:],
         scaling_factor=scaling_factor,
@@ -207,9 +207,9 @@ def _compute_so(msk_function, emg, times, dic_to_save, scaling_factor, print_opt
         compile_only_first_call=True,
         emg=emg,
         muscle_track_idx=track_idx,
-        weight={"tau": 10000000000, "act": 100000,
+        weight={"tau": 10000000000, "act": 1000,
                 "tracking_emg": 100000000000000,
-                "pas_tau": 100000000000},
+                "pas_tau": 10000000},
         print_optimization_status=print_optimization_status,
         torque_tracking_as_objective=True,
     )
@@ -313,7 +313,7 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
                 raise ValueError("Inverse dynamics must be computed to compute static optimization")
             times, dic_to_save = _compute_so(msk_function, emg, times, dic_to_save, scaling_factor,
                                              print_optimization_status=print_optimization_status,
-                                             )
+                                             emg_names=emg_names)
 
         if compute_jrf:
             if not compute_so:
@@ -328,8 +328,8 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
 
 
 def process_all_frames(markers, msk_function, source, external_loads, scaling_factor, emg, f_ext,
-                       compute_id=True, compute_so=True, compute_jrf=True,stop_frame=None, file=None,
-                       print_optimization_status=False, filter_depth=False):
+                       compute_id=True, compute_so=True, compute_jrf=True, stop_frame=None, file=None,
+                       print_optimization_status=False, filter_depth=False, emg_names=None):
     final_dic = {}
     stop_frame = markers.shape[2] if stop_frame is None else stop_frame
 
@@ -339,11 +339,15 @@ def process_all_frames(markers, msk_function, source, external_loads, scaling_fa
                            RealTimeProcessing(120, n_window)]
     else:
         markers_process = None
+    electro_delay = 0
     for i in range(stop_frame):
-        emg_tmp = emg if emg is None else emg[:, i]
+        if i > electro_delay:
+            emg_tmp = emg if emg is None else emg[:, i-electro_delay]
+        else:
+            emg_tmp = None
         dic_to_save = process_next_frame(markers[..., i], msk_function, i, source, external_loads,
-                                         scaling_factor, emg_tmp, f_ext=f_ext[:, 0, i], kalman_freq=100,
-                                         emg_names=None, compute_id=compute_id,
+                                         scaling_factor, emg_tmp, f_ext=f_ext[:, i], kalman_freq=120,
+                                         emg_names=emg_names, compute_id=compute_id,
                                          compute_so=compute_so, compute_jrf=compute_jrf, file=file,
                                          print_optimization_status=print_optimization_status, filter_depth=filter_depth,
                                          markers_process=markers_process)
