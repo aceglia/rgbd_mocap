@@ -243,7 +243,7 @@ def remove_nan(data1, data2):
     return mean, diff
 
 
-def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None, markers=None, ax = None):
+def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None, markers=None, ax = None, threeshold=np.inf, no_y_label=False):
     # mean = (data1 + data2) / 2
     # diff = data1 - data2
     mean_to_plot = data1
@@ -306,8 +306,13 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     markers = markers if markers is not None else 'o'
     if color is not None:
         for i in range(len(color)):
-            ax.scatter(mean_to_plot[i * len(color[i]):(i+1) * len(color[i])],
-                       diff_to_plot[i * len(color[i]):(i+1) * len(color[i])], c=color[i], s=100, alpha=0.6, marker=markers)
+            mean_tmp = mean_to_plot[i * len(color[i]):(i+1) * len(color[i])]
+            diff_tmp = diff_to_plot[i * len(color[i]):(i+1) * len(color[i])]
+            for j in range(len(mean_tmp)):
+                if np.abs(diff_tmp[j]) > threeshold:
+                    continue
+                ax.scatter(mean_tmp[j], diff_tmp[j], c=color[i][j], s=100, alpha=0.6, marker=markers)
+
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
     ax.axhline(y=0, c='k', lw=0.5)
@@ -315,16 +320,24 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     ax.axhline(y=loas[1], c='grey', ls='--')
     ax.axhline(y=bias, c='grey', ls='--')
     ax.axhline(y=loas[0], c='grey', ls='--')
+
+
     # Labels
     font = 18
     ax.set_title(title, fontsize=font + 2)
+    #ax.set_ylabel(f'Difference ({units} )', fontsize=font)
     if x_axis is not None:
         ax.set_xlabel(x_axis, fontsize=font)
     else:
-        ax.set_xlabel(f'Mean ({units} )', fontsize=font)
-    ax.set_ylabel(f'Difference ({units} )', fontsize=font)
-    plt.xticks(fontsize=font)
-    plt.yticks(fontsize=font)
+        ax.set_xlabel(f'Mean ({units})', fontsize=font)
+    ax.tick_params(axis='y', labelsize=font)
+    ax.tick_params(axis='x', labelsize=font)
+    if not no_y_label:
+        ax.set_ylabel(f'Difference ({units})', fontsize=font)
+    else:
+        ax.set_ylabel("", fontsize=font)
+    #ax.xticks(fontsize=font)
+    #ax.yticks(fontsize=font)
     # Get axis limits
     left, right = ax.get_xlim()
     bottom, top = ax.get_ylim()

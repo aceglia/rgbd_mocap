@@ -64,7 +64,13 @@ if __name__ == '__main__':
     participants = ["P9", "P10",  "P11", "P12", "P13", "P14", "P15", "P16"]
     #trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     #trials[-1] = ["gear_10"]
+    colors = plt.cm.tab10(np.linspace(0, 1, len(participants)))
 
+    plt.figure("colors")
+    for i in range(len(participants)):
+        plt.scatter(i, i, color=colors[i], s=200, alpha=0.5)
+    plt.legend(participants)
+    plt.show()
     all_data, trials = load_results(participants,
                             "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
                             file_name="3_crops_seth_full")
@@ -73,12 +79,7 @@ if __name__ == '__main__':
     factors = [1000, 180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 100, 1]
     units = ["mm", "°", "°/s", "°/s²", "N.m", "%", "N"]
     source = ["vicon", "minimal_vicon", "minimal_vicon"]
-    colors = plt.cm.tab10(np.linspace(0, 1, len(participants)))
     # plot the colors
-    plt.figure("colors")
-    for i in range(len(participants)):
-        plt.scatter(i, i, color=colors[i])
-    plt.legend(participants)
 
     #colors = ["b", "orange", "g"]
     # keys = ["q"]
