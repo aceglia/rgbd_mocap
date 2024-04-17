@@ -7,40 +7,59 @@ import numpy as np
 import time
 from biosiglive import InverseKinematicsMethods, RealTimeProcessingMethod, RealTimeProcessing, save
 from biosiglive.streaming.utils import dic_merger
+from scapula_cluster.from_cluster_to_anato import ScapulaCluster
 
 
-def _map_activation(emg_proc, muscle_track_idx, model, emg_names, emg_init=None, mvc_normalized=True):
-    # emg_names = ["PectoralisMajor",
-    #              "BIC",
-    #              "TRI",
-    #              "LatissimusDorsi",
-    #              'TrapeziusClav',
-    #              "DeltoideusClavicle_A",
-    #              'DeltoideusScapula_M',
-    #              'DeltoideusScapula_P']
-    # emg_names = ["PECM",
-    #              "bic",
-    #              "tri",
-    #              "LAT",
-    #              'TRP1',
-    #              "DELT1",
-    #              'DELT2',
-    #              'DELT3']
-    if mvc_normalized:
-        emg_proc = emg_init
-    act = np.zeros((len(muscle_track_idx), int(emg_proc.shape[1])))
-    act_init = np.zeros((len(muscle_track_idx), int(emg_proc.shape[1])))
-    init_count = 0
+# def _map_activation(emg_proc, muscle_track_idx, model, emg_names, emg_init=None, mvc_normalized=True):
+#     # emg_names = ["PectoralisMajor",
+#     #              "BIC",
+#     #              "TRI",
+#     #              "LatissimusDorsi",
+#     #              'TrapeziusClav',
+#     #              "DeltoideusClavicle_A",
+#     #              'DeltoideusScapula_M',
+#     #              'DeltoideusScapula_P']
+#     # emg_names = ["PECM",
+#     #              "bic",
+#     #              "tri",
+#     #              "LAT",
+#     #              'TRP1',
+#     #              "DELT1",
+#     #              'DELT2',
+#     #              'DELT3']
+#     if mvc_normalized:
+#         emg_proc = emg_init
+#     act = np.zeros((len(muscle_track_idx), int(emg_proc.shape[1])))
+#     act_init = np.zeros((len(muscle_track_idx), int(emg_proc.shape[1])))
+#     init_count = 0
+#     names = []
+#     idx = []
+#     for j, name in enumerate(emg_names):
+#         count = 0
+#         for i in range(model.nbMuscles()):
+#             if name in model.muscleNames()[i].to_string():
+#                 idx.append(j)
+#                 count += 1
+#         act[list(range(init_count, init_count + count)), :] = emg_proc[j, :]
+#         if emg_init is not None:
+#             act_init[list(range(init_count, init_count + count)), :] = emg_init[j, :]
+#         init_count += count
+#     return act, act_init
+
+def _map_activation(emg_proc, map_idx):
+    act = np.zeros((len(map_idx), int(emg_proc.shape[1])))
+    for i in range(len(map_idx)):
+        act[i, :] = emg_proc[map_idx[i], :]
+    return act
+
+
+def _get_map_activation_idx(model, emg_names):
+    idx = []
     for j, name in enumerate(emg_names):
-        count = 0
         for i in range(model.nbMuscles()):
             if name in model.muscleNames()[i].to_string():
-                count += 1
-        act[list(range(init_count, init_count + count)), :] = emg_proc[j, :]
-        if emg_init is not None:
-            act_init[list(range(init_count, init_count + count)), :] = emg_init[j, :]
-        init_count += count
-    return act, act_init
+                idx.append(j)
+    return idx
 
 
 def get_tracking_idx(model, emg_names =None):
@@ -75,13 +94,13 @@ def get_tracking_idx(model, emg_names =None):
 def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, dic_to_save=None, file_path=None):
     tic_init = time.time()
     if frame_idx == 14:
-        # q, q_dot = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
+        # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
         #                                                    InverseKinematicsMethods.BiorbdLeastSquare, )
-        # # import bioviz
-        # # b = bioviz.Viz(loaded_model=msk_function.model)
-        # # b.load_movement(np.repeat(q,  5, axis=1))
-        # # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
-        # # b.exec()
+        # import bioviz
+        # b = bioviz.Viz(loaded_model=msk_function.model)
+        # b.load_movement(np.repeat(q,  5, axis=1))
+        # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
+        # b.exec()
         # msk_function.clean_all_buffers()
         model_path = msk_function.model.path().absolutePath().to_string()
         with open(model_path, "r") as file:
@@ -138,7 +157,17 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, di
         #q[:3, :] = 0
     else:
         q = msk_function.kin_buffer[0].copy()
+    if "P11" in file_path:
+        q[-1, :] = 0.7
+    if "P16" in file_path:
+        q[5, :] = -0.1
+        q[7, :] = 0.1
     initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
+
+    # if frame_idx == 14:
+    #     initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
+    # else:
+    #     initial_guess = None
     msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
                                             method=InverseKinematicsMethods.BiorbdKalman,
                                             kalman_freq=kalman_freq,
@@ -192,14 +221,15 @@ def _compute_id(msk_function, f_ext, external_loads, times, dic_to_save):
     return times, dic_to_save
 
 
-def _compute_so(msk_function, emg, times, dic_to_save, scaling_factor, print_optimization_status=False, emg_names=None):
+def _compute_so(msk_function, emg, times, dic_to_save, scaling_factor,
+                print_optimization_status=False, emg_names=None, track_idx=None, map_emg_idx=None):
     if msk_function.model.nbQ() > 12:
         msk_function.tau_buffer[:6, :] = np.zeros((6, msk_function.tau_buffer.shape[1]))
 
     tic = time.time()
-    track_idx = get_tracking_idx(msk_function.model, emg_names)
+    track_idx = get_tracking_idx(msk_function.model, emg_names) if track_idx is None else track_idx
     if emg is not None:
-        emg = _map_activation(emg[:, np.newaxis], track_idx, msk_function.model, emg_names=emg_names, emg_init=emg[:, np.newaxis], mvc_normalized=True)[0]
+        emg = _map_activation(emg[:, np.newaxis], map_emg_idx)
     mus_act, res_tau = msk_function.compute_static_optimization(
         # q=q_df[:, -1:], q_dot=q_dot_df[:, -1:], tau=tau[:, -1:],
         scaling_factor=scaling_factor,
@@ -207,8 +237,8 @@ def _compute_so(msk_function, emg, times, dic_to_save, scaling_factor, print_opt
         compile_only_first_call=True,
         emg=emg,
         muscle_track_idx=track_idx,
-        weight={"tau": 10000000000, "act": 1000,
-                "tracking_emg": 100000000000000,
+        weight={"tau": 1000000000, "act": 1000,
+                "tracking_emg": 1000000000000,
                 "pas_tau": 10000000},
         print_optimization_status=print_optimization_status,
         torque_tracking_as_objective=True,
@@ -260,10 +290,22 @@ def _compute_jrf(msk_function, times, dic_to_save, external_loads=None):
     return times, dic_to_save
 
 
+def _convert_cluster_to_anato(new_cluster, data):
+    anato_pos = new_cluster.process(marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"],
+                                    save_file=False)
+    anato_pos_ordered = np.zeros_like(anato_pos)
+    anato_pos_ordered[:, 0, :] = anato_pos[:, 0, :]
+    anato_pos_ordered[:, 1, :] = anato_pos[:, 2, :]
+    anato_pos_ordered[:, 2, :] = anato_pos[:, 1, :]
+    return anato_pos
+
+
 def process_next_frame(markers, msk_function, frame_idx, source, external_loads=None,
                        scaling_factor=None, emg=None, kalman_freq=120, emg_names=None, f_ext=None,
                        compute_so=False, compute_id=False, compute_jrf=False, compute_ik=True, file=None,
-                       print_optimization_status=False, filter_depth=False, markers_process=None, n_window=14, ):
+                       print_optimization_status=False, filter_depth=False, markers_process=None, n_window=14,
+                       tracking_idx=None, map_emg_idx=None, marker_names=None, calibration_matrix=None,
+                       measurements=None, new_cluster=None):
     times = {}
     dic_to_save = {"q": None, "q_dot": None, "q_ddot": None,
                    "q_raw": None,
@@ -290,6 +332,11 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
                         # window_weights=[1,1,1,1,1,1, 1,5,5,5,5,5,5,5]
                     )[:, -1:])
                 markers = np.array(markers_filtered).reshape(3, -1)
+                # if np.argwhere(markers != 0).shape[0] != 0:
+                #     anato_from_cluster = _convert_cluster_to_anato(new_cluster, markers[:, -3:, None] * 1000)
+                #     first_idx = marker_names.index("clavac")
+                #     markers[:, first_idx + 1:first_idx + 4] = anato_from_cluster[:3, :, 0] * 0.001
+                markers = markers[:, :-3]
                 if frame_idx < n_window:
                     return None
             times, dic_to_save = _compute_ik(msk_function,
@@ -297,12 +344,12 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
                                              frame_idx,
                                              kalman_freq=kalman_freq, times=times, dic_to_save=dic_to_save,
                                              file_path=file)
-
-        # import bioviz
-        # b = bioviz.Viz(loaded_model=msk_function.model)
-        # b.load_movement(np.repeat(msk_function.kin_buffer[0], 5, axis=1))
-        # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
-        # b.exec()
+        # if frame_idx == 3000:
+        #     import bioviz
+        #     b = bioviz.Viz(loaded_model=msk_function.model)
+        #     b.load_movement(msk_function.kin_buffer[0])
+        #     b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
+        #     b.exec()
         if compute_id:
             if not compute_ik:
                 raise ValueError("Inverse kinematics must be computed to compute inverse dynamics")
@@ -313,7 +360,7 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
                 raise ValueError("Inverse dynamics must be computed to compute static optimization")
             times, dic_to_save = _compute_so(msk_function, emg, times, dic_to_save, scaling_factor,
                                              print_optimization_status=print_optimization_status,
-                                             emg_names=emg_names)
+                                             emg_names=emg_names, track_idx=tracking_idx, map_emg_idx=map_emg_idx)
 
         if compute_jrf:
             if not compute_so:
@@ -329,7 +376,8 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
 
 def process_all_frames(markers, msk_function, source, external_loads, scaling_factor, emg, f_ext,
                        compute_id=True, compute_so=True, compute_jrf=True, stop_frame=None, file=None,
-                       print_optimization_status=False, filter_depth=False, emg_names=None):
+                       print_optimization_status=False, filter_depth=False, emg_names=None,
+                       marker_names=None, calibration_matrix=None, measurements=None):
     final_dic = {}
     stop_frame = markers.shape[2] if stop_frame is None else stop_frame
 
@@ -340,17 +388,23 @@ def process_all_frames(markers, msk_function, source, external_loads, scaling_fa
     else:
         markers_process = None
     electro_delay = 0
+    track_idx = get_tracking_idx(msk_function.model, emg_names)
+    map_idx = _get_map_activation_idx(msk_function.model, emg_names)
+    new_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
+                                 measurements[4], measurements[5], calibration_matrix)
     for i in range(stop_frame):
         if i > electro_delay:
             emg_tmp = emg if emg is None else emg[:, i-electro_delay]
         else:
             emg_tmp = None
+
         dic_to_save = process_next_frame(markers[..., i], msk_function, i, source, external_loads,
                                          scaling_factor, emg_tmp, f_ext=f_ext[:, i], kalman_freq=120,
                                          emg_names=emg_names, compute_id=compute_id,
                                          compute_so=compute_so, compute_jrf=compute_jrf, file=file,
                                          print_optimization_status=print_optimization_status, filter_depth=filter_depth,
-                                         markers_process=markers_process)
+                                         markers_process=markers_process, tracking_idx=track_idx,
+                                         map_emg_idx=map_idx, marker_names=marker_names, new_cluster=new_cluster)
         if dic_to_save is not None:
             final_dic = dic_merger(final_dic, dic_to_save)
     return final_dic
