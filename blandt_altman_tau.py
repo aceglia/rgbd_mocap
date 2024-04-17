@@ -50,13 +50,24 @@ def rmse(predictions, targets):
     return np.sqrt(((predictions - targets) ** 2).mean())
 
 
+def get_end_frame(part, file):
+    end_frame = None
+    if part == "P12" and file == "gear_10":
+        end_frame = 11870
+    elif part == "P12" and file == "gear_15":
+        end_frame = 10220
+    elif part == "P12" and file == "gear_20":
+        end_frame = 110166
+    return end_frame
+
 if __name__ == '__main__':
-    participants = ["P9", "P10",  "P12", "P13", "P14", "P15"]
+    participants = ["P9", "P10",  "P11", "P12", "P13", "P14", "P15", "P16"]
     #trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     #trials[-1] = ["gear_10"]
 
     all_data, trials = load_results(participants,
-                            "/mnt/shared/Projet_hand_bike_markerless/process_data", file_name="_seth")
+                            "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
+                            file_name="3_crops_seth_full")
 
     keys = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_act", "mus_force"]
     factors = [1000, 180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 100, 1]
@@ -93,14 +104,19 @@ if __name__ == '__main__':
             for f, file in enumerate(all_data[part].keys()):
                 for j in range(2):
                     idx = j + 1 if key == "markers" else j
-                    rmse_file[j, :, f] = compute_error(all_data[part][file]["depth"][key] * factors[k],
-                                                       all_data[part][file][source[idx]][key] * factors[k])
-                    std_file[j, :, f] = compute_std(all_data[part][file]["depth"][key] * factors[k],
-                                                    all_data[part][file][source[idx]][key] * factors[k])
+                    end_frame = get_end_frame(part, file)
+                    data_depth = all_data[part][file]["depth"][key][..., :end_frame] if end_frame is not None else \
+                        all_data[part][file]["depth"][key]
+                    ref_data = all_data[part][file][source[idx]][key][..., :end_frame] if end_frame is not None else \
+                        all_data[part][file][source[idx]][key]
+                    rmse_file[j, :, f] = compute_error(data_depth * factors[k],
+                                                       ref_data * factors[k])
+                    std_file[j, :, f] = compute_std(data_depth * factors[k],
+                                                    ref_data * factors[k])
                     idx = j + 1 if key == "markers" else j
-                    sum_minimal = (all_data[part][file]["depth"][key] + all_data[part][file][source[idx]][
+                    sum_minimal = (data_depth + ref_data[
                         key]) / 2
-                    dif_minimal = all_data[part][file]["depth"][key] - all_data[part][file][source[idx]][
+                    dif_minimal = data_depth - ref_data[
                         key]
                     if key == "markers":
                         nan_idx = np.argwhere(np.isnan(sum_minimal))

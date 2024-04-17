@@ -3,7 +3,7 @@ import numpy as np
 from utils import *
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11", "P13", "P14", "P15", "P16"]
+    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     #trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     #trials[-1] = ["gear_10"]
     all_data, _ = load_results(participants,
