@@ -16,7 +16,7 @@ if __name__ == '__main__':
                             )
 
     scatter_markers = ["o", "s", "v"]
-    title = ["a) Image plane", "b) Depth value", "c) 3D space"]
+    title = ["a) Image plane", "b) Depth axis", "c) 3D space"]
     all_means_file = []
     all_diffs_file = []
     all_colors = []
@@ -47,9 +47,9 @@ if __name__ == '__main__':
                     non_visible_idx = None
                     sum_minimal = np.delete(sum_minimal, nan_idx, axis=1)
                     dif_minimal = np.delete(dif_minimal, nan_idx, axis=1)
-                    if np.abs(np.mean(dif_minimal, axis=1)).max() > 0.05:
-                        print(part, file)
-                        continue
+                    # if np.abs(np.mean(dif_minimal, axis=1)).max() > 0.05:
+                    #     print(part, file)
+                    #     continue
                     means = (np.mean(sum_minimal, axis=1) * 1000)[:, None] if means is None else np.append(means,
                                                                                                            (np.mean(
                                                                                                                sum_minimal,
@@ -59,7 +59,10 @@ if __name__ == '__main__':
                     diffs = (np.mean(dif_minimal, axis=1) * 1000)[:, None] if diffs is None else np.append(diffs,
                                                                                                            (np.mean(
                                                                                                                dif_minimal,
-                                                                                                               axis=1) * 1000)[
+
+
+
+                          axis=1) * 1000)[
                                                                                                            :, None],
                                                                                                            axis=1)
                 else:
@@ -68,24 +71,36 @@ if __name__ == '__main__':
                         dif_minimal = markers_depth - markers_vicon[:, vicon_to_depth, :]
                     else:
                         dif_minimal = markers_depth[:2, :, :] - markers_vicon[:2, vicon_to_depth, :]
-                    try:
-                        if np.abs(np.mean(dif_minimal, axis=2).mean(axis=0)).max() > 0.05:
-                            print(part, file)
-                    except:
-                        pass
                     nan_idx = np.argwhere(np.isnan(sum_minimal))
                     non_visible_idx = None
                     sum_minimal = np.delete(sum_minimal, nan_idx, axis=1)
                     nan_idx = np.argwhere(np.isnan(dif_minimal))
                     dif_minimal = np.delete(dif_minimal, nan_idx, axis=2)
-                    means = (np.mean(sum_minimal, axis=1) * 1000)[:, None] if means is None else np.append(means, (np.mean(sum_minimal, axis=1) * 1000)[:, None], axis=1)
-                    diffs = (np.mean(dif_minimal, axis=0).mean(axis=1) * 1000)[:, None] if diffs is None else np.append(diffs, (np.mean(dif_minimal, axis=0).mean(axis=1) * 1000)[:, None], axis=1)
-
+                    # if part == "P12":
+                    #     if np.abs(np.mean(dif_minimal, axis=0).mean(axis=1))[1] > 0.01:
+                    #         sum_minimal_tmp = np.delete(sum_minimal, 1, axis=0)
+                    #         dif_minimal_tmp = np.delete(dif_minimal, 1, axis=1)
+                    #         mean_tmp = np.mean(sum_minimal_tmp, axis=1) * 1000
+                    #         diff_tmp = np.mean(dif_minimal_tmp, axis=0).mean(axis=1) * 1000
+                    #         mean_tmp = np.concatenate((mean_tmp[:1], [np.nan], mean_tmp[1:]))
+                    #         diff_tmp = np.concatenate((diff_tmp[:1], [np.nan], diff_tmp[1:]))
+                    #     else:
+                    #         mean_tmp = np.mean(sum_minimal, axis=1) * 1000
+                    #         diff_tmp = np.mean(dif_minimal, axis=0).mean(axis=1) * 1000
+                    # else:
+                    mean_tmp = np.mean(sum_minimal, axis=1) * 1000
+                    diff_tmp = np.mean(dif_minimal, axis=0).mean(axis=1) * 1000
+                    means = (np.mean(sum_minimal, axis=1) * 1000)[:, None] if means is None else np.append(means, mean_tmp[:, None], axis=1)
+                    diffs = (np.mean(dif_minimal, axis=0).mean(axis=1) * 1000)[:, None] if diffs is None else np.append(diffs, diff_tmp[:, None], axis=1)
+            nan_idx = np.argwhere(np.isnan(means))
+            means = np.delete(means, nan_idx, axis=1)
+            nan_idx = np.argwhere(np.isnan(diffs))
+            diffs = np.delete(diffs, nan_idx, axis=1)
             means_file[n_key * p: n_key * (p + 1)] = np.mean(means, axis=1)
             diffs_file[n_key * p: n_key * (p + 1)] = np.mean(diffs, axis=1)
         all_means_file.append(means_file)
         all_diffs_file.append(diffs_file)
         bias, lower_loa, upper_loa = compute_blandt_altman(means_file, diffs_file, units="mm", title=title[j],
-                              color=all_colors, show=False, x_axis="Mean on z axis (mm)", ax=axes[j])
+                              color=all_colors, show=False, x_axis="Mean on z axis (mm)", ax=axes[j], threeshold=10, no_y_label=(j==1))
 
     plt.show()

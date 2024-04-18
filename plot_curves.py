@@ -208,12 +208,19 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
     #     for i in range(results_from_sources[0]["res_tau"]["mean"].shape[0]):
     #         plt.subplot(4, ceil(results_from_sources[0]["res_tau"]["mean"].shape[0] / 4), i+1)
     #         for k in range(len(results_from_sources)):
-    #             plt.plot(results_from_sources[k]["res_tau"]["mean"][i, :], line[k], color=color[k])
-    #         fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
-    #                    loc='upper center', fontsize=font_size, frameon=False, ncol=3)  # bbox_to_anchor=(0.98, 0.95)
+    #             plt.plot(results_from_sources[k]["mus_force"][i, :], line[k], color=color[k])
+    #         plt.legend(sources)
 
+    if not isinstance(results_from_sources[0]["res_tau"]["mean"], list):
+        # plot residual tau
+        fig  = plt.figure("residual tau")
+        for i in range(results_from_sources[0]["res_tau"]["mean"].shape[0]):
+            plt.subplot(4, ceil(results_from_sources[0]["res_tau"]["mean"].shape[0] / 4), i+1)
+            for k in range(len(results_from_sources)):
+                plt.plot(results_from_sources[k]["res_tau"]["mean"][i, :], line[k], color=color[k])
+            fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
+                       loc='upper center', fontsize=font_size, frameon=False, ncol=3)  # bbox_to_anchor=(0.98, 0.95)
 
-if __name__ == '__main__':
 
     participants = ["P11"]#, "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)#, "gear_15", "gear_20"]] * len(participants)
