@@ -52,13 +52,16 @@ def rmse(predictions, targets):
 
 def get_end_frame(part, file):
     end_frame = None
-    if part == "P12" and file == "gear_10":
+    if part == "P12" and "gear_10" in file:
         end_frame = 11870
-    elif part == "P12" and file == "gear_15":
+    elif part == "P12" and "gear_15" in file:
         end_frame = 10220
-    elif part == "P12" and file == "gear_20":
-        end_frame = 110166
+    elif part == "P12" and "gear_20" in file:
+        end_frame = 10130
+    elif part == "P11" and "gear_20" in file:
+        end_frame = 8970
     return end_frame
+
 
 if __name__ == '__main__':
     participants = ["P9", "P10",  "P11", "P12", "P13", "P14", "P15", "P16"]
@@ -70,10 +73,10 @@ if __name__ == '__main__':
     for i in range(len(participants)):
         plt.scatter(i, i, color=colors[i], s=200, alpha=0.5)
     plt.legend(participants)
-    plt.show()
+    # plt.show()
     all_data, trials = load_results(participants,
-                            "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
-                            file_name="3_crops_seth_full")
+                            "/mnt/shared/Projet_hand_bike_markerless/process_data",
+                            file_name="3_crops_seth_full", recompute_cycles=False)
 
     keys = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_act", "mus_force"]
     factors = [1000, 180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 100, 1]
@@ -106,19 +109,25 @@ if __name__ == '__main__':
                 for j in range(2):
                     idx = j + 1 if key == "markers" else j
                     end_frame = get_end_frame(part, file)
-                    data_depth = all_data[part][file]["depth"][key][..., :end_frame] if end_frame is not None else \
-                        all_data[part][file]["depth"][key]
-                    ref_data = all_data[part][file][source[idx]][key][..., :end_frame] if end_frame is not None else \
-                        all_data[part][file][source[idx]][key]
+                    if j == 0:
+                        data_depth = all_data[part][file]["depth"][key][..., :end_frame] if end_frame is not None else \
+                            all_data[part][file]["depth"][key]
+                    else:
+                        data_depth = all_data[part][file]["minimal_vicon"][key][..., :end_frame] if end_frame is not None else \
+                            all_data[part][file]["minimal_vicon"][key]
+                    if key != "markers":
+                        ref_data = all_data[part][file]["vicon"][key][..., :end_frame] if end_frame is not None else \
+                            all_data[part][file]["vicon"][key]
+                    else:
+                        ref_data = all_data[part][file]["minimal_vicon"][key][..., :end_frame] if end_frame is not None else \
+                            all_data[part][file]["minimal_vicon"][key]
                     rmse_file[j, :, f] = compute_error(data_depth * factors[k],
                                                        ref_data * factors[k])
                     std_file[j, :, f] = compute_std(data_depth * factors[k],
                                                     ref_data * factors[k])
                     idx = j + 1 if key == "markers" else j
-                    sum_minimal = (data_depth + ref_data[
-                        key]) / 2
-                    dif_minimal = data_depth - ref_data[
-                        key]
+                    sum_minimal = (data_depth + ref_data) / 2
+                    dif_minimal = data_depth - ref_data
                     if key == "markers":
                         nan_idx = np.argwhere(np.isnan(sum_minimal))
                         sum_minimal = np.delete(sum_minimal, nan_idx, axis=2)
@@ -126,24 +135,23 @@ if __name__ == '__main__':
                         means[j, :, f] = np.mean(sum_minimal, axis=0).mean(axis=1) * 1000
                         diffs[j, :, f] = np.mean(dif_minimal, axis=0).mean(axis=1) * 1000
                     else:
-                        # nan_idx = np.argwhere(np.isnan(sum_minimal))
-                        # nan_idx_bis = np.argwhere(np.isnan(dif_minimal))
-                        # nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
-                        # sum_minimal = np.delete(sum_minimal, nan_idx, axis=1)
-                        # dif_minimal = np.delete(dif_minimal, nan_idx, axis=1)
-                        # if key == "q":
-                        #     for m in range(dif_minimal.shape[0]):
-                        #         dif_minimal_tmp = dif_minimal[m, :] * factors[k]
-                        #         dif_minimal_tmp_clipped = dif_minimal_tmp[np.abs(dif_minimal_tmp) < 40]
-                        #         sum_minimal_tmp = sum_minimal[m, :] * factors[k]
-                        #         sum_minimal_tmp_clipped = sum_minimal_tmp[np.abs(dif_minimal_tmp) < 40]
-                        #         print(part, file, sum_minimal_tmp_clipped.shape, dif_minimal_tmp_clipped.shape)
-                        #         means[j, m, f] = np.mean(dif_minimal_tmp_clipped)
-                        #         diffs[j, m, f] = np.mean(sum_minimal_tmp_clipped)
-                        #
-                        # else:
-                        means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
-                        diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
+                        nan_idx = np.argwhere(np.isnan(sum_minimal))
+                        nan_idx_bis = np.argwhere(np.isnan(dif_minimal))
+                        nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
+                        sum_minimal = np.delete(sum_minimal, nan_idx, axis=1)
+                        dif_minimal = np.delete(dif_minimal, nan_idx, axis=1)
+                        if key == "q":
+                            for m in range(dif_minimal.shape[0]):
+                                dif_minimal_tmp = dif_minimal[m, :] * factors[k]
+                                dif_minimal_tmp_clipped = dif_minimal_tmp[np.abs(dif_minimal_tmp) < 40]
+                                sum_minimal_tmp = sum_minimal[m, :] * factors[k]
+                                sum_minimal_tmp_clipped = sum_minimal_tmp[np.abs(dif_minimal_tmp) < 40]
+                                print(part, file, sum_minimal_tmp_clipped.shape, dif_minimal_tmp_clipped.shape)
+                                means[j, m, f] = np.mean(sum_minimal_tmp_clipped)
+                                diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
+                        else:
+                            means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
+                            diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
 
             for j in range(2):
                 means_file[j, n_key * p: n_key * (p+1)] = np.mean(means[j, :, :], axis=1)
@@ -160,6 +168,7 @@ if __name__ == '__main__':
         bias, lower_loa, upper_loa = compute_blandt_altman(means_file[1, :], diffs_file[1, :], units=units[k],
                               title="Bland-Altman Plot for " + key + " without redundancy",
                               show=False, color=all_colors)
+
         all_bias[-1] = [all_bias[-1], np.round(bias, 2)]
         all_loa[-1] = [all_loa[-1], [np.round(lower_loa, 2), np.round(upper_loa, 2)]]
 

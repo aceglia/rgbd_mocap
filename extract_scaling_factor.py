@@ -28,7 +28,7 @@ if __name__ == '__main__':
         finale_scale = [0, 0, 0, 0, 0, 0]
         finale_scale = np.zeros((6, len(participants)))
         for p, participant in enumerate(participants):
-            model_file = f"{model_dir}/{participant}/model_scaled_{source}.bioMod"
+            model_file = f"{model_dir}/{participant}/model_scaled_{source}_seth.bioMod"
             with open(model_file, "r") as file:
                 model_data = file.read()
             scale_factors = recursive_find_scale(model_data)
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     """
     f"Thorax & {scale_factors_total[0][0][0]} $\pm$ {scale_factors_total[0][1][0]} & {scale_factors_total[1][0][0]} $\pm$ {scale_factors_total[1][1][0]} & {scale_factors_total[2][0][0]} $\pm$ {scale_factors_total[2][1][0]} "
               r" \\ "
-    f"\nClavicle & {scale_factors_total[0][0][1]} $\pm$ {scale_factors_total[0][0][1]} & {scale_factors_total[1][0][1]} $\pm$ {scale_factors_total[1][1][1]} & {scale_factors_total[2][0][1]} $\pm$ {scale_factors_total[2][1][1]}"
+    f"\nClavicle & {scale_factors_total[0][0][1]} $\pm$ {scale_factors_total[0][1][1]} & {scale_factors_total[1][0][1]} $\pm$ {scale_factors_total[1][1][1]} & {scale_factors_total[2][0][1]} $\pm$ {scale_factors_total[2][1][1]}"
               r"\\" 
     f"\nScapula & {scale_factors_total[0][0][2]} $\pm$ {scale_factors_total[0][1][2]} & {scale_factors_total[1][0][2]} $\pm$ {scale_factors_total[1][1][2]} & {scale_factors_total[2][0][2]}$\pm$ {scale_factors_total[2][1][2]}"
               r"\\"
