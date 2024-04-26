@@ -104,18 +104,18 @@ if __name__ == '__main__':
         files = os.listdir(f"{image_path}")
         # files = [file for file in files if file[:7] == "gear_15"]
         files = [file for file in files if
-                 "gear" in file and os.path.isdir(f"{image_path}{os.sep}" + file)
+                 "anato" in file and os.path.isdir(f"{image_path}{os.sep}" + file)
                  ]
         config_file = fr"D:\Documents\Programmation\pose_estimation\config_camera_files\config_camera_{participant}.json"
         for file in files:
             print("processing file : ", file)
-            if not os.path.isfile(f"{image_path}{os.sep}" + file + "/markers_pos_merged.bio"):
+            if not os.path.isfile(f"{image_path}{os.sep}" + file + "/markers_pos.bio"):
                 continue
             file = f"{image_path}{os.sep}" + file
             suffix = file[-19:]
             tracking_file = fr"{file}{os.sep}t" + f"racking_config.json"
             start_idx = start_idx_from_json(tracking_file)
-            load_markers = load(file + "/markers_pos_merged.bio")
+            load_markers = load(file + "/markers_pos.bio")
             markers_depth = load_markers["markers_in_meters"]
             if markers_depth.shape[2] < 100:
                 continue

@@ -165,8 +165,6 @@ class CameraConverter:
         np.array
         """
         _intrinsics = self.depth.get_intrinsics(self.model)
-
-        # markers_in_pixels = self._compute_markers(_intrinsics, marker_pos_in_meters, rs.rs2_project_point_to_pixel)
         markers = []
 
         for i in range(len(marker_pos_in_meters)):
@@ -178,10 +176,9 @@ class CameraConverter:
             )
 
             markers.append(computed_pos)
-
+        markers[0][0] = np.array(markers[0][0]).clip(0, self.depth.width)
+        markers[0][1] = np.array(markers[0][1]).clip(0, self.depth.height)
         return np.array(markers, dtype=np.int64)
-
-        # return markers_in_pixels
 
     def get_markers_pos_in_meter(self, marker_pos_in_pixel: np.array):
         """

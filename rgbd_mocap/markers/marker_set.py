@@ -2,6 +2,8 @@ import numpy as np
 
 from ..markers.marker import Marker
 from ..markers.shared_marker import SharedMarker
+from ..model_creation.rotations import Rotations
+from ..model_creation.translations import Translations
 
 
 class MarkerSet:
@@ -9,7 +11,8 @@ class MarkerSet:
     This class is used to store the marker information
     """
 
-    def __init__(self, marker_set_name, marker_names: list[str], shared=False):
+    def __init__(self, marker_set_name, marker_names: list[str], shared=False,
+                 rotations: Rotations = Rotations.XYZ, translations: Translations = Translations.XYZ):
         """
         init markers class with number of markers, names and image index
 
@@ -21,6 +24,8 @@ class MarkerSet:
             index of the image where the marker set is located
         """
         self.name = marker_set_name
+        self.rotations = rotations
+        self.translations = translations
 
         self.markers: list[Marker] = []
         for marker_name in marker_names:
@@ -42,6 +47,17 @@ class MarkerSet:
             position of the markers
         """
         return [marker.pos for marker in self]
+
+    def get_markers_bounds(self):
+        """
+        Get the bounds of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        return [marker.bounds for marker in self]
 
     def get_markers_pos_2d(self):
         """
@@ -109,7 +125,7 @@ class MarkerSet:
         Parameters
         ----------
         start_crop : np.ndarray
-            Starting position of the crop (Up-Left)
+            Starting position of the crops (Up-Left)
 
         """
         for marker in self:

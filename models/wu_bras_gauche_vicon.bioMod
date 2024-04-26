@@ -233,15 +233,14 @@ gravity	0 0 -9.8000000000000007
 		parent	scapula_left
 		position	-0.050092682464580159 -0.0034308174648710762 -0.0071021673487889816
 	endmarker
-	marker	SCAP_IA
-		parent	scapula_left
-		position	-0.13204299999999999 -0.143512 0.090699399999999999
-	endmarker
 	marker	SCAP_TS
 		parent	scapula_left
 		position	-0.104647 -0.0145433 0.11171200000000001
 	endmarker
-
+	marker	SCAP_IA
+		parent	scapula_left
+		position	-0.13204299999999999 -0.143512 0.090699399999999999
+	endmarker
 
 
 // Information about humerus_left segment
@@ -448,7 +447,7 @@ gravity	0 0 -9.8000000000000007
 
 	// Markers
 
-	marker	ELB
+	marker	ELBOW
 		parent	ulna_left
 		position	-0.037776400000000002 -0.0052508399999999997 -0.0060122400000000003
 	endmarker

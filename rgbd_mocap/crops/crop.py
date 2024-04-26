@@ -4,16 +4,30 @@ from ..frames.crop_frames import Frames, CropFrames
 from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
 from ..tracking.tracking_markers import Tracker, Position
-from ..filter.filter import Filter
+from ..filters.filter import Filter
 
 
 def get_pixels(array, x, y, delta):
-    return array[x - delta: x + delta, y - delta: y + delta]
+    pos = -1
+    pos_2d = [x, y]
+    delta = 1
+    while pos <= 0 and delta < 15:
+        d = array[pos_2d[0] - delta: pos_2d[0] + delta, pos_2d[1] - delta: pos_2d[1] + delta]
+        if len(d[d > 0]) > 0:
+            pos = np.median(d[d > 0])
+        delta += 1
+    return pos
 
 
 class DepthCheck:
-    DELTA = 8
-    DEPTH_SCALE = None
+    DELTA = 10
+    DEPTH_SCALE = 0.001
+
+    @staticmethod
+    def _check_bounds(pos, depth_image):
+        if pos[1] >= depth_image.shape[0] or pos[0] >= depth_image.shape[1]:
+            return [depth_image.shape[0] - 1, depth_image.shape[1] - 1]
+        return pos
 
     @staticmethod
     def check(pos, depth_image, depth_min, depth_max):
@@ -22,22 +36,16 @@ class DepthCheck:
                              "You can set it with the DepthCheck.set_depth_scale method.")
         depth, visibility = 0, True
 
+        pos = DepthCheck._check_bounds(pos, depth_image)
+
         if depth_image[pos[1], pos[0]] > 0:
             depth = depth_image[pos[1], pos[0]]
 
         else:
             visibility = False
-            n_d = get_pixels(depth_image,
+            depth = get_pixels(depth_image,
                              x=pos[1], y=pos[0],
                              delta=DepthCheck.DELTA)
-            n_d = n_d[n_d != -1]
-            n_d = n_d[n_d != 0]
-
-            if n_d is not []:
-                depth = np.median(n_d)
-
-            else:
-                return -1, False
 
         if depth_min <= depth <= depth_max:
             return depth * DepthCheck.DEPTH_SCALE, visibility
@@ -52,7 +60,7 @@ class DepthCheck:
 class Crop:
     def __init__(self, area, frame: Frames, marker_set: MarkerSet, filter_option, method):
         if isinstance(frame, SharedFrames):
-            frame.color = np.frombuffer(frame.color_array, dtype=np.uint8).reshape((frame.width, frame.height, 3))
+            frame.color = np.frombuffer(frame.color_array, dtype=np.uint8).reshape((frame.width, frame.height))
             frame.depth = np.frombuffer(frame.depth_array, dtype=np.int32).reshape((frame.width, frame.height))
             for marker in marker_set:
                 marker.pos = np.frombuffer(marker.raw_array_pos, dtype=np.int32)
@@ -62,23 +70,25 @@ class Crop:
         # Marker
         self.marker_set = marker_set
 
-        self.depth_min = filter_option['distance_in_centimeters'][0] * 10
-        self.depth_max = filter_option['distance_in_centimeters'][1] * 10
+        self.depth_min = filter_option['distance_in_centimeters'][0] / 100 / DepthCheck.DEPTH_SCALE
+        self.depth_max = filter_option['distance_in_centimeters'][1] / 100 / DepthCheck.DEPTH_SCALE
         self.tracking_option = method
         # Image computing
         self.filter = Filter(filter_option)
-        self.tracker = Tracker(self.frame, marker_set, **method)
+        self.tracker = Tracker(self.frame, marker_set, depth_range=[self.depth_min, self.depth_max], **method)
 
     def attribute_depth_from_position(self, positions: list[Position]):
         assert len(positions) == len(self.marker_set.markers)
-
         for i in range(len(positions)):
+            if self.marker_set[i].is_static:
+                continue
+
             if isinstance(positions[i], Position):
                 depth, visibility = DepthCheck.check(positions[i].position,
                                                      self.frame.depth,
                                                      self.depth_min,
                                                      self.depth_max)
-                if depth != -1:
+                if depth != -1 and abs(self.marker_set[i].get_depth() - depth) < 0.08:
                     self.marker_set[i].set_depth(depth)
                 self.marker_set[i].set_depth_visibility(visibility)
             else:
@@ -90,7 +100,16 @@ class Crop:
     def attribute_depth(self):
         self.attribute_depth_from_position([marker.pos for marker in self.marker_set])
 
+    @staticmethod
+    def draw_blobs(frame, blobs, color=(255, 0, 0), scale=5):
+        import cv2
+        if blobs is not None:
+            for blob in blobs:
+                frame = cv2.circle(frame, (int(blob[0]), int(blob[1])), scale, color, 1)
+        return frame
+
     def track_markers(self):
+
         # Get updated frame
         self.frame.update_image()
 
@@ -98,7 +117,7 @@ class Crop:
         blobs = self.filter.get_blobs(self.frame)
 
         # Get tracking positions
-        positions, estimate_positions = self.tracker.track(self.frame, blobs)
+        positions, estimate_positions = self.tracker.track(self.frame, self.filter.filtered_depth, blobs)
 
         # Set depth for the new positions
         self.attribute_depth_from_position(positions)
