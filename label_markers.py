@@ -58,9 +58,10 @@ def _init_kin_marker_set():
 
 def main():
     kin_marker_set = _init_kin_marker_set()
-    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15"]
-    trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    data_files = "Q:\Projet_hand_bike_markerless\RGBD"
+    participants = ["P12"]#, "P10", "P11", "P12", "P13", "P14", "P15"]
+    # trials = [["gear_20", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    trials = [["only"]] * len(participants)
+    data_files = "data_files"
     for p, part in enumerate(participants):
         files = os.listdir(f"{data_files}{os.sep}{part}")
         files = [file for file in files if os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)
@@ -72,7 +73,8 @@ def main():
                     if trial in file:
                         final_files.append(file)
         files = final_files
-        path_to_camera_config_file = f"Q:\Projet_hand_bike_markerless\RGBD\config_camera_files\config_camera_{part}.json"
+        path_to_camera_config_file = f"config_camera_files\config_camera_{part}.json"
+
         for f, file in enumerate(files):
             print(f"working on participant {part} for trial {file[:7]}")
             path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
@@ -93,7 +95,7 @@ def main():
                                      model_name="model_test.bioMod")
             last_frame = rgbd.tracking_config["start_index"]
             while True:
-                if not rgbd.get_frames(fit_model=True, show_image=True, save_data=False, save_video=False,
+                if not rgbd.get_frames(fit_model=True, show_image=False, save_data=True, save_video=True,
                                        file_path=rgbd.tracking_config[
                                                      "directory"] + os.sep + "marker_pos_multi_proc_3_crops.bio"):
                     if rgbd.video_object is not None:
@@ -105,6 +107,7 @@ def main():
                     print(f"gap of {rgbd.process_image.index - last_frame} images")
                 if iter % 500 == 0:
                     print("nb iterations:", iter)
+                # print(rgbd.kinematic_model_checker.marker_sets[0].markers[0].get_depth())
                 # if iter == 2000:
                 #     cv2.destroyAllWindows()
                 #     rgbd.video_object.release()

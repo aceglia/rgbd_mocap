@@ -45,10 +45,10 @@ if __name__ == "__main__":
     # load_images path
     participants = ["P9", "P10", "P11", "P13", "P14", "P16"]
     participants = ["P10"]
-    main_path = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
-    training_path = r"/mnt/shared/Projet_hand_bike_markerless/training_data_set"
-    if not os.path.exists(training_path):
-        os.makedirs(training_path)
+    main_path = "data_files"
+    # training_path = r"Q:\Projet_hand_bike_markerless\training_data_set"
+    # if not os.path.exists(training_path):
+    #     os.makedirs(training_path)
     for participant in participants:
         files = os.listdir(f"{main_path}{os.sep}{participant}")
         files = [file for file in files if "gear_10" in file]

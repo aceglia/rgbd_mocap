@@ -40,7 +40,7 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
 
     if data_2_gap is not None:
         data_tmp_2 = {}
-        end_idx = data_1_gap["frame_idx"].index(data_2_gap["frame_idx"][0])
+        end_idx = data_tmp["frame_idx"].index(data_2_gap["frame_idx"][0])
         for key in data.keys():
             if isinstance(data_2_gap[key], np.ndarray):
                 data_tmp_2[key] = np.concatenate((data_tmp[key][..., :end_idx], data_2_gap[key]), axis = -1)
@@ -67,6 +67,9 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
 if __name__ == '__main__':
     participants = ["P9", "P10", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    participants = ["P14"]
+    trials = [["only"]] * len(participants)
+
     # trials[0] = ["gear_15"]
     # trials = [["gear_20"]] * len(participants)
     data_files = "Q:\Projet_hand_bike_markerless\RGBD"
@@ -74,7 +77,7 @@ if __name__ == '__main__':
     for p, part in enumerate(participants):
         files = os.listdir(f"{data_files}{os.sep}{part}")
         files = [file for file in files if
-                 "gear" in file and os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)
+                 "only" in file and os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)
                  ]
         final_files = files if not trials else []
         if trials:
@@ -82,13 +85,15 @@ if __name__ == '__main__':
                 for file in files:
                     if trial in file:
                         final_files.append(file)
-                        break
+                        # break
         files = final_files
         path_to_camera_config_file = f"Q:\Projet_hand_bike_markerless\RGBD\config_camera_files\config_camera_{part}.json"
         for f, file in enumerate(files):
             data_1_gap = None
             data_2_gap = None
             path = f"{data_files}{os.sep}{part}{os.sep}{file}"
+            if not os.path.isfile(path + os.sep + "marker_pos_multi_proc_3_crops.bio"):
+                continue
             data = load(path + os.sep + "marker_pos_multi_proc_3_crops.bio", merge=True)
             data["occlusions"] = np.array(data["occlusions"]).reshape(-1, 13).transpose()
             data["markers_names"] = np.array(data["markers_names"]).reshape(-1, 13).transpose()

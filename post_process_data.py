@@ -127,6 +127,18 @@ class ProcessData:
                     "raw_LMX": all_data_int[12, :],
                     "raw_LMY": all_data_int[13, :],
                     "raw_LMZ": all_data_int[14, :],
+                    "raw_RFX_crank": all_data_int[21, :],
+                    "raw_RFY_crank": all_data_int[22, :],
+                    "raw_RFZ_crank": all_data_int[23, :],
+                    "raw_RMX_crank": all_data_int[24, :],
+                    "raw_RMY_crank": all_data_int[25, :],
+                    "raw_RMZ_crank": all_data_int[26, :],
+                    "raw_LFX_crank": all_data_int[27, :],
+                    "raw_LFY_crank": all_data_int[28, :],
+                    "raw_LFZ_crank": all_data_int[29, :],
+                    "raw_LMX_crank": all_data_int[30, :],
+                    "raw_LMY_crank": all_data_int[31, :],
+                    "raw_LMZ_crank": all_data_int[32, :],
                     "crank_angle": all_data_int[19, :],
                     "right_pedal_angle": all_data_int[17, :],
                     "left_pedal_angle": all_data_int[18, :],
@@ -136,17 +148,16 @@ class ProcessData:
             dic_data[key] = self._smooth_sensix_angle(dic_data[key]) if "angle" in key else dic_data[key]
 
         for i in range(all_data_int.shape[1]):
-            dic_data["crank_angle"][i] = dic_data["crank_angle"][i]
-            crank_angle = dic_data["crank_angle"][i]
+            crank_angle = -dic_data["crank_angle"][i]
             left_angle = -dic_data["left_pedal_angle"][i]
             right_angle = -dic_data["right_pedal_angle"][i]
-            force_vector_l = [dic_data["LFX"][i], dic_data["LFY"][i], dic_data["LFZ"][i]]
-            force_vector_r = [dic_data["RFX"][i], dic_data["RFY"][i], dic_data["RFZ"][i]]
+            force_vector_l = [dic_data["raw_LFX_crank"][i], dic_data["raw_LFY_crank"][i], dic_data["raw_LFZ_crank"][i]]
+            force_vector_r = [dic_data["raw_RFX_crank"][i], dic_data["raw_RFY_crank"][i], dic_data["raw_RFZ_crank"][i]]
 
             force_vector_l = self._express_forces_in_global(crank_angle, force_vector_l)
             force_vector_r = self._express_forces_in_global(crank_angle, force_vector_r)
-            force_vector_l = self._express_forces_in_global(-left_angle, force_vector_l)
-            force_vector_r = self._express_forces_in_global(-right_angle, force_vector_r)
+            # force_vector_l = self._express_forces_in_global(-left_angle, force_vector_l)
+            # force_vector_r = self._express_forces_in_global(-right_angle, force_vector_r)
             dic_data["LFX"][i] = force_vector_l[0]
             dic_data["LFY"][i] = force_vector_l[1]
             dic_data["LFZ"][i] = force_vector_l[2]
@@ -757,7 +768,7 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, 
 
 
 if __name__ == '__main__':
-    participants = ["P11"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
+    participants = ["P9"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
 
     trials = [["gear_15", "gear_10", "gear_15", "gear_20"]] * len(participants)
@@ -772,5 +783,5 @@ if __name__ == '__main__':
     vicon_data_files = "/mnt/shared/Projet_hand_bike_markerless/vicon/"
     depth_data_files = "/mnt/shared/Projet_hand_bike_markerless/RGBD/"
     sensix_path = "/mnt/shared/Projet_hand_bike_markerless/sensix/"
-    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials, plot=True,
-         save_data=False)
+    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials, plot=False,
+         save_data=True)
