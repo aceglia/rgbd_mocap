@@ -34,7 +34,6 @@ class Handler:
     def show_image(crop_name, image, blobs=None, markers=None, estimated_positions=None):
         if not Handler.SHOW_CROPS:
             return
-
         if Handler.SHOW_BLOBS and blobs is not None:
             image = print_blobs(image, blobs)
 
@@ -43,15 +42,16 @@ class Handler:
 
         if Handler.SHOW_MARKERS and markers is not None:
             image = print_marker(image, markers, use_off_set=False)
-
         cv2.imshow(crop_name, image)
         cv2.waitKey(1)
 
 
 def print_blobs(frame, blobs, size=4, color=(0, 255, 0)):
     img = frame.copy()
+    if len(img.shape) == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     for blob in blobs:
-        img[blob[1] - size:blob[1] + size, blob[0] - size:blob[0] + size] = color
+        img[int(blob[1]) - size:int(blob[1]) + size, int(blob[0]) - size:int(blob[0]) + size] = color
 
     return img
 
@@ -73,10 +73,10 @@ def print_marker(frame, marker_set: MarkerSet, use_off_set=True):
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, color_ok, 1)
             visible.append(marker.pos[:2] + off_set)
 
-            if marker.is_depth_visible:
-                frame = cv2.putText(frame, str(marker.depth // 10),
-                                    (marker.pos[0] + off_set[0], marker.pos[1] + 20 + off_set[1]),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_ok, 1)
+            # if marker.is_depth_visible:
+            #     frame = cv2.putText(frame, str(marker.depth // 10),
+            #                         (marker.pos[0] + off_set[0], marker.pos[1] + 20 + off_set[1]),
+            #                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_ok, 1)
 
         else:
             frame = cv2.putText(frame, marker.name,

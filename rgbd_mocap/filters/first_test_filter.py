@@ -1,6 +1,6 @@
 import cv2
 
-from rgbd_mocap.filter.filter import Filter, Frames
+from rgbd_mocap.filters.filter import Filter, Frames
 
 
 _options = {

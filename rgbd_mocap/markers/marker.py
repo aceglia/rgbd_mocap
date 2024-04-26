@@ -1,8 +1,29 @@
 import numpy as np
 
 
+class Bounds:
+    def __init__(self, min, max):
+        self.min = min if min >= 0 else 0
+        self.max = max if max >= 0 else 0
+
+    def set_min(self, min):
+        self.min = min
+
+    def set_max(self, max):
+        self.max = max
+
+    def set(self, min, max):
+        self.set_min(min)
+        self.set_max(max)
+
+    def get(self):
+        return self.min, self.max
+
+
 class Marker:
     def __init__(self, name, is_static=False):
+        self.x_bounds = None
+        self.y_bounds = None
         self.name = name
 
         # Position arrays
@@ -20,6 +41,7 @@ class Marker:
 
         ### Is static
         self.is_static = is_static
+        self.is_bounded = False
 
     # Getter #####
     def get_pos(self):
@@ -67,6 +89,26 @@ class Marker:
 
         if visibility is not None:
             self.set_depth_visibility(visibility)
+
+    def set_bounds(self, bounds):
+        self.x_bounds = Bounds(min=bounds[0][0] + self.pos[0], max=bounds[0][1] + self.pos[0])
+        self.y_bounds = Bounds(min=bounds[1][0] + self.pos[1], max=bounds[1][1] + self.pos[1])
+        self.is_bounded = True
+
+    def get_bounds(self):
+        """
+        Get the bounds of the marker
+        Returns
+        -------
+        list
+            max_x, max_y, min_x, min_y
+        """
+        bounds = [None, None, None, None]
+        if self.x_bounds is not None:
+            bounds[2], bounds[0] = self.x_bounds.get()
+        if self.y_bounds is not None:
+            bounds[3], bounds[1] = self.y_bounds.get()
+        return bounds
 
     def set_reliability(self, reliability):
         self.reliability_index += reliability

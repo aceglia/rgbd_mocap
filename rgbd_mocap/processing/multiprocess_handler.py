@@ -1,7 +1,7 @@
 from multiprocessing import Queue, Process
 from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
-from ..crop.crop import Crop, DepthCheck
+from ..crops.crop import Crop, DepthCheck
 from ..tracking.utils import set_marker_pos
 from ..processing.handler import Handler
 
@@ -86,7 +86,6 @@ class MultiProcessHandler(Handler):
         crop = Crop(crop_option['area'], shared_frame, marker_set, crop_option['filters'], tracking_option)
         if "depth_scale" in crop_option.keys():
             DepthCheck.set_depth_scale(crop_option["depth_scale"])
-        import time
         while True:
             arg = queue_arg.get()
 

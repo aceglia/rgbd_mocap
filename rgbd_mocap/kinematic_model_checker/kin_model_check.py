@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import os
 
@@ -15,10 +16,12 @@ from ..model_creation import (
     Mesh,
 )
 from ..frames.frames import Frames
+from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
 from ..camera.camera_converter import CameraConverter
 from ..tracking.utils import set_marker_pos
 from ..processing.multiprocess_handler import MultiProcessHandler
+from ..tracking.position import Position
 
 
 class KinematicModelChecker:
@@ -52,7 +55,9 @@ class KinematicModelChecker:
         # Set Markers to exclude
         self.markers_to_exclude = markers_to_exclude
 
-        self.ik_method = 'least_square'
+        self.ik_method = 'kalman'
+
+        self.last_q = None
 
     # utils
     def _get_all_markers(self):
@@ -85,11 +90,12 @@ class KinematicModelChecker:
                 origin = marker_set.markers[0].name
                 second_marker = marker_set.markers[1].name
                 third_marker = marker_set.markers[2].name
+
                 kinematic_model[marker_set.name] = Segment(
                     name=marker_set.name,
                     # parent_name='ground',
-                    translations=Translations.XYZ,
-                    rotations=Rotations.XYZ,
+                    translations=marker_set.translations,
+                    rotations=marker_set.rotations,
                     segment_coordinate_system=SegmentCoordinateSystem(
                         origin=origin,
                         first_axis=Axis(name=Axis.Name.X, start=origin, end=second_marker),
@@ -106,13 +112,12 @@ class KinematicModelChecker:
                 # origin, first_axis, second_axis = build_axis(marker_set)
                 origin = self.kin_marker_sets[i - 1].markers[-1].name
                 # origin = marker_set.markers[0].name
-
                 second_marker = marker_set.markers[0].name
                 third_marker = marker_set.markers[1].name
                 kinematic_model[marker_set.name] = Segment(
                     name=marker_set.name,
-                    rotations=Rotations.XYZ,
-                    # translations=Translations.XYZ,
+                    translations=marker_set.translations,
+                    rotations=marker_set.rotations,
                     parent_name=self.kin_marker_sets[i - 1].name,
                     segment_coordinate_system=SegmentCoordinateSystem(
                         origin=origin,
@@ -141,41 +146,78 @@ class KinematicModelChecker:
             file.write(data)
         os.remove("_tmp_markers_data.c3d")
 
+    def _set_previous_estimation(self, crops):
+        if self.frames.get_index() == 0:
+            return crops
+        for m, marker_set in enumerate(self.marker_sets):
+            crops[m].tracker.frame = crops[m].frame
+            for i in range(marker_set.nb_markers):
+                crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos,
+                                                                    marker_set.markers[i].get_visibility())]
+        return crops
+
     def _set_markers(self, markers, crops):
         start = 0
+        markers_in_pixel = []
+        if isinstance(self.frames, SharedFrames):
+            crops = self._set_previous_estimation(crops)
+
         for m, marker_set in enumerate(self.marker_sets):
             _in_local = []
             end = start + marker_set.nb_markers
             markers_local = markers[:, start:end, 0]
             for i in range(marker_set.nb_markers):
-                crops[m].tracker.estimated_positions[i] = []
+                if marker_set.markers[i].is_static:
+                    crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos, False)]
+                    _in_local.append(marker_set.markers[i].pos)
+                    continue
+                # crops[m].tracker.estimated_positions[i] = []
                 marker_in_pixel = self.converter.get_marker_pos_in_pixel(markers_local[:, i][np.newaxis, :])[0, :]
+                markers_in_pixel.append(marker_in_pixel)
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
                 _in_local.append(marker_in_local)
-                crops[m].tracker.get_blob_near_position(marker_in_local, i)
+                from rgbd_mocap.utils import find_closest_blob
+                # crops[m].tracker.get_blob_near_position(marker_in_local, i)
+                position, visible = find_closest_blob(marker_in_local, crops[m].tracker.blobs, delta=10)
+                crops[m].tracker.estimated_positions[i].append(Position(position, visible))
+                # else:
+                #     crops[m].tracker.estimated_positions[i].append(None)
             crops[m].tracker.merge_positions()
+            for p, pos in enumerate(crops[m].tracker.positions):
+                if pos == ():
+                    crops[m].tracker.positions[p] = Position(_in_local[p], False)
             crops[m].tracker.check_tracking()
             crops[m].tracker.check_bounds(crops[m].frame)
-            positions = crops[m].tracker.positions
-            from rgbd_mocap.tracking.position import Position
-            for p, pos in enumerate(positions):
-                positions[p] = Position(_in_local[p], visibility=False) if pos == () else pos
-            crops[m].attribute_depth_from_position(positions)
-            set_marker_pos(crops[m].marker_set, positions)
+            crops[m].attribute_depth_from_position(crops[m].tracker.positions)
+            set_marker_pos(crops[m].marker_set, crops[m].tracker.positions)
             start += marker_set.nb_markers
+        return markers_in_pixel
+
+    def _check_last_q(self, q):
+        if self.last_q is None:
+            self.last_q = q
+            return q
+
+        final_q = q.copy()
+        for i, q_tmp in enumerate(q):
+            if float(abs(q_tmp - self.last_q[i, 0])) > 0.7:
+                print(f"q{i} is too high: {q_tmp} - {self.last_q[i, 0]}")
+                final_q[i, 0] = self.last_q[i, 0]
+        self.last_q = q
+        return final_q
 
     def fit_kinematics_model(self, process_image):
         crops = process_image.crops
+
         handler = process_image.process_handler
 
         if isinstance(handler, MultiProcessHandler):
             blobs = []
-            while True:
+            while len(blobs) != len(crops):
                 try:
                     blobs.append(handler.queue_blobs.get_nowait())
                 except Exception as e:
-                    break
-
+                    pass
             assert len(blobs) == len(crops)
             for b, blob in enumerate(blobs):
                 crops[blob[0]].tracker.blobs = blob[1]
@@ -184,9 +226,11 @@ class KinematicModelChecker:
             raise ValueError("The model file does not exist. Please initialize the model creation before.")
 
         # Get Markers Information
+
         markers, names, is_visible = self._get_global_markers_pos_in_meter()
 
         markers_for_ik = np.full((markers.shape[0], markers.shape[1], 1), np.nan)
+
         for m in range(markers_for_ik.shape[1]):
             if names[m] not in self.markers_to_exclude:
                 markers_for_ik[:, m, 0] = markers[:, m]
@@ -196,8 +240,8 @@ class KinematicModelChecker:
             if self.ik_method == "least_squares"
             else InverseKinematicsMethods.BiorbdKalman
         )
-
-        q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=100)
+        q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=60)
+        # q = self._check_last_q(q)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
         self._set_markers(markers, crops)
         return q
