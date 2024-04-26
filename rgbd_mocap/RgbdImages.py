@@ -130,6 +130,7 @@ class RgbdImages:
         show_image=False,
         file_path=None,
         save_video=False,
+        video_name=None,
     ):
         """
         Get the color and depth frames
@@ -220,7 +221,8 @@ class RgbdImages:
             }
             save(dic, file_path, add_data=True)
         if save_video:
-            video_path = save_dir + os.sep + "images_processed.avi"
+            video_name = video_name if video_name else "images_processed"
+            video_path = save_dir + os.sep + video_name + ".avi"
             if self.iter == 0 and os.path.isfile(video_path):
                 os.remove(video_path)
 

@@ -74,16 +74,17 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
 
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
+    participants = ["P12"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_20", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    trials = [["only"]] * len(participants)
     # trials[0] = ["gear_15"]
     # trials = [["gear_20"]] * len(participants)
-    data_files = "Q:\Projet_hand_bike_markerless\RGBD"
-    # data_files = "data_files"
+    # data_files = "Q:\Projet_hand_bike_markerless\RGBD"
+    data_files = "data_files"
     for p, part in enumerate(participants):
         files = os.listdir(f"{data_files}{os.sep}{part}")
         files = [file for file in files if
-                 "gear" in file and os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)
+                 "only" in file and os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)
                  ]
         final_files = files if not trials else []
         if trials:
@@ -98,6 +99,8 @@ if __name__ == '__main__':
         data_2_gap = None
         for f, file in enumerate(files):
             path = f"{data_files}{os.sep}{part}{os.sep}{file}"
+            if not os.path.isfile(path + os.sep + "marker_pos_multi_proc_3_crops.bio"):
+                continue
             data = load(path + os.sep + "marker_pos_multi_proc_3_crops.bio", merge=True)
             data["occlusions"] = np.array(data["occlusions"]).reshape(-1, 13).transpose()
             data["markers_names"] = np.array(data["markers_names"]).reshape(-1, 13).transpose()
@@ -123,15 +126,17 @@ if __name__ == '__main__':
                 final_end_idx = 8763
             elif part == "P12" and "gear_20" in file:
                 final_end_idx = 8535
-            # data = merge_files(data, data_1_gap, data_2_gap, final_end_idx=final_end_idx, participant=part, file=file)
+            elif part == "P12" and "only" in file:
+                final_end_idx = 5382
+            data = merge_files(data, data_1_gap, data_2_gap, final_end_idx=final_end_idx, participant=part, file=file)
 
             markers = data["markers_in_meters"]
             x = data["frame_idx"]
-            plt.figure()
-            for j in range(markers.shape[1]):
-                plt.subplot(4, 4, j + 1)
-                for i in range(3):
-                    plt.plot(x, markers[i, j, :], "r")
-            plt.show()
+            # plt.figure()
+            # for j in range(markers.shape[1]):
+            #     plt.subplot(4, 4, j + 1)
+            #     for i in range(3):
+            #         plt.plot(x, markers[i, j, :], "r")
+            # plt.show()
             save(data, path + os.sep + "marker_pos_multi_proc_3_crops_pp.bio", safe=False)
             print(f"file {file} processed")
