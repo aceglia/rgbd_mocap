@@ -98,10 +98,10 @@ class ProcessData:
         all_data_int = np.concatenate((np.zeros_like(all_data_int)[:, :process_delay_frame], all_data_int), axis=1)
         if self.first_trigger != self.trigger_idx[0]:
             dif = self.trigger_idx[0] - self.first_trigger
-            nb_frame = ceil(100 * dif / 2160)
+            nb_frame = ceil(100 * (dif / 2160))
         else:
             nb_frame = 0
-        all_data_int = all_data_int[:, nb_frame + ceil(self.overall_start_idx * 100 / 120):ceil(self.overall_end_idx * 100 / 120)]
+        all_data_int = all_data_int[:, nb_frame + ceil((self.overall_start_idx - self.trigger_idx[0]//18) * 100 / 120):]
         dic_data = {"time": all_data_int[0, :],
                     "RFX": all_data_int[1, :],
                     "RFY": all_data_int[2, :],
@@ -127,6 +127,18 @@ class ProcessData:
                     "raw_LMX": all_data_int[12, :],
                     "raw_LMY": all_data_int[13, :],
                     "raw_LMZ": all_data_int[14, :],
+                    "raw_RFX_crank": all_data_int[21, :],
+                    "raw_RFY_crank": all_data_int[22, :],
+                    "raw_RFZ_crank": all_data_int[23, :],
+                    "raw_RMX_crank": all_data_int[24, :],
+                    "raw_RMY_crank": all_data_int[25, :],
+                    "raw_RMZ_crank": all_data_int[26, :],
+                    "raw_LFX_crank": all_data_int[27, :],
+                    "raw_LFY_crank": all_data_int[28, :],
+                    "raw_LFZ_crank": all_data_int[29, :],
+                    "raw_LMX_crank": all_data_int[30, :],
+                    "raw_LMY_crank": all_data_int[31, :],
+                    "raw_LMZ_crank": all_data_int[32, :],
                     "crank_angle": all_data_int[19, :],
                     "right_pedal_angle": all_data_int[17, :],
                     "left_pedal_angle": all_data_int[18, :],
@@ -136,17 +148,16 @@ class ProcessData:
             dic_data[key] = self._smooth_sensix_angle(dic_data[key]) if "angle" in key else dic_data[key]
 
         for i in range(all_data_int.shape[1]):
-            dic_data["crank_angle"][i] = dic_data["crank_angle"][i] + np.pi
-            crank_angle = dic_data["crank_angle"][i]
-            left_angle = dic_data["left_pedal_angle"][i]
-            right_angle = dic_data["right_pedal_angle"][i]
-            force_vector_l = [dic_data["LFX"][i], dic_data["LFY"][i], dic_data["LFZ"][i]]
-            force_vector_r = [dic_data["RFX"][i], dic_data["RFY"][i], dic_data["RFZ"][i]]
+            crank_angle = -dic_data["crank_angle"][i]
+            left_angle = -dic_data["left_pedal_angle"][i]
+            right_angle = -dic_data["right_pedal_angle"][i]
+            force_vector_l = [dic_data["raw_LFX_crank"][i], dic_data["raw_LFY_crank"][i], dic_data["raw_LFZ_crank"][i]]
+            force_vector_r = [dic_data["raw_RFX_crank"][i], dic_data["raw_RFY_crank"][i], dic_data["raw_RFZ_crank"][i]]
 
             force_vector_l = self._express_forces_in_global(crank_angle, force_vector_l)
             force_vector_r = self._express_forces_in_global(crank_angle, force_vector_r)
-            force_vector_l = self._express_forces_in_global(-left_angle, force_vector_l)
-            force_vector_r = self._express_forces_in_global(-right_angle, force_vector_r)
+            # force_vector_l = self._express_forces_in_global(-left_angle, force_vector_l)
+            # force_vector_r = self._express_forces_in_global(-right_angle, force_vector_r)
             dic_data["LFX"][i] = force_vector_l[0]
             dic_data["LFY"][i] = force_vector_l[1]
             dic_data["LFZ"][i] = force_vector_l[2]
@@ -593,12 +604,19 @@ class ProcessData:
                                                          fill=False)
 
         if self.sensix_data != {}:
+            len_vicon_data = self.reordered_markers_list[2].shape[2]
             for key in self.sensix_data.keys():
                 if idx > 0:
-                    self.sensix_data[key] = self.sensix_data[key][..., :-ceil(idx * 100 / 120)]
+                    self.sensix_data[key] = self.sensix_data[key][..., :int(len_vicon_data * 100 / 120)]
                 self.sensix_interp[key] = self._fill_and_interpolate(data=self.sensix_data[key],
                                                                      shape=self.reordered_markers_list[2].shape[2],
                                                                      fill=False)
+
+            if self.plot_fig:
+                plt.figure("sensix")
+                plt.plot(self.sensix_interp["crank_angle"][0, :], label="crank_angle")
+                plt.plot(self.reordered_markers_list[2][2, -4, :] * 5, label="vicon")
+                plt.legend()
 
         end_plot = 200
         vicon_to_depth_idx = self._get_vicon_to_depth_idx(names_depth=self.depth_markers_names_post,
@@ -750,10 +768,10 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, 
 
 
 if __name__ == '__main__':
-    participants = ["P12", "P12"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
+    participants = ["P9"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
 
-    trials = [["gear_20", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    trials = [["gear_15", "gear_10", "gear_15", "gear_20"]] * len(participants)
    # trials[0] = ["gear_10"]
     # trials[0] = ["gear_5", "gear_20"]
     # trials[1] = ["gear_5", "gear_15", "gear_20"]
@@ -761,9 +779,9 @@ if __name__ == '__main__':
     # trials[5] = ["gear_5", "gear_10"]
     # trials = ["gear_20"]
 
-    processed_data_path = "Q:\Projet_hand_bike_markerless/process_data"
-    vicon_data_files = "Q:\Projet_hand_bike_markerless/vicon/"
-    depth_data_files = "Q:\Projet_hand_bike_markerless/RGBD/"
-    sensix_path = "Q:\Projet_hand_bike_markerless/sensix/"
-    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials, plot=True,
-         save_data=False)
+    processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data/"
+    vicon_data_files = "/mnt/shared/Projet_hand_bike_markerless/vicon/"
+    depth_data_files = "/mnt/shared/Projet_hand_bike_markerless/RGBD/"
+    sensix_path = "/mnt/shared/Projet_hand_bike_markerless/sensix/"
+    main(participants, processed_data_path, vicon_data_files, depth_data_files, sensix_path, trials, plot=False,
+         save_data=True)

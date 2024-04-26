@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from biosiglive.processing.msk_utils import ExternalLoads
 from biosiglive import OfflineProcessing
 from scipy.signal import find_peaks
+from scipy.interpolate import interp1d
 
 
 def _load_data(data_path, part, file, end_idx=None):
@@ -39,7 +40,7 @@ def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
     return vicon_to_depth_idx
 
 
-def load_results(participants, processed_data_path, trials=None, file_name=""):
+def load_results(participants, processed_data_path, trials=None, file_name="", to_exclude=None, recompute_cycles=True):
     if trials is None:
         trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     all_data = {}
@@ -55,6 +56,9 @@ def load_results(participants, processed_data_path, trials=None, file_name=""):
                     continue
                 print(f"Processing participant {part}, trial : {file}")
                 all_data[part][file] = load(f"{processed_data_path}/{part}/{file}")
+                if recompute_cycles:
+                    peaks = find_peaks(all_data[part][file]["vicon"]["markers"][2, -4, :])[0]
+                    all_data[part][file] = process_cycles(all_data[part][file], peaks)
                 trials_tmp.append(trial)
         trials[p] = trials_tmp
     return all_data, trials
@@ -108,9 +112,8 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
     # plt.plot(peaks, sensix_data["crank_angle"][0, peaks], "x")
     # plt.show()
 
-
     markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
-    names_from_source.append(np.array(vicon_markers_names)[vicon_to_depth_idx])
+    names_from_source.append(list(np.array(vicon_markers_names)[vicon_to_depth_idx]))
     markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
     for i in range(3):
         markers_depth_filtered[i, :, :] = OfflineProcessing().butter_lowpass_filter(markers_depth[i, :, :],
@@ -135,12 +138,15 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
         name="hand_pedal",
         load=np.zeros((6, 1)),
     )
-    f_ext = np.array([-sensix_data["RMY"],
+    f_ext = np.array([sensix_data["RMY"],
                       sensix_data["RMX"],
                       sensix_data["RMZ"],
-                      -sensix_data["RFY"],
+                      sensix_data["RFY"],
                       sensix_data["RFX"],
                       sensix_data["RFZ"]])
+    # if part not in ["P9", "P10", "P11", "P13"]:
+    #     f_ext = -f_ext
+    f_ext = f_ext[:, 0, :]
     return markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth_idx, peaks
 
 
@@ -231,16 +237,18 @@ def compute_error(depth_dic, vicon_dic):
 def remove_nan(data1, data2):
     mean = data1
     diff = data2
-    # nan_index = np.argwhere(np.isnan(mean))
-    # mean = np.delete(mean, nan_index, axis=0)
-    # diff = np.delete(diff, nan_index, axis=0)
+    nan_index = np.argwhere(np.isnan(mean))
+    mean = np.delete(mean, nan_index, axis=0)
+    diff = np.delete(diff, nan_index, axis=0)
     return mean, diff
 
 
-def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None, markers=None):
+def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None, markers=None, ax = None, threeshold=np.inf, no_y_label=False):
     # mean = (data1 + data2) / 2
     # diff = data1 - data2
-    mean, diff = remove_nan(data1, data2)
+    mean_to_plot = data1
+    diff_to_plot  = data2
+    mean, diff= remove_nan(data1, data2)
     # Average difference (aka the bias)
     bias = np.mean(diff)
     # Sample standard deviation
@@ -292,13 +300,19 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
         f'Bias = {np.round(bias, 2)}, 95% CI {np.round(ci_bias, 2)}\n',
         f'Upper LOA = {np.round(upper_loa, 2)}, 95% CI {np.round(ci_upper_loa, 2)}'
     )
-    plt.figure(title)
-    ax = plt.axes()
+    if ax is None:
+        plt.figure(title)
+    ax = plt.axes() if ax is None else ax
     markers = markers if markers is not None else 'o'
     if color is not None:
         for i in range(len(color)):
-            ax.scatter(mean[i * len(color[i]):(i+1) * len(color[i])],
-                       diff[i * len(color[i]):(i+1) * len(color[i])], c=color[i], s=100, alpha=0.6, marker=markers)
+            mean_tmp = mean_to_plot[i * len(color[i]):(i+1) * len(color[i])]
+            diff_tmp = diff_to_plot[i * len(color[i]):(i+1) * len(color[i])]
+            for j in range(len(mean_tmp)):
+                if np.abs(diff_tmp[j]) > threeshold:
+                    continue
+                ax.scatter(mean_tmp[j], diff_tmp[j], c=color[i][j], s=100, alpha=0.6, marker=markers)
+
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
     ax.axhline(y=0, c='k', lw=0.5)
@@ -306,16 +320,24 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     ax.axhline(y=loas[1], c='grey', ls='--')
     ax.axhline(y=bias, c='grey', ls='--')
     ax.axhline(y=loas[0], c='grey', ls='--')
+
+
     # Labels
     font = 18
     ax.set_title(title, fontsize=font + 2)
+    #ax.set_ylabel(f'Difference ({units} )', fontsize=font)
     if x_axis is not None:
         ax.set_xlabel(x_axis, fontsize=font)
     else:
-        ax.set_xlabel(f'Mean ({units} )', fontsize=font)
-    ax.set_ylabel(f'Difference ({units} )', fontsize=font)
-    plt.xticks(fontsize=font)
-    plt.yticks(fontsize=font)
+        ax.set_xlabel(f'Mean ({units})', fontsize=font)
+    ax.tick_params(axis='y', labelsize=font)
+    ax.tick_params(axis='x', labelsize=font)
+    if not no_y_label:
+        ax.set_ylabel(f'Difference ({units})', fontsize=font)
+    else:
+        ax.set_ylabel("", fontsize=font)
+    #ax.xticks(fontsize=font)
+    #ax.yticks(fontsize=font)
     # Get axis limits
     left, right = ax.get_xlim()
     bottom, top = ax.get_ylim()
@@ -351,4 +373,52 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
 
     if show:
         plt.show()
+
+    return bias, lower_loa, upper_loa
+
+
+def process_cycles(all_results, peaks, n_peaks=None):
+    for key in all_results.keys():
+        data_size = all_results[key]["q_raw"].shape[1]
+        dic_tmp = {}
+        for key2 in all_results[key].keys():
+            if key2 == "cycle":
+                continue
+            array_tmp = None
+            if not isinstance(all_results[key][key2], np.ndarray):
+                dic_tmp[key2] = []
+                continue
+            if n_peaks and n_peaks > len(peaks) - 1:
+                raise ValueError("n_peaks should be less than the number of peaks")
+            for k in range(len(peaks) - 1):
+                if peaks[k + 1] > data_size:
+                    break
+                interp_function = _interpolate_data_2d if len(all_results[key][key2].shape) == 2 else _interpolate_data
+                if array_tmp is None:
+                    array_tmp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    array_tmp = array_tmp[None, ...]
+                else:
+                    data_interp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    array_tmp = np.concatenate((array_tmp, data_interp[None, ...]), axis=0)
+            dic_tmp[key2] = array_tmp
+        all_results[key]["cycles"] = dic_tmp
+    return all_results
+
+def _interpolate_data(markers_depth, shape):
+    new_markers_depth_int = np.zeros((3, markers_depth.shape[1], shape))
+    for i in range(markers_depth.shape[0]):
+        x = np.linspace(0, 100, markers_depth.shape[2])
+        f_mark = interp1d(x, markers_depth[i, :, :])
+        x_new = np.linspace(0, 100, int(new_markers_depth_int.shape[2]))
+        new_markers_depth_int[i, :, :] = f_mark(x_new)
+    return new_markers_depth_int
+
+
+def _interpolate_data_2d(data, shape):
+    new_data = np.zeros((data.shape[0], shape))
+    x = np.linspace(0, 100, data.shape[1])
+    f_mark = interp1d(x, data)
+    x_new = np.linspace(0, 100, int(new_data.shape[1]))
+    new_data = f_mark(x_new)
+    return new_data
 

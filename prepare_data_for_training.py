@@ -45,8 +45,8 @@ if __name__ == "__main__":
     # load_images path
     participants = ["P9", "P10", "P11", "P13", "P14", "P16"]
     participants = ["P10"]
-    main_path = "Q:\Projet_hand_bike_markerless\RGBD"
-    training_path = r"Q:\Projet_hand_bike_markerless\training_data_set"
+    main_path = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
+    training_path = r"/mnt/shared/Projet_hand_bike_markerless/training_data_set"
     if not os.path.exists(training_path):
         os.makedirs(training_path)
     for participant in participants:
@@ -57,36 +57,26 @@ if __name__ == "__main__":
             if not os.path.isfile(path + "/tracking_config_gui_3_crops.json"):
                 continue
             all_color_files = glob.glob(path + "/color*.png")
-            markers_file = path + "/marker_pos_multi_proc.bio"
-            markers_data = load(markers_file, merge=False)
-            is_visible = []
-            idx_final = []
-            markers_final = []
+            markers_file = path + "/marker_pos_multi_proc_3_crops_pp.bio"
+            markers_data = load(markers_file, merge=True)
             nb_file = 55
-            for i in range(len(markers_data)):
-                if False in markers_data[i]["occlusions"][1:]:
-                    continue
-                else:
-                    is_visible.append(markers_data[i]["occlusions"])
-                    idx_final.append(markers_data[i]["frame_idx"])
-                    markers_final.append(markers_data[i]["markers_in_pixel"][:, :, 0])
+            downsample = int(len(markers_data["frame_idx"]) / nb_file)
+            for key in markers_data.keys():
+                if isinstance(markers_data[key], list):
+                    markers_data[key] = markers_data[key][::downsample]
+                if isinstance(markers_data[key], np.ndarray):
+                    markers_data[key] = markers_data[key][..., ::downsample]
 
-            downsample = int(len(idx_final) / nb_file)
-            if downsample == 0:
-                continue
-            idx_final = idx_final[::downsample]
-            markers_final = markers_final[::downsample]
-            is_visible = is_visible[::downsample]
             frame_width = 848
             frame_height = 480
             # out = cv2.VideoWriter(
             #     "data_depth_3D.avi", cv2.VideoWriter_fourcc("M", "J", "P3", "G"), 60, (frame_width, frame_height)
             # )
-            all_depth = np.ndarray((len(idx_final), frame_height, frame_width))
-            for i in range(len(idx_final)):
-                color = cv2.imread(path + f"/color_{idx_final[i]}.png")
+            all_depth = np.ndarray((len(markers_data["frame_idx"]), frame_height, frame_width))
+            for i in range(len(markers_data["frame_idx"])):
+                color = cv2.imread(path + f'/color_{markers_data["frame_idx"][i]}.png')
                 # color = cv2.rotate(color, cv2.ROTATE_180)
-                depth = cv2.imread(path + f"/depth_{idx_final[i]}.png", cv2.IMREAD_ANYDEPTH)
+                depth = cv2.imread(path + f'/depth_{markers_data["frame_idx"][i]}.png', cv2.IMREAD_ANYDEPTH)
                 # depth = cv2.rotate(depth, cv2.ROTATE_180)
                 # depth = np.where(
                 #     (depth > 1.4 / (0.0010000000474974513)) | (depth <= 0),

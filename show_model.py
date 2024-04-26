@@ -5,6 +5,26 @@ import numpy as np
 from utils import load_all_data
 
 
+
+def _convert_string(string):
+    return string.lower().replace("_", "")
+
+
+def reorder_markers(markers, model, names):
+    model_marker_names = [_convert_string(model.markerNames()[i].to_string()) for i in range(model.nbMarkers())]
+    assert len(model_marker_names) == len(names)
+    assert len(model_marker_names) == markers.shape[1]
+    count = 0
+    reordered_markers = np.zeros((markers.shape[0], len(model_marker_names), markers.shape[2]))
+    for i in range(len(names)):
+        if names[i] == "elb":
+            names[i] = "elbow"
+        if _convert_string(names[i]) in model_marker_names:
+            reordered_markers[:, model_marker_names.index(_convert_string(names[i])),
+            :] = markers[:, count, :]
+            count += 1
+    return reordered_markers
+
 def get_force_to_show(sensix_data, q, model_bio):
     # f_ext = np.array([sensix_data["RMY"],
     #                   -sensix_data["RMX"],
@@ -18,15 +38,15 @@ def get_force_to_show(sensix_data, q, model_bio):
                       -sensix_data["RFY"],
                       sensix_data["RFX"],
                       sensix_data["RFZ"]])
-    f_ext = -f_ext[:, 0, :]
-    f_ext_mat = np.zeros((1, 6, q.shape[1]))
-    for i in range(q.shape[1]):
+    f_ext = f_ext[:, 0, :]
+    f_ext_mat = np.zeros((1, 6, f_ext.shape[1]))
+    for i in range(f_ext.shape[1]):
         B = [0, 0, 0, 1]
         all_jcs = model_bio.allGlobalJCS(q[:, i])
         RT = all_jcs[-1].to_array()
         B = RT @ B
         vecteur_OB = B[:3]
-        f_ext_mat[0, :3, i] = -vecteur_OB
+        f_ext_mat[0, :3, i] = vecteur_OB
         # f_ext_mat[0, :3, i] = f_ext[:3, i] + np.cross(vecteur_OB, f_ext[3:6, i])
         f_ext_mat[0, 3:, i] = f_ext[3:, i]
 
@@ -40,7 +60,7 @@ def get_force_to_show(sensix_data, q, model_bio):
 
 
 if __name__ == '__main__':
-    participants = ["P10"]
+    participants = ["P9"]
     trials = [["gear_10"]] * len(participants)
     all_data, trials = load_all_data(participants,
                                      "/mnt/shared/Projet_hand_bike_markerless/process_data", trials
@@ -53,12 +73,24 @@ if __name__ == '__main__':
     for p, part in enumerate(all_data.keys()):
         for f, file in enumerate(all_data[part].keys()):
             markers = all_data[part][file]["truncated_markers_vicon"]
-            msk_func = MskFunctions(model="/mnt/shared/Projet_hand_bike_markerless/process_data/P10/models/gear_10_model_scaled_vicon.bioMod",
+            names_from_source = all_data[part][file]["vicon_markers_names"]
+            # put nan at idx where the marker is not visible
+            idx_ts = names_from_source.index("scapts")
+            idx_ai = names_from_source.index("scapia")
+            names_from_source[idx_ts] = "scapia"
+            names_from_source[idx_ai] = "scapts"
+            # markers = all_data[part][file]["markers_depth"][:, :-3, :]
+            msk_func = MskFunctions(model=f"/mnt/shared/Projet_hand_bike_markerless/process_data/{part}/models/gear_10_processed_3_model_scaled_vicon.bioMod",
                                     data_buffer_size=markers.shape[2])
-            q, _ = msk_func.compute_inverse_kinematics(markers, method=InverseKinematicsMethods.BiorbdKalman)
+            markers_target = reorder_markers(markers[:, :-3, :],
+                                             msk_func.model,
+                                             names_from_source[:-3])
+            markers = markers_target
+            q, _, _ = msk_func.compute_inverse_kinematics(markers, method=InverseKinematicsMethods.BiorbdKalman)
             f_ext = get_force_to_show(all_data[part][file]["sensix_data_interpolated"], q, msk_func.model)
+
             b = bioviz.Viz(loaded_model=msk_func.model)
-            b.load_movement(q[:, :200])
-            b.load_experimental_forces(-f_ext[:, :, :200], segments=["ground"], normalization_ratio=0.5)
-            b.load_experimental_markers(markers[:, :, :200])
+            b.load_movement(q[:, :500])
+            b.load_experimental_forces(f_ext[:, :, :500], segments=["ground"], normalization_ratio=0.5)
+            b.load_experimental_markers(markers[:, :, :500])
             b.exec()
