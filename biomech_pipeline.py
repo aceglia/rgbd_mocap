@@ -271,11 +271,14 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
     #              'DELT2',
     #              'DELT3']
     source = ["depth", "vicon", "minimal_vicon"]
+    model_source = ["depth", "vicon", "depth"]
     processed_source = []
     for part in participants:
         all_files = os.listdir(f"{processed_data_path}/{part}")
         all_files = [file for file in all_files if "gear" in file and "result_biomech" not in file and "3_crops" in file]
         for file in all_files:
+            # if "gear_15" not in file:
+            #     continue
             print(f"Processing participant {part}, trial : {file}")
             markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth, peaks = load_data(
                 processed_data_path, part, file, False
@@ -284,14 +287,15 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
             if not results_from_file:
                 all_results = {}
                 for s in range(0, len(markers_from_source)):
-                    model_path = f"{model_dir}/{part}/model_scaled_{source[s]}_seth.bioMod"
+                    model_path = f"{model_dir}/{part}/model_scaled_{model_source[s]}_new_seth.bioMod"
                     track_idx = get_tracking_idx(biorbd.Model(model_path), emg_names)
                     processed_source.append(source[s])
 
-                    model = biorbd.Model(model_path)
                     reorder_marker_from_source = reorder_markers(markers_from_source[s][:, :-3, :],
                                                  biorbd.Model(model_path),
                                                  names_from_source[s][:-3])
+                    model = biorbd.Model(model_path)
+
 
                     msk_function = MskFunctions(model=model, data_buffer_size=6, system_rate=120)
                     result_biomech = process_all_frames(reorder_marker_from_source, msk_function,
@@ -301,7 +305,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                                                         compute_id=True, compute_so=True, compute_jrf=False,
                                                         stop_frame=stop_frame,
                                                         file=f"{processed_data_path}/{part}" + "/" + file,
-                                                        print_optimization_status=True, filter_depth=True,
+                                                        print_optimization_status=False, filter_depth=True,
                                                         emg_names=emg_names
                                                         )
                     result_biomech["markers"] = markers_from_source[s][..., :stop_frame]
@@ -319,7 +323,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                     # b.load_experimental_markers(reorder_marker_from_source)
                     # b.exec()
                 if save_data:
-                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_seth.bio",
+                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_seth_new_model.bio",
                          safe=False)
             else:
                 all_results = load(f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_wt_filter.bio")
@@ -332,7 +336,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
 
 if __name__ == '__main__':
     model_dir = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
-    participants = ["P9", "P10", "P11", "P12",  "P13", "P14", "P15", "P16"]  # ,"P9", "P10",
+    participants = ["P14", "P15", "P16"]#, "P14", "P15", "P16"]#, "P16"]  # ,"P9", "P10",
     processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data"
-    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=2000,
+    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
          plot=False)

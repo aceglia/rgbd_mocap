@@ -97,6 +97,7 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
                 ax.plot(t, results_from_sources[k][plt_name]["mean"][count, :] * factor, line[k], color=color[k], alpha=0.7)
             ax.set_title(joints_names[count], fontsize=font_size)
             ax.tick_params(axis='y', labelsize=font_size - 2)
+            ax.set_xlim(0, 100)
             if i not in [8, 9, 10]:
                 ax.set_xticks([])
                 ax.set_xticklabels([])
@@ -109,7 +110,9 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
             count += 1
         fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
                    loc='upper right', bbox_to_anchor=(0.98, 0.95), fontsize=font_size, frameon=False)
-        # fig.align_ylabels(subplots)
+        plt.xlim(0, 100)
+
+        fig.align_ylabels(subplots)
         #fig.tight_layout()
     subplots = None
     ax = None
@@ -179,6 +182,7 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
                loc='upper center', fontsize=font_size, frameon=False, ncol=3) #bbox_to_anchor=(0.98, 0.95)
     fig.align_ylabels(subplots)
     all_names = [name.to_string() for name in model.muscleNames()]
+    plt.xlim(0, 100)
 
     # plot muscle activations
     # if not isinstance(results_from_sources[0]["mus_act"]["mean"], list):
@@ -221,15 +225,16 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
     #         fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
     #                    loc='upper center', fontsize=font_size, frameon=False, ncol=3)  # bbox_to_anchor=(0.98, 0.95)
 
+if __name__ == '__main__':
 
 if __name__ == '__main__':
     participants = ["P16"]#, "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)#, "gear_15", "gear_20"]] * len(participants)
-    trials = [["gear_10"]] * len(participants)
+    trials = [["gear_20"]] * len(participants)
     all_data, _ = load_results(participants,
                             # "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
                                "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                            file_name="seth_full", trials=trials,
+                            file_name="3_crops_seth_new_model", trials=trials,
                                recompute_cycles=True)
         # load_results(participants,
         #                     "/mnt/shared/Projet_hand_bike_markerless/process_data",
@@ -246,8 +251,8 @@ if __name__ == '__main__':
             plot_results(all_data[part][file],
                          all_data[part][file]["depth"]["track_idx"],
                          all_data[part][file]["depth"]["vicon_to_depth"], sources=("depth", "vicon", "minimal_vicon"),
-                 stop_frame=None, cycle=False, trial_name=trials[0][f], fig_suffix="_" + str(count),
-                         n_cycle=None)
+                 stop_frame=None, cycle=True, trial_name=trials[0][f], fig_suffix="_" + str(count),
+                         n_cycle=70)
             count += 1
             plt.show()
 

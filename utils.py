@@ -138,14 +138,20 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
         name="hand_pedal",
         load=np.zeros((6, 1)),
     )
-    f_ext = np.array([sensix_data["RMY"],
-                      sensix_data["RMX"],
-                      sensix_data["RMZ"],
-                      sensix_data["RFY"],
-                      sensix_data["RFX"],
-                      sensix_data["RFZ"]])
-    # if part not in ["P9", "P10", "P11", "P13"]:
-    #     f_ext = -f_ext
+    if part in ["P10", "P11", "P12", "P13"]:
+        f_ext = np.array([sensix_data["LMY"],
+                          sensix_data["LMX"],
+                          sensix_data["LMZ"],
+                          sensix_data["LFY"],
+                          -sensix_data["LFX"],
+                          -sensix_data["LFZ"]])
+    else:
+        f_ext = np.array([sensix_data["LMY"],
+                          sensix_data["LMX"],
+                          sensix_data["LMZ"],
+                          sensix_data["LFY"],
+                          sensix_data["LFX"],
+                          sensix_data["LFZ"]])
     f_ext = f_ext[:, 0, :]
     return markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth_idx, peaks
 

@@ -7,7 +7,7 @@ import numpy as np
 import time
 from biosiglive import InverseKinematicsMethods, RealTimeProcessingMethod, RealTimeProcessing, save
 from biosiglive.streaming.utils import dic_merger
-from scapula_cluster.from_cluster_to_anato import ScapulaCluster
+# from scapula_cluster.from_cluster_to_anato import ScapulaCluster
 
 
 # def _map_activation(emg_proc, muscle_track_idx, model, emg_names, emg_init=None, mvc_normalized=True):
@@ -90,6 +90,17 @@ def get_tracking_idx(model, emg_names =None):
                 muscle_track_idx.append(j)
     return muscle_track_idx
 
+def _comment_markers(data):
+    markers_list = ["C7", "T10", "EPICM", "ELBOW"]
+    data_tmp = data
+    for marker in markers_list:
+        idx_marker_start = data_tmp.find("marker" + "\t" + marker)
+        if idx_marker_start == -1:
+            print("marker not found")
+        else:
+            idx_marker_end = data_tmp.find("endmarker", idx_marker_start) + len("endmarker")
+            data_tmp = data_tmp[:idx_marker_start] + "/*" +data_tmp[idx_marker_start:idx_marker_end] + "*/" + data_tmp[idx_marker_end:]
+    return data_tmp
 
 def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, dic_to_save=None, file_path=None):
     tic_init = time.time()
@@ -107,8 +118,13 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, di
             data = file.read()
         init_idx = data.find("SEGMENT DEFINITION")
         end_idx = data.find("translations xyz // thorax") + len("translations xyz // thorax") + 1
-        data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n"
+        if "P12" in file_path:
+            data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n"
+        else:
+            data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n"
         data = data[:init_idx] + data_to_insert + data[end_idx:]
+        if "vicon" in model_path and markers.shape[1] == 13:
+            data = _comment_markers(data)
         new_model_path = _compute_new_model_path(file_path, model_path)
         with open(new_model_path, "w") as file:
             file.write(data)
@@ -140,6 +156,9 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, di
         with open(new_model_path, "w") as file:
             file.write(data)
         q = q[6:, :]
+        if "P16" in file_path:
+            q[5, :] = 0.07
+            q[7, :] = -0.19
         # q[:3, :] = 0
         # idx_to_delete = [0, 1, 2]
         # q = np.delete(q, idx_to_delete, axis=0)
@@ -159,9 +178,14 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, di
         q = msk_function.kin_buffer[0].copy()
     if "P11" in file_path:
         q[-1, :] = 0.7
-    if "P16" in file_path:
-        q[5, :] = -0.1
-        q[7, :] = 0.1
+    # if "P16" in file_path:
+    #     q[5, :] = -0.1
+    #     q[7, :] = 0.1
+    # if "P12" in file_path:
+    #     q[3, :] = 0.6
+    #     q[4, :] = -0.04
+    q[-1, :] = 0.3
+
     initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
 
     # if frame_idx == 14:
@@ -336,7 +360,7 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
                 #     anato_from_cluster = _convert_cluster_to_anato(new_cluster, markers[:, -3:, None] * 1000)
                 #     first_idx = marker_names.index("clavac")
                 #     markers[:, first_idx + 1:first_idx + 4] = anato_from_cluster[:3, :, 0] * 0.001
-                markers = markers[:, :-3]
+                # markers = markers[:, :-3]
                 if frame_idx < n_window:
                     return None
             times, dic_to_save = _compute_ik(msk_function,
@@ -344,7 +368,7 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
                                              frame_idx,
                                              kalman_freq=kalman_freq, times=times, dic_to_save=dic_to_save,
                                              file_path=file)
-        # if frame_idx == 3000:
+        # if frame_idx == 1000:
         #     import bioviz
         #     b = bioviz.Viz(loaded_model=msk_function.model)
         #     b.load_movement(msk_function.kin_buffer[0])
@@ -390,8 +414,9 @@ def process_all_frames(markers, msk_function, source, external_loads, scaling_fa
     electro_delay = 0
     track_idx = get_tracking_idx(msk_function.model, emg_names)
     map_idx = _get_map_activation_idx(msk_function.model, emg_names)
-    new_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
-                                 measurements[4], measurements[5], calibration_matrix)
+    # new_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
+    #                              measurements[4], measurements[5], calibration_matrix)
+    new_cluster = None
     for i in range(stop_frame):
         if i > electro_delay:
             emg_tmp = emg if emg is None else emg[:, i-electro_delay]

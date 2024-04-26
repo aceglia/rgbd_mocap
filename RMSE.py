@@ -47,7 +47,7 @@ if __name__ == '__main__':
     # trials[-1] = ["gear_10"]
     all_data, trials = load_results(participants,
                                     "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                                    file_name="_depth_filtered_with_kalman")
+                                    file_name="3_crops_seth_new_model")
     keys = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_act", "mus_force"]
     factors = [1000, 180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 100, 1]
     units = ["mm", "°", "°/s", "°/s²", "N.m", "%"]

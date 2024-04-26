@@ -28,13 +28,13 @@ if __name__ == '__main__':
         finale_scale = [0, 0, 0, 0, 0, 0]
         finale_scale = np.zeros((6, len(participants)))
         for p, participant in enumerate(participants):
-            model_file = f"{model_dir}/{participant}/model_scaled_{source}_seth.bioMod"
+            model_file = f"{model_dir}/{participant}/model_scaled_{source}_new_seth.bioMod"
             with open(model_file, "r") as file:
                 model_data = file.read()
             scale_factors = recursive_find_scale(model_data)
             s_factors = [np.mean(scale) for scale in scale_factors]
             finale_scale[:, p] = s_factors
-        scale_factors_total.append([np.mean(finale_scale, axis=1).round(3), np.std(finale_scale, axis=1).round(3)])
+        scale_factors_total.append([np.mean(finale_scale, axis=1).round(2), np.std(finale_scale, axis=1).round(2)])
         #scale_factors_total.append([finale_scale[i]/len(participants) for i in range(len(finale_scale))] )
     # latex table:
     print(r"""

@@ -19,18 +19,23 @@ if __name__ == '__main__':
     title = ["a) Image plane", "b) Depth axis", "c) 3D space"]
     all_means_file = []
     all_diffs_file = []
+    all_rmse = []
+    all_std = []
     all_colors = []
     fig = plt.figure("bland_alt mark")
     ax1 = plt.subplot2grid(shape=(2, 2), loc=(0, 0))
     ax2 = plt.subplot2grid(shape=(2, 2), loc=(0, 1), sharey=ax1)
     ax3 = plt.subplot2grid(shape=(2, 2), loc=(1, 0), rowspan=1, colspan=2)
     axes = [ax1, ax2, ax3]
+    n_comparison=3
     for j in range(0, 3):
         key = ["markers"]
         n_key = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["markers_depth"].shape[1]
         means_file = np.ndarray((len(participants) * n_key))
         diffs_file = np.ndarray((len(participants) * n_key))
         all_colors = []
+        rmse = np.ndarray((n_comparison, len(participants) * n_key))
+        std = np.ndarray((n_comparison, len(participants) * n_key))
         colors = plt.cm.tab10(np.linspace(0, 1, len(participants)))
         for p, part in enumerate(all_data.keys()):
             # means = np.ndarray((n_key, len(trials[p])))
@@ -38,6 +43,8 @@ if __name__ == '__main__':
             means = None
             diffs = None
             all_colors.append([colors[p]] * n_key)
+            rmse_file = np.ndarray((n_comparison, n_key, len(trials[p])))
+            std_file = np.ndarray((n_comparison, n_key, len(trials[p])))
             for f, file in enumerate(all_data[part].keys()):
                 markers_depth, markers_vicon, vicon_to_depth = load_in_markers_ref(all_data[part][file])
                 sum_minimal = (markers_depth[2, :, :] + markers_vicon[2, vicon_to_depth, :]) / 2

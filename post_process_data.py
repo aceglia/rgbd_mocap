@@ -771,7 +771,8 @@ if __name__ == '__main__':
     participants = ["P9"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
 
-    trials = [["gear_15", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    #trials = [["gear_15", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    trials = [["anat"]] * len(participants)
    # trials[0] = ["gear_10"]
     # trials[0] = ["gear_5", "gear_20"]
     # trials[1] = ["gear_5", "gear_15", "gear_20"]

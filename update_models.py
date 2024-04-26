@@ -10,7 +10,7 @@ if __name__ == '__main__':
     data_to_copy = data_seth[start_idx:]
     for participant in participants:
         for s in source:
-            old_model_path = f"/mnt/shared/Projet_hand_bike_markerless/RGBD/{participant}/model_scaled_{s}.bioMod"
+            old_model_path = f"/mnt/shared/Projet_hand_bike_markerless/RGBD/{participant}/model_scaled_{s}_new.bioMod"
             with open(old_model_path, "r") as file:
                 data = file.read()
             init_idx = data.find("// MUSCLE DEFINIION")
