@@ -8,20 +8,22 @@ from ..processing.multiprocess_handler import MultiProcessHandler, MarkerSet, Sh
 from ..frames.frames import Frames
 from ..crops.crop import DepthCheck, Crop
 from ..processing.process_handler import ProcessHandler
-from ..tracking.utils import print_marker
+from ..tracking.utils import print_marker, check_tracking_config_file
 
 
 class ProcessImage:
     ROTATION = None
     SHOW_IMAGE = False
 
-    def __init__(self, config, tracking_options, static_markers=None, bounded_markers=None, multi_processing=False):
+    def __init__(self, config, tracking_options, static_markers=None, bounded_markers=None,
+                 multi_processing=False, from_dlc=False, dlc_model_path=None, processor=None, marker_names=None):
         # Options
         self.config = config
+        self.from_dlc = from_dlc
 
         # Printing information
         self.computation_time = 0
-
+        config = check_tracking_config_file(config, marker_names)
         # Image
         self.count = 0
         self.path = config['directory']
@@ -29,11 +31,11 @@ class ProcessImage:
         self.masks = config['masks']
         self._dispatch_mask()
         self.first_image_loaded = False
-        self.color, self.depth, _ = self._load_img()
+        self.color, self.depth, _ = self._load_img(return_color=not self.from_dlc)
 
         # Frame
         if not multi_processing:
-            self.frames = Frames(self.color.copy(), self.depth.copy(), self.index)
+            self.frames = Frames(self.color, self.depth, self.index)
         else:
             self.crops = None
             self.frames = SharedFrames(self.color, self.depth, self.index)
@@ -54,7 +56,7 @@ class ProcessImage:
         # for i in range(len(self.marker_sets)):
         #     self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
         self.tracking_options = tracking_options
-        self._init_crops()
+        self._init_crops(from_dlc=from_dlc, dlc_model_path=dlc_model_path, processor=processor)
         # Process
         if not multi_processing:
             self.process_handler = ProcessHandler(self.crops)
@@ -71,12 +73,12 @@ class ProcessImage:
                     crop["filters"]["mask"] = self.masks[n]["value"]
                     break
 
-    def _init_crops(self):
+    def _init_crops(self, from_dlc=False, dlc_model_path=None, processor=None):
         self.crops = []
         for i in range(len(self.marker_sets)):
             self.crops.append(Crop(self.config['crops'][i]["area"], self.frames, self.marker_sets[i],
                                    self.config['crops'][i]["filters"],
-                        self.tracking_options))
+                        self.tracking_options, from_dlc, dlc_model_path, processor))
 
     # Init
     def _init_marker_set(self, static_markers, bounded_markers, bounds, multi_processing):
@@ -113,12 +115,12 @@ class ProcessImage:
         return marker_sets
 
     # Loading
-    def _load_img(self):
+    def _load_img(self, return_color=True):
         color, depth = None, None
         count = 1 if self.first_image_loaded else 0
-        while color is None or depth is None:
-            color, depth = load_img(self.path, self.index + count, self.ROTATION)
-            if color is None or depth is None:
+        while (color is None and return_color is True) or depth is None:
+            color, depth = load_img(self.path, self.index + count, self.ROTATION, return_color)
+            if (color is None and return_color is True) or depth is None:
                 count += 1
                 if self.index == self.config['end_index']:
                     return None, None
@@ -239,14 +241,14 @@ def print_marker_sets(frame, marker_sets):
     return frame
 
 
-def load_img(path, index, rotation=None):  # Possibly change it to also allow the usage of the camera
+def load_img(path, index, rotation=None, return_color=True):  # Possibly change it to also allow the usage of the camera
     color_file = path + os.sep + f"color_{index}.png"
     depth_file = path + os.sep + f"depth_{index}.png"
 
     if not os.path.isfile(color_file) or not os.path.isfile(depth_file):
         return None, None
     try:
-        color_image = cv2.imread(color_file, cv2.IMREAD_GRAYSCALE)
+        color_image = None if not return_color else cv2.imread(color_file, cv2.IMREAD_GRAYSCALE)
         depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
     except:
         return None, None
@@ -254,7 +256,7 @@ def load_img(path, index, rotation=None):  # Possibly change it to also allow th
     if rotation is not None and rotation != Rotation.ROTATE_0:
         if rotation != Rotation.ROTATE_180:
             raise NotImplementedError("Only 180 degrees rotation is implemented")
-        color_image = cv2.rotate(color_image, rotation.value)
+        color_image = None if not return_color else cv2.rotate(color_image, rotation.value)
         depth_image = cv2.rotate(depth_image, rotation.value)
 
     return color_image, depth_image

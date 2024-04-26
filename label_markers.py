@@ -58,7 +58,7 @@ def _init_kin_marker_set():
 
 def main():
     kin_marker_set = _init_kin_marker_set()
-    participants = ["P12"]#, "P10", "P11", "P12", "P13", "P14", "P15"]
+    participants = ["P9"]#, "P10", "P11", "P12", "P13", "P14", "P15"]
     # trials = [["gear_20", "gear_10", "gear_15", "gear_20"]] * len(participants)
     trials = [["only"]] * len(participants)
     data_files = "data_files"
@@ -89,10 +89,16 @@ def main():
                 rgbd.set_marker_to_exclude(["styl_r"])
             rgbd.initialize_tracking(path,
                                      build_kinematic_model=True,
-                                     multi_processing=True,
+                                     use_optical_flow=True,
+                                     multi_processing=False,
                                      kin_marker_set=kin_marker_set,
                                      images_path=f"{data_files}{os.sep}{part}{os.sep}" + file,
-                                     model_name="model_test.bioMod")
+                                     model_name="model_test.bioMod",
+                                     from_dlc=False,
+                                     marker_names=["xiph", "ster", "clavsc", "M1", "M2",
+                                                   "M3", "clavac", "delt", "arm_l", "epic_l",
+                                                   "larm_l", "styl_r", "styl_u"]
+                                     )
             last_frame = rgbd.tracking_config["start_index"]
             while True:
                 if not rgbd.get_frames(fit_model=True, show_image=False, save_data=True, save_video=True,

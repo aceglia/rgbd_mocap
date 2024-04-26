@@ -11,7 +11,6 @@ class ProcessHandler(Handler):
         self.crops_name = [crop.marker_set.name for crop in self.crops]
         self.tracking_option = self.crops[0].tracking_option
         self.blobs = []
-        print(self.crops_name)
 
     def _process_function(self, order):
         self.blobs = []

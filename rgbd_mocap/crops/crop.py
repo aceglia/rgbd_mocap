@@ -1,10 +1,12 @@
 import numpy as np
+from typing import List
 
 from ..frames.crop_frames import Frames, CropFrames
 from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
 from ..tracking.tracking_markers import Tracker, Position
 from ..filters.filter import Filter
+from ..tracking.dlc_live import DlcLive
 
 
 def get_pixels(array, x, y, delta):
@@ -58,24 +60,35 @@ class DepthCheck:
 
 
 class Crop:
-    def __init__(self, area, frame: Frames, marker_set: MarkerSet, filter_option, method):
+    def __init__(self, area, frame: Frames, marker_set: MarkerSet, filter_option, method, from_dlc=False,
+                 dlc_model=None, dlc_processor=None):
         if isinstance(frame, SharedFrames):
             frame.color = np.frombuffer(frame.color_array, dtype=np.uint8).reshape((frame.width, frame.height))
             frame.depth = np.frombuffer(frame.depth_array, dtype=np.int32).reshape((frame.width, frame.height))
             for marker in marker_set:
                 marker.pos = np.frombuffer(marker.raw_array_pos, dtype=np.int32)
-        # Image
-        self.frame = CropFrames(area, frame)
 
         # Marker
         self.marker_set = marker_set
+        self.from_dlc = from_dlc
+        self.dlc_live = None
+        # Image
+        self.frame = CropFrames(area, frame)
+        if from_dlc:
+            self.dlc_live = DlcLive(dlc_model, dlc_processor, depth_scale=DepthCheck.DEPTH_SCALE)
+            first_markers_position = self.dlc_live.get_pose(self.frame.depth)[:, :2]
+            self.set_marker_pos(first_markers_position)
+            self.attribute_depth()
 
         self.depth_min = filter_option['distance_in_centimeters'][0] / 100 / DepthCheck.DEPTH_SCALE
         self.depth_max = filter_option['distance_in_centimeters'][1] / 100 / DepthCheck.DEPTH_SCALE
         self.tracking_option = method
         # Image computing
         self.filter = Filter(filter_option)
-        self.tracker = Tracker(self.frame, marker_set, depth_range=[self.depth_min, self.depth_max], **method)
+        self.tracker = Tracker(
+            self.frame, marker_set, depth_range=[self.depth_min, self.depth_max], from_dlc=from_dlc,
+            dlc_live=self.dlc_live, **method
+        )
 
     def attribute_depth_from_position(self, positions: list[Position]):
         assert len(positions) == len(self.marker_set.markers)
@@ -95,10 +108,21 @@ class Crop:
                 self.marker_set[i].set_depth_visibility(False)
 
     def re_init(self, marker_set, method):
-        self.tracker = Tracker(self.frame, marker_set, **method)
+        self.tracker = Tracker( self.frame, marker_set, depth_range=[self.depth_min, self.depth_max],
+                                from_dlc=self.from_dlc,
+            dlc_live=self.dlc_live, **method)
 
     def attribute_depth(self):
         self.attribute_depth_from_position([marker.pos for marker in self.marker_set])
+
+    def set_marker_pos(self, positions: List[Position]):
+        assert len(self.marker_set.markers) == len(positions)
+        for i in range(len(positions)):
+            if positions[i] != ():
+                self.marker_set[i].set_pos(int(positions[i].position))
+                self.marker_set[i].set_visibility(positions[i].visibility)
+            else:
+                self.marker_set[i].set_visibility(False)
 
     @staticmethod
     def draw_blobs(frame, blobs, color=(255, 0, 0), scale=5):
@@ -114,7 +138,7 @@ class Crop:
         self.frame.update_image()
 
         # Get Blobs
-        blobs = self.filter.get_blobs(self.frame)
+        blobs = [] if self.from_dlc else self.filter.get_blobs(self.frame)
 
         # Get tracking positions
         positions, estimate_positions = self.tracker.track(self.frame, self.filter.filtered_depth, blobs)

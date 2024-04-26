@@ -1,4 +1,5 @@
 import cv2
+import glob
 from ..tracking.tracking_markers import Tracker, Position, MarkerSet, List, CropFrames
 from ..frames.frames import Frames
 
@@ -18,6 +19,45 @@ def get_blobs(frame):
         blobs.append((int(blob.pt[0]), int(blob.pt[1])))
 
     return blobs
+
+
+def check_tracking_config_file(dic, marker_names):
+    end_idx = None
+    if "start_index" not in dic.keys():
+        dic["start_index"], end_idx = _get_first_idx(dic["directory"])
+    if "end_index" not in dic.keys():
+        dic["end_index"] = end_idx if end_idx is not None else _get_first_idx(dic["directory"])[1]
+    if "crops" not in dic.keys():
+        dic["crops"] = [{"name": "crop", "area": (0, 0, 848, 480), "markers": []}]
+        dic["crops"][0]["filters"] = {'blend': 100,
+ 'white_range': [100, 255],
+ 'blob_area': [1, 200],
+ 'convexity': 5,
+ 'circularity': 5,
+ 'distance_between_blobs': 1,
+ 'distance_in_centimeters': [5, 500],
+ 'clahe_clip_limit': 1,
+ 'clahe_grid_size': 3,
+ 'gaussian_blur': 0,
+ 'use_contour': True,
+ 'mask': None,
+ 'white_option': False,
+ 'blob_option': False,
+ 'clahe_option': False,
+ 'distance_option': False,
+ 'masks_option': False}
+        if marker_names:
+            for name in marker_names:
+                dic["crops"][0]["markers"].append({"name": name, "pos": [0, 0]})
+    if "masks" not in dic.keys():
+        dic["masks"] = [None]
+    return dic
+
+def _get_first_idx(directory):
+    all_color_files = glob.glob(directory + "/color*.png")
+    # check where there is a gap in the numbering
+    idx = [int(f.split("\\")[-1].split("_")[-1].removesuffix(".png")) for f in all_color_files]
+    return min(idx), max(idx)
 
 
 def print_blobs(frame, blobs, size=5, color=(0, 255, 0)):

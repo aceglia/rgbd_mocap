@@ -12,8 +12,14 @@ from ..frames.crop_frames import CropFrames
 class Tracker:
     DELTA = 10
 
-    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True, depth_range=None, **kwargs):
+    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True,
+                 depth_range=None, from_dlc=False, dlc_live=None,
+                 **kwargs):
         self.marker_set = marker_set
+        self.from_dlc = from_dlc
+        self.dlc_live = dlc_live
+        if self.from_dlc and dlc_live is None:
+            raise ValueError("DLC live must be provided if from_dlc is True")
 
         # Tracking method
         self.optical_flow = None
@@ -58,6 +64,7 @@ class Tracker:
             # By default, get the last position estimated (via optical flow if used)
             # final_position = positions[-1].position
             return ()
+
         else:
             final_position //= visibility_count
 
@@ -83,10 +90,13 @@ class Tracker:
         if self.kalman:
             prediction = self.kalman.kalman_filters[index].predict()
             # self.get_blob_near_position(prediction, index)
-            position, visible = find_closest_blob(prediction, self.blobs, delta=Tracker.DELTA)
-            self.estimated_positions[index].append(Position(position, visible))
-            if not visible:
-                self.kalman.kalman_filters[index].correct(self.marker_set.markers[index].pos[:2])
+            if len(self.blobs) > 0:
+                position, visible = find_closest_blob(prediction, self.blobs, delta=Tracker.DELTA)
+                self.estimated_positions[index].append(Position(position, visible))
+                if not visible:
+                    self.kalman.kalman_filters[index].correct(self.marker_set.markers[index].pos[:2])
+            else:
+                self.estimated_positions[index].append(Position(prediction, True))
 
         # If we use optical flow get the estimation, if the flow has been found
         # and the level of error is below the threshold then take the estimation
@@ -94,11 +104,12 @@ class Tracker:
         if self.optical_flow:
             estimation, st, err = self.optical_flow[index]
 
-            # threshold = 10
-            # if st == 1 and err < threshold:
             self.get_blob_near_position(estimation, index)
 
-        # return self._merge_positions(self.estimated_positions[index])
+        if self.from_dlc:
+            pos, likelihood = self.dlc_live[index]
+            dlc_visible = likelihood > self.dlc_live.p_cutoff
+            self.estimated_positions[index].append(Position(pos, dlc_visible))
 
     def _correct_overlapping(self, i, j):
         dist_i = self.positions[i].distance_from_marker(self.marker_set[i])
@@ -160,6 +171,11 @@ class Tracker:
         # Track the next position for all markers
         if self.optical_flow:
             self.optical_flow.get_optical_flow_pos(frame.color, self.depth)
+
+        if self.from_dlc:
+            self.dlc_live.get_pose(frame.depth)
+            self.dlc_live.check_from_last()
+
         for marker in enumerate(self.marker_set.markers):
             self._track_marker(marker)
 

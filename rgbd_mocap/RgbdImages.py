@@ -48,6 +48,7 @@ class RgbdImages:
             Only used if the images comes from a file and not a live stream.
 
         """
+        self.from_dlc = None
         self.video_object = None
         self.frame = None
         self.camera_conf_file = camera_conf_file
@@ -264,27 +265,50 @@ class RgbdImages:
         multi_processing=False,
         kin_marker_set=None,
         use_kalman=True,
-        use_optical_flow=True,
+        use_optical_flow=False,
         images_path=None,
         static_markers=None,
+        from_dlc=False,
+        dlc_model_path=None,
+        marker_names=None,
+        processor=None
     ):
+        self.from_dlc = from_dlc
         self.static_markers = static_markers if static_markers else self.static_markers
-        self.tracking_config = load_json(tracking_config_dict)
+        self.tracking_config = {} if not tracking_config_dict else load_json(tracking_config_dict)
+        if from_dlc:
+            multi_processing = False
+            if not images_path:
+                raise ValueError("Please provide the path to the images when using DLC interface.")
+            if use_optical_flow:
+                raise ValueError("Optical flow is not available when using DLC interface.")
+            if not dlc_model_path:
+                raise ValueError("Please provide the path to the model when using DLC interface.")
+
         if images_path:
             self.tracking_config["directory"] = images_path
+        elif not tracking_config_dict:
+            raise ValueError("Please provide the path to the images or the tracking config file.")
+        if marker_names is None and tracking_config_dict is None:
+            raise ValueError("Please provide the marker names or the tracking config file with marker names.")
+
         self.tracking_config["depth_scale"] = self.converter.depth_scale
         self.iter = 0
         now = datetime.datetime.now()
         dt_string = now.strftime("%d-%m-%Y_%H_%M_%S")
 
         tracking_options = {
-            "naive": not use_kalman and not use_optical_flow,
             "kalman": use_kalman,
             "optical_flow": use_optical_flow,
         }
 
-        self.process_image = ProcessImage(self.tracking_config, tracking_options, self.static_markers, multi_processing=multi_processing,
-                                          bounded_markers=[self.quasi_static_markers, self.quasi_static_bounds])
+        self.process_image = ProcessImage(self.tracking_config, tracking_options, self.static_markers,
+                                          multi_processing=multi_processing,
+                                          bounded_markers=[self.quasi_static_markers, self.quasi_static_bounds],
+                                          from_dlc=self.from_dlc,
+                                          dlc_model_path=dlc_model_path,
+                                          processor=processor,
+                                          marker_names=marker_names)
         self.model_name = self.tracking_config['directory'] + os.sep + model_name if model_name else None
         self.build_kinematic_model = build_kinematic_model
         if build_kinematic_model:
