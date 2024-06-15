@@ -156,6 +156,7 @@ class RgbdImages:
             ProcessImage.SHOW_IMAGE = show_image
         if not self.process_image.process_next_image(process_while_loading=True):
             return False
+        self.marker_sets = self.process_image.marker_sets
         fit_model_time = 0
         process_image = None
         if fit_model:
@@ -172,31 +173,49 @@ class RgbdImages:
             self.kinematic_model_checker.fit_kinematics_model(self.process_image)
             fit_model_time = time.time() - tic
             process_image = None
-            if show_image:
+            self.marker_sets = self.kinematic_model_checker.marker_sets
+        if show_image:
+            if self.process_image.frames.color is None:
+                path = self.tracking_config["directory"]
+                idx = self.process_image.index
+                im = cv2.imread(path + f"\color_{idx}.png")
+            else:
                 im = cv2.cvtColor(self.process_image.frames.color, cv2.COLOR_GRAY2RGB)
-                process_image = print_marker_sets(im, self.kinematic_model_checker.marker_sets)
-                for marker_set in self.kinematic_model_checker.marker_sets:
-                    for marker in marker_set:
-                        if marker.is_bounded:
-                            x_offset, y_offset = marker.crop_offset
-                            process_image = cv2.rectangle(process_image, (marker.x_bounds.min + x_offset, marker.y_bounds.min + y_offset),
-                                          (marker.x_bounds.max + x_offset, marker.y_bounds.max + y_offset), (255, 0, 0),
-                                                          1)
+            process_image = print_marker_sets(im, self.marker_sets)
+            from rgbd_mocap.utils import draw_blobs
+            kalman = [pos[0].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:] ]
+            dlc = [pos[1].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:]]
 
-                cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
-                cv2.putText(
-                    process_image,
-                    f"Frame : {self.process_image.index}",
-                    (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 0),
-                    2,
-                    cv2.LINE_AA,
-                )
-                cv2.imshow('Main image :', process_image)
-                if cv2.waitKey(1) == ord('q'):
-                    return False
+            process_image = draw_blobs(process_image, kalman, (255, 0, 0))
+            process_image = draw_blobs(process_image, dlc, (0,0, 255))
+            for m in range(len(dlc)):
+                process_image = cv2.putText(process_image, str(np.round(self.process_image.crops[0].tracker.likelihood[m], 2)),
+                                    (dlc[m][0] + 10, dlc[m][1] + 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0, 255), 1)
+
+
+            for marker_set in self.marker_sets:
+                for marker in marker_set:
+                    if marker.is_bounded:
+                        x_offset, y_offset = marker.crop_offset
+                        process_image = cv2.rectangle(process_image, (marker.x_bounds.min + x_offset, marker.y_bounds.min + y_offset),
+                                      (marker.x_bounds.max + x_offset, marker.y_bounds.max + y_offset), (255, 0, 0),
+                                                      1)
+
+            cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
+            cv2.putText(
+                process_image,
+                f"Frame : {self.process_image.index}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 0),
+                2,
+                cv2.LINE_AA,
+            )
+            cv2.imshow('Main image :', process_image)
+            if cv2.waitKey(1) == ord('q'):
+                return False
 
         for marker_set in self.marker_sets:
             for marker in marker_set:
@@ -204,6 +223,7 @@ class RgbdImages:
                     marker.set_reliability(0.5)
                 if marker.is_depth_visible:
                     marker.set_reliability(0.5)
+
         if save_data:
             if self.iter == 0 and os.path.isfile(file_path):
                 os.remove(file_path)
@@ -228,9 +248,27 @@ class RgbdImages:
                 os.remove(video_path)
 
             if process_image is None:
-                im = cv2.cvtColor(self.process_image.frames.color, cv2.COLOR_GRAY2RGB)
-                process_image = print_marker_sets(im, self.kinematic_model_checker.marker_sets)
-                for marker_set in self.kinematic_model_checker.marker_sets:
+                if self.process_image.frames.color is None:
+                    path = self.tracking_config["directory"]
+                    idx = self.process_image.index
+                    im = cv2.imread(path + f"\color_{idx}.png")
+                else:
+                    im = cv2.cvtColor(self.process_image.frames.color, cv2.COLOR_GRAY2RGB)
+                try:
+                    process_image = print_marker_sets(im, self.marker_sets)
+                    from rgbd_mocap.utils import draw_blobs
+                    kalman = [pos[0].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:]]
+                    dlc = [pos[1].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:]]
+                    process_image = draw_blobs(process_image, kalman, (255, 0, 0))
+                    process_image = draw_blobs(process_image, dlc, (0, 0, 255))
+                    for m in range(len(dlc)):
+                        process_image = cv2.putText(process_image,
+                                                    str(self.process_image.crops[0].tracker.likelihood[m]),
+                                                    (dlc[m][0] + 10, dlc[m][1] + 10),
+                                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+                except:
+                    pass
+                for marker_set in self.marker_sets:
                     for marker in marker_set:
                         if marker.is_bounded:
                             x_offset, y_offset = marker.crop_offset
@@ -239,23 +277,33 @@ class RgbdImages:
                                                           (marker.x_bounds.max + x_offset,
                                                            marker.y_bounds.max + y_offset), (255, 0, 0),
                                                           1)
-            cv2.putText(
-                process_image,
-                f"Frame : {self.process_image.index}",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 0, 0),
-                2,
-                cv2.LINE_AA,
-            )
-            self.video_object = _save_video(process_image,
-                                            (process_image.shape[1], process_image.shape[0]),
-                                            video_path,
-                                            self.converter.color.fps,
-                                            self.video_object)
+            if process_image is not None:
+                cv2.putText(
+                    process_image,
+                    f"Frame : {self.process_image.index}",
+                    (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0, 0, 0),
+                    2,
+                    cv2.LINE_AA,
+                )
+                self.video_object = _save_video(process_image,
+                                                (process_image.shape[1], process_image.shape[0]),
+                                                video_path,
+                                                self.converter.color.fps,
+                                                self.video_object)
         self.iter += 1
         return True
+
+    @staticmethod
+    def _get_tracking_config(track_config):
+        if not isinstance(track_config, dict):
+            return load_json(track_config)
+        elif isinstance(track_config, dict):
+            return track_config
+        else:
+            raise RuntimeError("Tracking config file type not know. Please provide either a path or a dictionnary.")
 
     def initialize_tracking(
         self,
@@ -271,11 +319,13 @@ class RgbdImages:
         from_dlc=False,
         dlc_model_path=None,
         marker_names=None,
-        processor=None
+        processor=None,
+            ignore_all_checks=False,
+            start_idx = None,
     ):
         self.from_dlc = from_dlc
         self.static_markers = static_markers if static_markers else self.static_markers
-        self.tracking_config = {} if not tracking_config_dict else load_json(tracking_config_dict)
+        self.tracking_config = {} if not tracking_config_dict else self._get_tracking_config(tracking_config_dict)
         if from_dlc:
             multi_processing = False
             if not images_path:
@@ -289,6 +339,9 @@ class RgbdImages:
             self.tracking_config["directory"] = images_path
         elif not tracking_config_dict:
             raise ValueError("Please provide the path to the images or the tracking config file.")
+        if start_idx:
+            self.tracking_config["start_index"] = start_idx
+
         if marker_names is None and tracking_config_dict is None:
             raise ValueError("Please provide the marker names or the tracking config file with marker names.")
 
@@ -308,7 +361,8 @@ class RgbdImages:
                                           from_dlc=self.from_dlc,
                                           dlc_model_path=dlc_model_path,
                                           processor=processor,
-                                          marker_names=marker_names)
+                                          marker_names=marker_names,
+                                          ignore_all_checks=ignore_all_checks)
         self.model_name = self.tracking_config['directory'] + os.sep + model_name if model_name else None
         self.build_kinematic_model = build_kinematic_model
         if build_kinematic_model:

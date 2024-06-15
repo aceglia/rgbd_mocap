@@ -13,10 +13,11 @@ class Tracker:
     DELTA = 10
 
     def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True,
-                 depth_range=None, from_dlc=False, dlc_live=None,
+                 depth_range=None, from_dlc=False, dlc_live=None, ignore_all_checks=False,
                  **kwargs):
         self.marker_set = marker_set
         self.from_dlc = from_dlc
+        self.ignore_all_checks = ignore_all_checks
         self.dlc_live = dlc_live
         if self.from_dlc and dlc_live is None:
             raise ValueError("DLC live must be provided if from_dlc is True")
@@ -34,6 +35,7 @@ class Tracker:
         self.naive = naive
         self.frame = None
         self.depth = None
+        self.likelihood = None
 
         # Blobs and positions for tracking in each frame
         self.blobs = None
@@ -49,10 +51,12 @@ class Tracker:
         return visible
 
     @staticmethod
-    def _merge_positions(positions: List[Position]):
+    def _merge_positions(positions: List[Position], ignore_all_checks=False):
         if not positions:
             return ()
-
+        if ignore_all_checks:
+            return Position(np.array([pos.position for pos in positions]).mean(axis=0).astype(int), True)
+        # return Position(positions[-1].position, True)
         final_position = (0, 0)
         visibility_count = 0
         for position in positions:
@@ -70,11 +74,11 @@ class Tracker:
 
         return Position(final_position, visibility_count > 0)
 
-    def merge_positions(self):
+    def merge_positions(self, ignore_all_checks=False):
         self.positions = []
 
         for positions in self.estimated_positions:
-            self.positions.append(self._merge_positions(positions))
+            self.positions.append(self._merge_positions(positions, ignore_all_checks))
 
     def _track_marker(self, marker: Tuple[int, Marker]):
         index, marker = marker
@@ -110,6 +114,7 @@ class Tracker:
             pos, likelihood = self.dlc_live[index]
             dlc_visible = likelihood > self.dlc_live.p_cutoff
             self.estimated_positions[index].append(Position(pos, dlc_visible))
+            self.likelihood.append(likelihood)
 
     def _correct_overlapping(self, i, j):
         dist_i = self.positions[i].distance_from_marker(self.marker_set[i])
@@ -173,16 +178,24 @@ class Tracker:
             self.optical_flow.get_optical_flow_pos(frame.color, self.depth)
 
         if self.from_dlc:
-            self.dlc_live.get_pose(frame.depth)
-            self.dlc_live.check_from_last()
+            self.dlc_live.get_pose()
+            if not self.ignore_all_checks:
+                self.dlc_live.check_from_last()
+        # depth_to_show = self.dlc_live.depth_image.copy()
+        # for p in range(poses.shape[0]):
+        #     cv2.circle(depth_to_show, poses[p, :2].astype(int), 5, (255,0,0), -1)
+        #
+        # cv2.imshow("depth", depth_to_show)
+        # cv2.waitKey(0)
 
+        self.likelihood = []
         for marker in enumerate(self.marker_set.markers):
             self._track_marker(marker)
 
-        self.merge_positions()
-
-        self.check_tracking()
-        self.check_bounds(frame)
+        self.merge_positions(self.ignore_all_checks)
+        if not self.ignore_all_checks:
+            self.check_tracking()
+            self.check_bounds(frame)
 
         # if self.kalman:
         #     self.kalman.correct()

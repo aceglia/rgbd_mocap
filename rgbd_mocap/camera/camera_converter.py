@@ -3,8 +3,11 @@ import json
 
 try:
     import pyrealsense2 as rs
+    rs_package = True
 except ImportError:
-    raise ImportWarning("Cannot use camera: Import of the library pyrealsense2 failed")
+    rs_package = False
+    pass
+    # print ImportWarning("Cannot use camera: Import of the library pyrealsense2 failed")
 # from rgbd_mocap.RgbdImages import RgbdImages
 
 
@@ -32,8 +35,8 @@ class CameraIntrinsics:
         self.ppy = ppx_ppy[1]
 
         self.dist_coefficients = dist_coefficients
-        self.model = rs.distortion.inverse_brown_conrady
-        
+        self.model = rs.distortion.inverse_brown_conrady if rs_model else None
+
         self.fps = fps
         
         self._set_intrinsics_mat()
@@ -103,8 +106,10 @@ class CameraConverter:
         self.color = CameraIntrinsics()
         self.model = model
         self.set_intrinsics = self._set_intrinsics_from_file if not use_camera else self._set_intrinsics_from_pipeline
+        self.set_extrinsics = self._set_extrinsic_from_file
         # Camera extrinsic
         self.depth_to_color = None
+        self.conf_data_dic = None
         self.depth_scale = None
 
     def _set_intrinsics_from_file(self, conf_data: dict):
@@ -118,6 +123,7 @@ class CameraConverter:
             Dictionary containing the values to init the intrinsics of the camera.
         """
         conf_data = load_json(conf_data)
+        self.conf_data_dic = conf_data
         self.depth_scale = conf_data["depth_scale"]
         self.depth.set_intrinsics_from_file(conf_data["depth_fx_fy"],
                                             conf_data["depth_ppx_ppy"],
@@ -130,7 +136,13 @@ class CameraConverter:
                                             conf_data["size_color"], 
                                             conf_data["color_rate"])
 
-    def _set_intrinsics_from_pipeline(self, pipeline: rs.pipeline):
+    def _set_extrinsic_from_file(self, conf_data=None):
+        conf_data = self.conf_data_dic if not conf_data else load_json(conf_data)
+        self.depth_to_color = np.eye(4)
+        self.depth_to_color[:3, :3] = conf_data["depth_to_color_rot"]
+        self.depth_to_color[:3, 3] = conf_data["depth_to_color_trans"]
+
+    def _set_intrinsics_from_pipeline(self, pipeline):
         """
         Private method.
         Set the Camera intrinsics from pipeline.
@@ -178,6 +190,9 @@ class CameraConverter:
             markers.append(computed_pos)
         markers[0][0] = np.array(markers[0][0]).clip(0, self.depth.width)
         markers[0][1] = np.array(markers[0][1]).clip(0, self.depth.height)
+        markers[0][0] = 0 if np.isnan(markers[0][0]) else markers[0][0]
+        markers[0][1] = 0 if np.isnan(markers[0][1]) else markers[0][1]
+
         return np.array(markers, dtype=np.int64)
 
     def get_markers_pos_in_meter(self, marker_pos_in_pixel: np.array):

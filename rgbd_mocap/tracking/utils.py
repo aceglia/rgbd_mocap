@@ -29,23 +29,27 @@ def check_tracking_config_file(dic, marker_names):
         dic["end_index"] = end_idx if end_idx is not None else _get_first_idx(dic["directory"])[1]
     if "crops" not in dic.keys():
         dic["crops"] = [{"name": "crop", "area": (0, 0, 848, 480), "markers": []}]
-        dic["crops"][0]["filters"] = {'blend': 100,
- 'white_range': [100, 255],
- 'blob_area': [1, 200],
- 'convexity': 5,
- 'circularity': 5,
- 'distance_between_blobs': 1,
- 'distance_in_centimeters': [5, 500],
- 'clahe_clip_limit': 1,
- 'clahe_grid_size': 3,
- 'gaussian_blur': 0,
- 'use_contour': True,
- 'mask': None,
- 'white_option': False,
- 'blob_option': False,
- 'clahe_option': False,
- 'distance_option': False,
- 'masks_option': False}
+    for crop in dic["crops"]:
+        if "filters" not in crop.keys():
+            crop["filters"] = {'blend': 100,
+             'white_range': [100, 255],
+             'blob_area': [1, 200],
+             'convexity': 5,
+             'circularity': 5,
+             'distance_between_blobs': 1,
+             'distance_in_centimeters': [5, 500],
+             'clahe_clip_limit': 1,
+             'clahe_grid_size': 3,
+             'gaussian_blur': 0,
+             'use_contour': True,
+             'mask': None,
+             'white_option': False,
+             'blob_option': False,
+             'clahe_option': False,
+             'distance_option': False,
+             'masks_option': False}
+        if "markers" not in crop:
+            crop["markers"] = []
         if marker_names:
             for name in marker_names:
                 dic["crops"][0]["markers"].append({"name": name, "pos": [0, 0]})

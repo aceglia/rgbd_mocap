@@ -16,7 +16,8 @@ class ProcessImage:
     SHOW_IMAGE = False
 
     def __init__(self, config, tracking_options, static_markers=None, bounded_markers=None,
-                 multi_processing=False, from_dlc=False, dlc_model_path=None, processor=None, marker_names=None):
+                 multi_processing=False, from_dlc=False, dlc_model_path=None, processor=None, marker_names=None,
+                 ignore_all_checks=False):
         # Options
         self.config = config
         self.from_dlc = from_dlc
@@ -56,7 +57,7 @@ class ProcessImage:
         # for i in range(len(self.marker_sets)):
         #     self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
         self.tracking_options = tracking_options
-        self._init_crops(from_dlc=from_dlc, dlc_model_path=dlc_model_path, processor=processor)
+        self._init_crops(from_dlc=from_dlc, dlc_model_path=dlc_model_path, processor=processor, ignore_all_checks=ignore_all_checks)
         # Process
         if not multi_processing:
             self.process_handler = ProcessHandler(self.crops)
@@ -73,12 +74,12 @@ class ProcessImage:
                     crop["filters"]["mask"] = self.masks[n]["value"]
                     break
 
-    def _init_crops(self, from_dlc=False, dlc_model_path=None, processor=None):
+    def _init_crops(self, from_dlc=False, dlc_model_path=None, processor=None, ignore_all_checks=False):
         self.crops = []
         for i in range(len(self.marker_sets)):
             self.crops.append(Crop(self.config['crops'][i]["area"], self.frames, self.marker_sets[i],
                                    self.config['crops'][i]["filters"],
-                        self.tracking_options, from_dlc, dlc_model_path, processor))
+                        self.tracking_options, from_dlc, dlc_model_path, processor, ignore_all_checks=ignore_all_checks))
 
     # Init
     def _init_marker_set(self, static_markers, bounded_markers, bounds, multi_processing):
@@ -133,12 +134,12 @@ class ProcessImage:
         else:
             self.last_index = self.index
             self.index += count
-            self.frames.set_images(color.copy(), depth.copy(), self.index)
+            self.frames.set_images(color, depth, self.index)
 
     # Processing
     def _process_after_loading(self):
         # Update frame
-        color, depth, count = self._load_img()
+        color, depth, count = self._load_img(return_color=not self.from_dlc)
 
         tic = time.time()
         # Process image
@@ -154,7 +155,7 @@ class ProcessImage:
         # self.blobs = self.process_handler.blobs
 
         # Load next frame
-        color, depth, count = self._load_img()  # If image could not be loaded then skip to the next one
+        color, depth, count = self._load_img(return_color=not self.from_dlc)  # If image could not be loaded then skip to the next one
 
         # Wait for the end of the processing of the image
         self.process_handler.receive_process()
@@ -227,6 +228,8 @@ class ProcessImage:
         return total_time, total_time / nb_img
 
     def get_processed_image(self):
+        if self.frames.color is None:
+            raise RuntimeError("Show image not available when using from_dlc.")
         img = print_marker_sets(self.frames.color.copy(), self.marker_sets)
         return img
 
