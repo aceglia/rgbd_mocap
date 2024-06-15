@@ -11,42 +11,6 @@ from biosiglive.streaming.utils import dic_merger
 from scapula_cluster.from_cluster_to_anato import ScapulaCluster
 
 
-# def _map_activation(emg_proc, muscle_track_idx, model, emg_names, emg_init=None, mvc_normalized=True):
-#     # emg_names = ["PectoralisMajor",
-#     #              "BIC",
-#     #              "TRI",
-#     #              "LatissimusDorsi",
-#     #              'TrapeziusClav',
-#     #              "DeltoideusClavicle_A",
-#     #              'DeltoideusScapula_M',
-#     #              'DeltoideusScapula_P']
-#     # emg_names = ["PECM",
-#     #              "bic",
-#     #              "tri",
-#     #              "LAT",
-#     #              'TRP1',
-#     #              "DELT1",
-#     #              'DELT2',
-#     #              'DELT3']
-#     if mvc_normalized:
-#         emg_proc = emg_init
-#     act = np.zeros((len(muscle_track_idx), int(emg_proc.shape[1])))
-#     act_init = np.zeros((len(muscle_track_idx), int(emg_proc.shape[1])))
-#     init_count = 0
-#     names = []
-#     idx = []
-#     for j, name in enumerate(emg_names):
-#         count = 0
-#         for i in range(model.nbMuscles()):
-#             if name in model.muscleNames()[i].to_string():
-#                 idx.append(j)
-#                 count += 1
-#         act[list(range(init_count, init_count + count)), :] = emg_proc[j, :]
-#         if emg_init is not None:
-#             act_init[list(range(init_count, init_count + count)), :] = emg_init[j, :]
-#         init_count += count
-#     return act, act_init
-
 def _map_activation(emg_proc, map_idx):
     act = np.zeros((len(map_idx), int(emg_proc.shape[1])))
     for i in range(len(map_idx)):
@@ -67,29 +31,13 @@ def get_tracking_idx(model, emg_names =None):
     muscle_list = []
     for i in range(model.nbMuscles()):
         muscle_list.append(model.muscleNames()[i].to_string())
-    # emg_names = ["PectoralisMajor",
-    #              "BIC",
-    #              "TRI",
-    #              "LatissimusDorsi",
-    #              'TrapeziusClav',
-    #              "DeltoideusClavicle_A",
-    #              'DeltoideusScapula_M',
-    #              'DeltoideusScapula_P']
-    # emg_names = ["PECM",
-    #              "bic",
-    #              "tri",
-    #              "LAT",
-    #              'TRP1',
-    #              "DELT1",
-    #              'DELT2',
-    #              'DELT3']
-
     muscle_track_idx = []
     for i in range(len(emg_names)):
         for j in range(len(muscle_list)):
             if emg_names[i] in muscle_list[j]:
                 muscle_track_idx.append(j)
     return muscle_track_idx
+
 
 def _comment_markers(data):
     markers_list = ["C7", "T10", "EPICM", "ELBOW"]

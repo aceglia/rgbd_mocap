@@ -3,7 +3,7 @@ import numpy as np
 
 if __name__ == '__main__':
     participants = ["P9", "P10", "P11", "P12",  "P13", "P14", "P15", "P16"]
-    data_path = "data_collection_mesurement"
+    data_path = "../data_collection_mesurement"
     all_age = []
     all_height = []
     all_weight = []

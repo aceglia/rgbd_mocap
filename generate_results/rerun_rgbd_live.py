@@ -33,7 +33,7 @@ def reorder_markers(markers, model, names):
 def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
     # Visualize the data as RDF
     rr.log("animation_phase_0", rr.ViewCoordinates.RDF, timeless=True)
-    camera_conf_file = f"config_camera_files\config_camera_P9.json"
+    camera_conf_file = f"../config_camera_files/config_camera_P9.json"
     # rgbd = RgbdImages(path_to_camera_config_file)
     converter = CameraConverter()
     converter.set_intrinsics(camera_conf_file)
@@ -104,7 +104,7 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
     import os
     import glob
     import cv2
-    image_path = r"data_files"
+    image_path = r"../data_files"
     main_path = "F:\markerless_project"
     main_path = "Q:\Projet_hand_bike_markerless\RGBD"
     # participants = ["P9"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]

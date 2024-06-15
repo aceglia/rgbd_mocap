@@ -4,7 +4,7 @@ import os
 import glob
 
 # Path to the folder with the images
-path = r"Q:\Projet_hand_bike_markerless\RGBD\P9\random_11-01-2024_17_34_20"
+path = r"Q:\Projet_hand_bike_markerless\RGBD\P9\only_rgbd_11-01-2024_17_27_39"
 all_color_files = glob.glob(path + "/color*.png")
 all_depth_files = glob.glob(path + "/depth*.png")
 # check where there is a gap in the numbering
@@ -33,7 +33,7 @@ for i in range(1000, 1800):
         depth,
     )
     min_depth = np.min(depth[depth > 0])
-    min_depth = 200
+    # min_depth = 200
     max_depth = np.max(depth)
     normalize_depth = (depth - min_depth) / (max_depth - min_depth)
     normalize_depth[depth == 0] = 0

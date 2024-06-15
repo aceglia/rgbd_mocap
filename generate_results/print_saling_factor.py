@@ -5,7 +5,7 @@ import os
 
 
 if __name__ == '__main__':
-    dir = "D:\Documents\Programmation\pose_estimation\data_collection_mesurement"
+    dir = "/data_collection_mesurement"
     tmp_scaling_1 = "Q:\Projet_hand_bike_markerless\RGBD\scaling_tool_minimal_1.xml"
     tmp_scaling_2 = "Q:\Projet_hand_bike_markerless\RGBD\scaling_tool_minimal_2.xml"
     data_path = "Q:\Projet_hand_bike_markerless/RGBD"
