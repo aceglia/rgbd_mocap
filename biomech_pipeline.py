@@ -2,13 +2,15 @@ import os
 from scipy.signal import find_peaks
 
 import biorbd
+from post_process_data import ProcessData
+
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from math import ceil
 import biorbd
-from utils import load_data
+from utils import load_data, load_data_from_dlc
 try:
     from msk_utils import process_all_frames, get_tracking_idx
 except:
@@ -230,7 +232,7 @@ def process_cycles(all_results, peaks, n_peaks=None):
         data_size = all_results[key]["q_raw"].shape[1]
         dic_tmp = {}
         for key2 in all_results[key].keys():
-            if key2 == "cycle":
+            if key2 == "cycle" or key2 == "rt_matrix":
                 continue
             array_tmp = None
             if not isinstance(all_results[key][key2], np.ndarray):
@@ -270,73 +272,147 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
     #              "DELT1",
     #              'DELT2',
     #              'DELT3']
-    source = ["depth", "vicon", "minimal_vicon"]
-    model_source = ["depth", "vicon", "depth"]
+    source = ["depth", "dlc", "minimal_vicon"]#, "depth"]#, "minimal_vicon"]
+    # model_source = ["depth", "vicon", "depth"]
+    model_source = ["depth", "dlc", "minimal_vicon"]
     processed_source = []
+    models = ["normal"] #"non_augmented", "hist_eq",
+    filtered = ["alone"]
     for part in participants:
         all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if "gear" in file and "result_biomech" not in file and "3_crops" in file]
+        # all_files = [file for file in all_files if "gear" in file and "result_biomech" not in file and "3_crops" in file]
+        all_files = [file for file in all_files if "gear" in file and "less" not in file and "more" not in file]
         for file in all_files:
-            # if "gear_15" not in file:
+            # if part == "P14" and "gear_5" in file:
             #     continue
-            print(f"Processing participant {part}, trial : {file}")
-            markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth, peaks = load_data(
-                processed_data_path, part, file, False
-            )
-            # model_path = f"{model_dir}/{part}/model_scaled_{source[0]}_seth.bioMod"
-            if not results_from_file:
-                all_results = {}
-                for s in range(0, len(markers_from_source)):
-                    model_path = f"{model_dir}/{part}/model_scaled_{model_source[s]}_new_seth.bioMod"
-                    track_idx = get_tracking_idx(biorbd.Model(model_path), emg_names)
-                    processed_source.append(source[s])
+            path = f"{processed_data_path}{os.sep}{part}{os.sep}{file}"
+            labeled_data_path = f"{path}{os.sep}marker_pos_multi_proc_3_crops_pp.bio"
+            for model in models:
+                for filt in filtered:
+                    dlc_data_path = f"{path}{os.sep}marker_pos_multi_proc_3_crops_{model}_{filt}_pp.bio"
+                    data_dlc, data_labeling = load_data_from_dlc(labeled_data_path, dlc_data_path, part, file)
+                    new_markers_dlc = np.zeros((3,
+                                                  data_dlc["markers_in_meters"].shape[1],
+                                                  data_dlc["markers_in_meters"].shape[2]
+                                                  ))
+                    markers_dlc_hom = np.ones((4, data_dlc["markers_in_meters"].shape[1], data_dlc["markers_in_meters"].shape[2]))
+                    markers_dlc_hom[:3, ...] = data_dlc["markers_in_meters"][:3, ...]
+                    frame_idx = data_dlc["frame_idx"]
 
-                    reorder_marker_from_source = reorder_markers(markers_from_source[s][:, :-3, :],
-                                                 biorbd.Model(model_path),
-                                                 names_from_source[s][:-3])
-                    model = biorbd.Model(model_path)
+                    # markers_from_source = [data_dlc["markers_in_meters"], data_init["markers_depth_initial"],
+                    #                        markers_vicon]
+
+                    # if "gear_15" not in file:
+                    #     continue
+                    print(f"Processing participant {part}, trial : {file}")
+                    markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
+                        "Q://Projet_hand_bike_markerless/process_data", part, f"{file.split('_')[0]}_{file.split('_')[1]}", True
+                    )
+                    for k in range(new_markers_dlc.shape[2]):
+                        new_markers_dlc[:, :, k] = np.dot(np.array(rt), markers_dlc_hom[:, :, k])[:3, :]
+                    new_markers_dlc = ProcessData()._fill_and_interpolate(data=new_markers_dlc,
+                                                       idx=frame_idx,
+                                                       shape=markers_from_source[0].shape[2],
+                                                       fill=True)
+                    new_markers_dlc_filtered = np.zeros((3, new_markers_dlc.shape[1], new_markers_dlc.shape[2]))
+                    for i in range(3):
+                        new_markers_dlc_filtered[i, :, :] = OfflineProcessing().butter_lowpass_filter(
+                            new_markers_dlc[i, :, :],
+                            2, 120, 2)
+
+                    # emg, forces, f_ext, vicon_to_depth, peaks = None, None, None, None, None
+                    markers_from_source[1] = new_markers_dlc_filtered #, data_labeling["markers_in_meters"]]
+                    names_from_source[1] = names_from_source[0]#, "labeling"]
+                    # model_path = f"{model_dir}/{part}/model_scaled_{source[0]}_seth.bioMod"
+
+                    if not results_from_file:
+                        all_results = {}
+                        markers_to_save = []
+                        q_to_save = []
+                        q_dot_to_save = []
+                        for s in range(0, len(markers_from_source)):
+                            model_path = f"{model_dir}/{part}/model_scaled_{model_source[s]}_new_seth.bioMod"
+                            # track_idx = get_tracking_idx(biorbd.Model(model_path), emg_names)
+                            processed_source.append(source[s])
+                            # if s != "dlc":
+                            reorder_marker_from_source = reorder_markers(markers_from_source[s][:, :-3, :],
+                                                                         biorbd.Model(model_path),
+                                                                         names_from_source[s][:-3])
+                            markers_to_save.append(reorder_marker_from_source)
 
 
-                    msk_function = MskFunctions(model=model, data_buffer_size=6, system_rate=120)
-                    result_biomech = process_all_frames(reorder_marker_from_source, msk_function,
-                                                        source[s],
-                                                        forces, (1000, 10), emg,
-                                                        f_ext,
-                                                        compute_id=True, compute_so=True, compute_jrf=False,
-                                                        stop_frame=stop_frame,
-                                                        file=f"{processed_data_path}/{part}" + "/" + file,
-                                                        print_optimization_status=False, filter_depth=True,
-                                                        emg_names=emg_names
-                                                        )
-                    result_biomech["markers"] = markers_from_source[s][..., :stop_frame]
-                    result_biomech["track_idx"] = track_idx
-                    result_biomech["vicon_to_depth"] = vicon_to_depth
+                            # else:
+                            #     reorder_marker_from_source = markers_from_source[s][:, :-3, :]
+                            bio_model = biorbd.Model(model_path)
 
-                    all_results[source[s]] = result_biomech
-                    all_results = process_cycles(all_results, peaks, n_peaks=None)
+                            msk_function = MskFunctions(model=bio_model, data_buffer_size=6, system_rate=120)
+                            result_biomech = process_all_frames(reorder_marker_from_source, msk_function,
+                                                                source[s],
+                                                                forces, (1000, 10), emg,
+                                                                f_ext,
+                                                                compute_id=False, compute_so=False, compute_jrf=False,
+                                                                stop_frame=stop_frame,
+                                                                file=f"{processed_data_path}/{part}" + "/" + file,
+                                                                print_optimization_status=False, filter_depth=False,
+                                                                emg_names=emg_names,
+                                                                measurements=None
+                                                                )
+                            q_to_save.append(result_biomech["q_raw"])
+                            q_dot_to_save.append(result_biomech["q_dot"])
 
-                    print("Done for source ", source[s])
-
-                    # import bioviz
-                    # b = bioviz.Viz(loaded_model=msk_function.model, show_floor=False)
-                    # b.load_movement(result_biomech["q_raw"])
-                    # b.load_experimental_markers(reorder_marker_from_source)
-                    # b.exec()
-                if save_data:
-                    save(all_results, f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_seth_new_model.bio",
-                         safe=False)
-            else:
-                all_results = load(f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_wt_filter.bio")
-                all_results = process_cycles(all_results, peaks, n_peaks=None)
-                processed_source = list(all_results.keys())
-            if plot:
-                plot_results(all_results, markers_from_source, track_idx, vicon_to_depth,
-                             stop_frame=stop_frame, sources=processed_source, cycle=False)
+                        dic_to_save_tmp = {"markers_dlc": markers_to_save[1],
+                                           "markers_vicon": markers_to_save[2],
+                                           "markers_depth": markers_to_save[0],
+                                             "q_depth": q_to_save[0],
+                                                "q_vicon": q_to_save[2],
+                                                "q_dlc": q_to_save[1],
+                                           "q_dot_depth": q_dot_to_save[0],
+                                           "q_dot_vicon": q_dot_to_save[2],
+                                           "q_dot_dlc": q_dot_to_save[1],
+                                           "image_idx": data_dlc["frame_idx"],
+                                           "emg": emg,
+                                           "f_ext": f_ext,
+                                           "peaks": peaks,
+                                           "rt_matrix": rt,
+                                           "markers_names": names_from_source[0],
+                                           }
+                        save(dic_to_save_tmp, f"{path}{os.sep}reoriented_dlc_markers.bio", add_data=False, safe=False)
+                    #         result_biomech["markers"] = reorder_marker_from_source[..., :stop_frame]
+                    #         result_biomech["image_idx"] = data_dlc["frame_idx"]
+                    #         result_biomech["rt_matrix"] = rt
+                    #         # result_biomech["track_idx"] = track_idx
+                    #         # result_biomech["vicon_to_depth"] = vicon_to_depth
+                    #         all_results[source[s]] = result_biomech
+                    #         print("Done for source ", source[s])
+                    #
+                    #         # import bioviz
+                    #         # b = bioviz.Viz(loaded_model=msk_function.model, show_floor=False)
+                    #         # b.load_movement(result_biomech["q_raw"])
+                    #         # b.load_experimental_markers(reorder_marker_from_source)
+                    #         # b.exec()
+                    #     all_results = process_cycles(all_results, peaks, n_peaks=None)
+                    #     if save_data:
+                    #         save(all_results, f"Q://Projet_hand_bike_markerless/process_data\{part}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}_{model}_{filt}.bio",
+                    #              safe=False)
+                    #         print("Saved")
+                    #
+                    # else:
+                    #     all_results = load(f"{processed_data_path}/{part}/result_biomech_{Path(file).stem}_wt_filter.bio")
+                    #     all_results = process_cycles(all_results, peaks, n_peaks=None)
+                    #     processed_source = list(all_results.keys())
+                    # if plot:
+                    #     plot_results(all_results, markers_from_source, track_idx, vicon_to_depth,
+                    #                  stop_frame=stop_frame, sources=processed_source, cycle=False)
 
 
 if __name__ == '__main__':
-    model_dir = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
-    participants = ["P14", "P15", "P16"]#, "P14", "P15", "P16"]#, "P16"]  # ,"P9", "P10",
-    processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data"
-    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
+    model_dir = "Q://Projet_hand_bike_markerless/RGBD"
+    # model_dir = "F:\markerless_project"
+    participants = [f"P{i}" for i in range(15, 17)]
+    if "P12" in participants:
+        participants.pop(participants.index("P12"))
+#, "P10"]#"P14", "P15", "P16"]#, "P14", "P15", "P16"]#, "P16"]  # ,"P9", "P10",
+    processed_data_path = "Q://Projet_hand_bike_markerless/RGBD" #"/mnt/shared/Projet_hand_bike_markerless/process_data"
+    # processed_data_path = "F://markerless_project"
+    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=2000,
          plot=False)

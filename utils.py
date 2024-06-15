@@ -7,6 +7,8 @@ from biosiglive.processing.msk_utils import ExternalLoads
 from biosiglive import OfflineProcessing
 from scipy.signal import find_peaks
 from scipy.interpolate import interp1d
+from scapula_cluster.from_cluster_to_anato import ScapulaCluster
+import json
 
 
 def _load_data(data_path, part, file, end_idx=None):
@@ -39,6 +41,35 @@ def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
             vicon_to_depth_idx.append(vicon_markers_names.index(name))
     return vicon_to_depth_idx
 
+def load_results_offline(participants, processed_data_path, trials=None, file_name="", to_exclude=None, recompute_cycles=True):
+    if trials is None:
+        trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    all_data = {}
+    for p, part in enumerate(participants):
+        all_data[part] = {}
+        all_files = os.listdir(f"{processed_data_path}/{part}")
+        all_files = [file for file in all_files if "gear" in file
+                     # and "result_offline" in file
+                     # and file_name in file
+                     # and "3_crops" in file and "3_crops_3_crops" not in file
+                     ]
+        trials_tmp = []
+        for file in all_files:
+            for trial in trials[p]:
+                if trial not in file:
+                    continue
+                if not os.path.isfile(f"{processed_data_path}/{part}/{file}/result_offline_{file}_normal_alone.bio"):
+                    continue
+                trial = file.split("_")[0] + "_" + file.split("_")[1]
+                print(f"Processing participant {part}, trial : {file}")
+                all_data[part][file] = load(f"{processed_data_path}/{part}/{file}/result_offline_{file}_normal_alone.bio")
+                if recompute_cycles:
+                    peaks = find_peaks(all_data[part][file]["vicon"]["markers"][0, -1, :])[0]
+                    all_data[part][file] = process_cycles_offline(all_data[part][file], peaks)
+                trials_tmp.append(trial)
+        trials[p] = trials_tmp
+    return all_data, trials
+
 
 def load_results(participants, processed_data_path, trials=None, file_name="", to_exclude=None, recompute_cycles=True):
     if trials is None:
@@ -47,8 +78,11 @@ def load_results(participants, processed_data_path, trials=None, file_name="", t
     for p, part in enumerate(participants):
         all_data[part] = {}
         all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if "gear" in file and "result_biomech" in file and file_name in file
-                     and "3_crops" in file and "3_crops_3_crops" not in file]
+        all_files = [file for file in all_files if "gear" in file
+                     # and "result_offline" in file
+                     and file_name in file
+                     # and "3_crops" in file and "3_crops_3_crops" not in file
+                     ]
         trials_tmp = []
         for file in all_files:
             for trial in trials[p]:
@@ -57,7 +91,7 @@ def load_results(participants, processed_data_path, trials=None, file_name="", t
                 print(f"Processing participant {part}, trial : {file}")
                 all_data[part][file] = load(f"{processed_data_path}/{part}/{file}")
                 if recompute_cycles:
-                    peaks = find_peaks(all_data[part][file]["vicon"]["markers"][2, -4, :])[0]
+                    peaks = find_peaks(all_data[part][file]["minimal_vicon"]["markers"][2, -4, :])[0]
                     all_data[part][file] = process_cycles(all_data[part][file], peaks)
                 trials_tmp.append(trial)
         trials[p] = trials_tmp
@@ -82,7 +116,8 @@ def load_in_markers_ref(data):
 
 
 def load_data(data_path, part, file, filter_depth, end_idx=None, ):
-    data = load(f"{data_path}/{part}/{file}")
+    data = load(f"{data_path}/{part}/{file}_processed_3_crops_rt.bio")
+    rt = data["rt_matrix"]
 
     markers_depth = data["markers_depth_interpolated"]
     is_visible = np.repeat(data["is_visible"][np.newaxis, :, :], 3, axis=0)
@@ -117,7 +152,7 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
     markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
     for i in range(3):
         markers_depth_filtered[i, :, :] = OfflineProcessing().butter_lowpass_filter(markers_depth[i, :, :],
-                                                                                    4, 120, 4)
+                                                                                    2, 120, 2)
     depth = markers_depth_filtered if filter_depth else markers_depth
     markers_from_source = [depth, markers_vicon, markers_minimal_vicon]
     # plt.figure("markers")
@@ -153,7 +188,142 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
                           sensix_data["LFX"],
                           sensix_data["LFZ"]])
     f_ext = f_ext[:, 0, :]
-    return markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth_idx, peaks
+    return markers_from_source, names_from_source, forces, f_ext, emg, vicon_to_depth_idx, peaks, rt
+
+
+def _reorder_markers_from_names(markers_data, ordered_markers_names, markers_names):
+    count = 0
+    reordered_markers = np.zeros((markers_data.shape[0], len(ordered_markers_names), markers_data.shape[2]))
+    for i in range(len(markers_names)):
+        if markers_names[i] == "elb":
+            markers_names[i] = "elbow"
+        if _convert_string(markers_names[i]) in ordered_markers_names:
+            reordered_markers[:, ordered_markers_names.index(_convert_string(markers_names[i])),
+            :] = markers_data[:, count, :]
+            count += 1
+    return reordered_markers
+
+
+def load_data_from_dlc(labeled_data_path, dlc_data_path, part, file,):
+    init_depth_markers_names = ['ster', 'xiph', 'clavsc', 'clavac',
+                           'delt', 'arml',  'epicl', 'larml', 'stylu', 'stylr', 'm1', 'm2', 'm3']
+    # init_dlc_markers_names = ['ster', 'xiph', 'clavsc', 'clavac',
+    #                        'delt', 'epicl', 'arml', 'stylu', 'stylr', 'larml',   'm1', 'm2', 'm3']
+    init_dlc_markers_names = ['ster', 'xiph', 'clavsc', 'clavac',
+                                    'delt', 'arml', 'epicl', 'larml', 'stylr', 'stylu', 'm1', 'm2', 'm3']
+    names = [init_dlc_markers_names, init_dlc_markers_names]
+    measurements_dir_path = "data_collection_mesurement"
+    calibration_matrix_dir = "../scapula_cluster/calibration_matrix"
+    markers_names_list = []
+    reordered_markers_list = []
+    dict_list = [{}, {}]
+    for p, path in enumerate([labeled_data_path, dlc_data_path]):
+        markers_names_list.append([])
+        reordered_markers_list.append([])
+        data = load(path)
+        dict_list[p]["frame_idx"] = data["frame_idx"]
+        depth_markers = data["markers_in_meters"]
+        markers_in_pixel = data["markers_in_pixel"]
+        depth_markers_names = list(data["markers_names"][:13, 0])
+        reordered_markers_depth = _reorder_markers_from_names(depth_markers, names[p], depth_markers_names,
+                                                                   )
+        reordered_markers_pixel = _reorder_markers_from_names(markers_in_pixel, names[p],  depth_markers_names,
+                                                                   )
+        measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"
+))
+        measurements = measurement_data[f"with_depth"]["measure"]
+        calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[f"with_depth"][
+            "calibration_matrix_name"]
+        anato_from_cluster, landmarks_dist = _convert_cluster_to_anato(measurements,
+                                                                            calibration_matrix,
+                                                                            reordered_markers_depth[:,
+                                                                            -3:, :] * 1000)
+        first_idx = init_depth_markers_names.index("clavac")
+        reordered_markers_depth = np.concatenate((reordered_markers_depth[:3, :first_idx + 1, :],
+                                                    anato_from_cluster[:3, :, :] * 0.001,
+                                                    reordered_markers_depth[:3, first_idx + 1:, :]),
+                                                   axis=1)
+        depth_markers_names = names[p][:first_idx + 1] + ["scapaa", "scapia", "scapts"] + names[p][first_idx+1:]
+        dict_list[p]["markers_in_meters"] = reordered_markers_depth
+        dict_list[p]["markers_in_pixel"] = reordered_markers_pixel
+        dict_list[p]["markers_names"] = depth_markers_names
+        # styl_u = dict_list[p]["markers_in_meters"][:, -1, :].copy()
+        # larm = dict_list[p]["markers_in_meters"][:, -3, :].copy()
+        # dict_list[p]["markers_in_meters"][:, -3, :] = styl_u
+        # dict_list[p]["markers_in_meters"][:, -1, :] = larm
+    data_dlc, data_labeling = check_frames(dict_list[0], dict_list[1])
+    return data_dlc, data_labeling
+
+
+def check_frames(data_labeling, data_dlc):
+    data = list(np.copy(data_labeling["frame_idx"]))
+    ref = list(np.copy(data_dlc["frame_idx"]))
+    type_1 = 0
+    type = 0
+    idx_init = 0
+    idx = 0
+    datalist = [data_dlc, data_labeling]
+    for key in data_dlc.keys():
+        if key == "markers_names":
+            continue
+        if data[0] > ref[0]:
+            idx_init = ref.index(data[0])
+            ref = ref[idx_init:]
+            type_1 = 0
+        elif data[0] < ref[0]:
+            idx_init = data.index(ref[0])
+            data = data[idx_init:]
+            type_1 = 1
+        if isinstance(data_dlc[key], np.ndarray):
+            datalist[type_1][key] = datalist[type_1][key][..., idx_init:]
+        else:
+            datalist[type_1][key] = datalist[type_1][key][idx_init:]
+        if data[-1] < ref[-1]:
+            idx = ref.index(data[-1])
+            idx += 1
+            ref = ref[:idx]
+            type = 0
+        elif data[-1] > ref[-1]:
+            idx = data.index(ref[-1])
+            idx += 1
+            data = data[:idx]
+            type = 1
+        if idx != 0:
+            if isinstance(datalist[type][key], np.ndarray):
+                datalist[type][key] = datalist[type][key][..., :idx]
+            else:
+                datalist[type][key] = datalist[type][key][:idx]
+    if ref != data:
+        # longest = ref if len(ref) > len(data) else data
+        # smallest = data if len(ref) > len(data) else ref
+        # type = 1 if len(ref) > len(data) else 0
+        # for idx in longest:
+        #     if idx in smallest:
+        #         continue
+        #     else:
+        #         for key in data_dlc.keys():
+        #             if isinstance(datalist[type][key], np.ndarray):
+        #                 datalist[type][key] = np.delete(datalist[type][key], longest.index(idx), axis=-1)
+        #             else:
+        #                 datalist[type][key].pop(longest.index(idx))
+        print(1)
+    return datalist[0], datalist[1]
+
+
+def _convert_cluster_to_anato(measurements,
+                              calibration_matrix, data):
+
+    new_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
+                                 measurements[4], measurements[5], calibration_matrix)
+
+    anato_pos = new_cluster.process(marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"],
+                                    save_file=False)
+    anato_pos_ordered = np.zeros_like(anato_pos)
+    anato_pos_ordered[:, 0, :] = anato_pos[:, 0, :]
+    anato_pos_ordered[:, 1, :] = anato_pos[:, 2, :]
+    anato_pos_ordered[:, 2, :] = anato_pos[:, 1, :]
+    land_dist = new_cluster.get_landmarks_distance()
+    return anato_pos, land_dist
 
 
 def load_all_data(participants, processed_data_path, trials=None):
@@ -383,12 +553,40 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     return bias, lower_loa, upper_loa
 
 
+def process_cycles_offline(all_results, peaks, n_peaks=None):
+    for key in ["dlc", "depth", "vicon"]:
+        data_size = all_results[key]["q"].shape[1]
+        dic_tmp = {}
+        for key2 in all_results[key].keys():
+            array_tmp = None
+            if not isinstance(all_results[key][key2], np.ndarray):
+                dic_tmp[key2] = []
+                continue
+            if n_peaks and n_peaks > len(peaks) - 1:
+                raise ValueError("n_peaks should be less than the number of peaks")
+            for k in range(len(peaks) - 1):
+                if peaks[k + 1] > data_size:
+                    break
+                interp_function = _interpolate_data_2d if len(all_results[key][key2].shape) == 2 else _interpolate_data
+                if array_tmp is None:
+                    array_tmp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    array_tmp = array_tmp[None, ...]
+                else:
+                    data_interp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    array_tmp = np.concatenate((array_tmp, data_interp[None, ...]), axis=0)
+            dic_tmp[key2] = array_tmp
+        all_results[key]["cycles"] = dic_tmp
+    return all_results
+
+
 def process_cycles(all_results, peaks, n_peaks=None):
     for key in all_results.keys():
+        if key == "file":
+            continue
         data_size = all_results[key]["q_raw"].shape[1]
         dic_tmp = {}
         for key2 in all_results[key].keys():
-            if key2 == "cycle":
+            if key2 == "cycle" or key2 == "rt_matrix":
                 continue
             array_tmp = None
             if not isinstance(all_results[key][key2], np.ndarray):

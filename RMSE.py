@@ -42,16 +42,17 @@ def compute_std(data, ref):
 
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11","P12", "P13", "P14", "P15", "P16"]
+    participants = ["P9"]#, "P10", "P11", "P13", "P14", "P15", "P16"]
     # trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     # trials[-1] = ["gear_10"]
     all_data, trials = load_results(participants,
-                                    "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                                    file_name="3_crops_seth_new_model")
-    keys = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_act", "mus_force"]
+                                    "Q:/Projet_hand_bike_markerless/process_data",
+                                    file_name="normal_alone",
+                                    recompute_cycles=False)
+    keys = ["markers", "q_raw"] #, "q_dot", "q_ddot", "tau", "mus_act", "mus_force"]
     factors = [1000, 180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 100, 1]
     units = ["mm", "°", "°/s", "°/s²", "N.m", "%"]
-    source = ["vicon", "minimal_vicon", "minimal_vicon"]
+    source = ["depth", "minimal_vicon", "minimal_vicon"]
 
     for k, key in enumerate(keys):
         all_colors = []
