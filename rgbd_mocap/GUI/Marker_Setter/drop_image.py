@@ -25,7 +25,7 @@ class DropImage(QLabel):
     from the DropImage.
     """
 
-    def __init__(self, marker_adder=None, area=None, name='Crop'):
+    def __init__(self, marker_adder=None, area=None, name="Crop"):
         """
         Initialize a DropImage
         :param marker_adder: MarkerSetter to link with the MarkerAdder
@@ -157,8 +157,12 @@ class DropImage(QLabel):
         if self.current_q_rubber_band is not None:
             try:
                 rect = self.current_q_rubber_band.geometry()
-                rect.adjust(- self.start_x, - self.start_y,
-                            - self.start_x, - self.start_y, )
+                rect.adjust(
+                    -self.start_x,
+                    -self.start_y,
+                    -self.start_x,
+                    -self.start_y,
+                )
 
                 markers_to_delete = self.get_marker_in(rect.getCoords())
                 for marker in markers_to_delete:
@@ -190,8 +194,7 @@ class DropImage(QLabel):
             y = (pos.x() - self.start_x) * self.image.shape[1] // self.resized_image.width()
 
             ### If found check the validity of the given position
-            if (self.image.shape[0] < x or x < 0 or
-                    self.image.shape[1] < y or y < 0):
+            if self.image.shape[0] < x or x < 0 or self.image.shape[1] < y or y < 0:
                 return
 
             selected_marker.place_on_image(x, y, self.area)
@@ -210,16 +213,17 @@ class DropImage(QLabel):
         :rtype: List[DragMarker]
         """
         ### Need to recalculate new coords with rescaling
-        rect = (rect[0] * self.image.shape[1] // self.resized_image.width(),
-                rect[1] * self.image.shape[0] // self.resized_image.height(),
-                rect[2] * self.image.shape[1] // self.resized_image.width(),
-                rect[3] * self.image.shape[0] // self.resized_image.height())
+        rect = (
+            rect[0] * self.image.shape[1] // self.resized_image.width(),
+            rect[1] * self.image.shape[0] // self.resized_image.height(),
+            rect[2] * self.image.shape[1] // self.resized_image.width(),
+            rect[3] * self.image.shape[0] // self.resized_image.height(),
+        )
 
         selected_marker = []
         for marker in self.markers:
             ### Within the rectangle ?
-            if (rect[0] < marker[1] < rect[2] and
-                    rect[1] < marker[0] < rect[3]):
+            if rect[0] < marker[1] < rect[2] and rect[1] < marker[0] < rect[3]:
                 selected_marker.append(marker)
 
         return selected_marker
@@ -234,14 +238,15 @@ class DropImage(QLabel):
         :return: return the 'closest' DragMarker if found
         :rtype: DragMarker | None
         """
-        pos = ((pos.x() - self.start_x) * self.image.shape[1] // self.resized_image.width(),
-               (pos.y() - self.start_y) * self.image.shape[0] // self.resized_image.height(),)
+        pos = (
+            (pos.x() - self.start_x) * self.image.shape[1] // self.resized_image.width(),
+            (pos.y() - self.start_y) * self.image.shape[0] // self.resized_image.height(),
+        )
 
         ### Size of the bounds to search within
         size = 5
         for marker in self.markers:
-            if (pos[0] - size < marker[1] < pos[0] + size and
-                    pos[1] - size < marker[0] < pos[1] + size):
+            if pos[0] - size < marker[1] < pos[0] + size and pos[1] - size < marker[0] < pos[1] + size:
                 return marker
 
         return None
@@ -289,11 +294,8 @@ class DropImage(QLabel):
         :return: None
         """
         for marker in markers:
-            new_marker = DragMarker(marker['name'],
-                                    parent=self.marker_adder.list_marker)
-            new_marker.set_pos(marker['pos'][0],
-                               marker['pos'][1],
-                               self.area)
+            new_marker = DragMarker(marker["name"], parent=self.marker_adder.list_marker)
+            new_marker.set_pos(marker["pos"][0], marker["pos"][1], self.area)
             new_marker.hide()
             self.markers.append(new_marker)
         self.draw_markers()
@@ -360,17 +362,18 @@ class DropImage(QLabel):
         # From array to QPixmap
         format = QImage.Format_RGB888 if len(self.image.shape) == 3 else QImage.Format_Grayscale8
 
-        image = QImage(self.marked_image,
-                       self.marked_image.shape[1],
-                       self.marked_image.shape[0],
-                       self.marked_image.strides[0],
-                       format)
+        image = QImage(
+            self.marked_image,
+            self.marked_image.shape[1],
+            self.marked_image.shape[0],
+            self.marked_image.strides[0],
+            format,
+        )
 
         # Convert frame into image and apply the resize
-        self.resized_image = (QPixmap.fromImage(image).scaled(self.size().width(),
-                                                              self.size().height(),
-                                                              Qt.KeepAspectRatio,
-                                                              Qt.TransformationMode.SmoothTransformation))
+        self.resized_image = QPixmap.fromImage(image).scaled(
+            self.size().width(), self.size().height(), Qt.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        )
 
         # If successful apply the image to the QLabel
         self.setPixmap(self.resized_image)
@@ -384,7 +387,7 @@ class DropImage(QLabel):
         :return: None
         """
         if self.area:
-            self.image = image[self.area[1]:self.area[3], self.area[0]:self.area[2]]
+            self.image = image[self.area[1] : self.area[3], self.area[0] : self.area[2]]
         else:
             self.image = image
 

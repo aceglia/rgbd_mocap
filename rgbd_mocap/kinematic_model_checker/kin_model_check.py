@@ -22,17 +22,20 @@ from ..camera.camera_converter import CameraConverter
 from ..tracking.utils import set_marker_pos
 from ..processing.multiprocess_handler import MultiProcessHandler
 from ..tracking.position import Position
+from rgbd_mocap.utils import find_closest_blob
 
 
 class KinematicModelChecker:
-    def __init__(self, frames: Frames,
-                 marker_sets: list[MarkerSet],
-                 converter: CameraConverter,
-                 model_name: str = "kinematic_model.bioMod",
-                 markers_to_exclude=[],
-                 build_model=True,
-                 kin_marker_set=None,
-                 ):
+    def __init__(
+        self,
+        frames: Frames,
+        marker_sets: list[MarkerSet],
+        converter: CameraConverter,
+        model_name: str = "kinematic_model.bioMod",
+        markers_to_exclude=[],
+        build_model=True,
+        kin_marker_set=None,
+    ):
 
         self.frames = frames
         self.marker_sets = marker_sets
@@ -46,6 +49,7 @@ class KinematicModelChecker:
             raise ValueError("You need to specify a model name to fit the model.")
 
         # Create Model
+        self.order_idx = self._get_reordered_index()
         if build_model:
             self._create_kinematic_model()
 
@@ -55,9 +59,21 @@ class KinematicModelChecker:
         # Set Markers to exclude
         self.markers_to_exclude = markers_to_exclude
 
-        self.ik_method = 'kalman'
+        self.ik_method = "kalman"
 
         self.last_q = None
+
+    def _get_reordered_index(self):
+        kin_markers_names = sum([kin_mark.get_markers_names() for kin_mark in self.kin_marker_sets], [])
+        init_markers_names = sum([kin_mark.get_markers_names() for kin_mark in self.marker_sets], [])
+
+        self.kin_to_init = []
+        self.init_to_kin = []
+        for i in range(len(init_markers_names)):
+            if init_markers_names[i] in kin_markers_names:
+                self.kin_to_init.append(kin_markers_names.index(init_markers_names[i]))
+            if kin_markers_names[i] in init_markers_names:
+                self.init_to_kin.append(init_markers_names.index(kin_markers_names[i]))
 
     # utils
     def _get_all_markers(self):
@@ -79,6 +95,8 @@ class KinematicModelChecker:
     def _create_kinematic_model(self):
         # Get markers pos in meters and names
         marker_pos_in_meter, names, _ = self._get_global_markers_pos_in_meter()
+        names = [names[i] for i in self.init_to_kin]
+        marker_pos_in_meter = marker_pos_in_meter[:, self.init_to_kin]
         # Create C3D
         create_c3d_file(marker_pos_in_meter[:, :, np.newaxis], names, "_tmp_markers_data.c3d")
 
@@ -152,8 +170,9 @@ class KinematicModelChecker:
         for m, marker_set in enumerate(self.marker_sets):
             crops[m].tracker.frame = crops[m].frame
             for i in range(marker_set.nb_markers):
-                crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos,
-                                                                    marker_set.markers[i].get_visibility())]
+                crops[m].tracker.estimated_positions[i] = [
+                    Position(marker_set.markers[i].pos, marker_set.markers[i].get_visibility())
+                ]
         return crops
 
     def _set_markers(self, markers, crops):
@@ -176,10 +195,16 @@ class KinematicModelChecker:
                 markers_in_pixel.append(marker_in_pixel)
                 marker_in_local = marker_in_pixel - marker_set.markers[0].crop_offset
                 _in_local.append(marker_in_local)
-                from rgbd_mocap.utils import find_closest_blob
-                # crops[m].tracker.get_blob_near_position(marker_in_local, i)
-                position, visible = find_closest_blob(marker_in_local, crops[m].tracker.blobs, delta=10)
-                crops[m].tracker.estimated_positions[i].append(Position(position, visible))
+                if marker_set.markers[i].name in marker_set.markers_from_dlc:
+                    if marker_set.markers[i].name not in marker_set.dlc_enhance_markers:
+                        crops[m].tracker.estimated_positions[i].append(Position(marker_in_local, True))
+                    elif (
+                        len(crops[m].tracker.blobs) > 0 and marker_set.markers[i].name in marker_set.dlc_enhance_markers
+                    ):
+                        position, visible = find_closest_blob(marker_in_local, crops[m].tracker.blobs, delta=10)
+                        crops[m].tracker.estimated_positions[i].append(Position(position, visible))
+                else:
+                    crops[m].tracker.estimated_positions[i].append(Position(marker_in_local, True))
                 # else:
                 #     crops[m].tracker.estimated_positions[i].append(None)
             crops[m].tracker.merge_positions()
@@ -228,9 +253,9 @@ class KinematicModelChecker:
         # Get Markers Information
 
         markers, names, is_visible = self._get_global_markers_pos_in_meter()
-
+        names = [names[i] for i in self.init_to_kin]
+        markers = markers[:, self.init_to_kin]
         markers_for_ik = np.full((markers.shape[0], markers.shape[1], 1), np.nan)
-
         for m in range(markers_for_ik.shape[1]):
             if names[m] not in self.markers_to_exclude:
                 markers_for_ik[:, m, 0] = markers[:, m]
@@ -243,5 +268,6 @@ class KinematicModelChecker:
         q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=60)
         # q = self._check_last_q(q)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
+        markers = markers[:, self.kin_to_init]
         self._set_markers(markers, crops)
         return q

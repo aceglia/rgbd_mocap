@@ -19,6 +19,7 @@ class SliderLimits(QWidget):
     value and appearance. With its min value to the left
     and its maximum value to the right.
     """
+
     def __init__(self, minimum=0, maximum=100, default_value: int = None, tick_number: int = 10, parent=None):
         """
         Initialize a SliderLimits with some changeable values.
@@ -74,18 +75,26 @@ class SliderLimits(QWidget):
 
 
 class LabeledSlider(QWidget):
-    def __init__(self, name: str, position: Position = Position.UP,
-                 minimum=0, maximum=100, default_value: int = None, tick_number: int = 10, parent=None):
+    def __init__(
+        self,
+        name: str,
+        position: Position = Position.UP,
+        minimum=0,
+        maximum=100,
+        default_value: int = None,
+        tick_number: int = 10,
+        parent=None,
+    ):
         super(LabeledSlider, self).__init__(parent)
         self.param = name
 
         ### Init Slider with bounds
-        self.slider = SliderLimits(minimum=minimum, maximum=maximum,
-                                   default_value=default_value,
-                                   tick_number=tick_number, parent=self)
+        self.slider = SliderLimits(
+            minimum=minimum, maximum=maximum, default_value=default_value, tick_number=tick_number, parent=self
+        )
 
         ### Init label and connect it to update_value
-        self.name = name.replace('_', ' ').capitalize()
+        self.name = name.replace("_", " ").capitalize()
         self.label = QLabel()
         self.label.setMaximumHeight(12)
         self.label.setFont(QFont(self.label.fontInfo().styleName(), 8))
@@ -112,12 +121,14 @@ class LabeledSlider(QWidget):
         self.update_value()
 
     def update_value(self):
-        self.label.setText(self.name + ': ' + str(self.slider.slider.value()))
+        self.label.setText(self.name + ": " + str(self.slider.slider.value()))
 
 
 ########################################################################################################################
 class RangeSliderLimits(QWidget):
-    def __init__(self, minimum=0, maximum=100, default_value: int = None, tick_number: int = 10, step: int = 20, parent=None):
+    def __init__(
+        self, minimum=0, maximum=100, default_value: int = None, tick_number: int = 10, step: int = 20, parent=None
+    ):
         super(RangeSliderLimits, self).__init__(parent)
 
         ### Init Slider
@@ -164,20 +175,32 @@ class RangeSliderLimits(QWidget):
 
 
 class LabeledRangeSlider(QWidget):
-    def __init__(self, name: str, position: Position = Position.UP,
-                 minimum=0, maximum=100, default_value: int = None, tick_number: int = 10, step: int = 20, parent=None):
+    def __init__(
+        self,
+        name: str,
+        position: Position = Position.UP,
+        minimum=0,
+        maximum=100,
+        default_value: int = None,
+        tick_number: int = 10,
+        step: int = 20,
+        parent=None,
+    ):
         super(LabeledRangeSlider, self).__init__(parent)
         self.param = name
 
-
         ### Init Slider with bounds
-        self.slider = RangeSliderLimits(minimum=minimum, maximum=maximum,
-                                         default_value=default_value,
-                                         tick_number=tick_number, step=step,
-                                         parent=self)
+        self.slider = RangeSliderLimits(
+            minimum=minimum,
+            maximum=maximum,
+            default_value=default_value,
+            tick_number=tick_number,
+            step=step,
+            parent=self,
+        )
 
         ### Init label and connect it to update_value
-        self.name = name.replace('_', ' ').capitalize()
+        self.name = name.replace("_", " ").capitalize()
         self.label = QLabel()
         self.label.setMaximumHeight(12)
         self.label.setFont(QFont(self.label.fontInfo().styleName(), 8))
@@ -204,5 +227,6 @@ class LabeledRangeSlider(QWidget):
         self.update_value()
 
     def update_value(self):
-        self.label.setText(self.name + ': ' + str(self.slider.slider.value()[0])
-                           + '-' + str(self.slider.slider.value()[1]))
+        self.label.setText(
+            self.name + ": " + str(self.slider.slider.value()[0]) + "-" + str(self.slider.slider.value()[1])
+        )

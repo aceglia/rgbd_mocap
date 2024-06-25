@@ -15,11 +15,11 @@ from rgbd_mocap.GUI.Utils.popup import ErrorPopUp
 
 class DropImageTab(QTabWidget):
     """
-        A QTabWidget like Widget with default
-        layout in tab when calling the addTab function.
-        This Tab Widget also has its tab position set
-        to North and all the tabs are closable except
-        for the first one opened
+    A QTabWidget like Widget with default
+    layout in tab when calling the addTab function.
+    This Tab Widget also has its tab position set
+    to North and all the tabs are closable except
+    for the first one opened
     """
 
     def __init__(self, marker_adder, display_image, crops=[], parent=None):
@@ -36,7 +36,7 @@ class DropImageTab(QTabWidget):
 
         ### Set default tabs
         self.display_image = display_image
-        self.add_tab(self.display_image, 'Base image')
+        self.add_tab(self.display_image, "Base image")
         for crop in crops:
             self.add_tab(DropImage(self.marker_adder, crop[1], crop[0]), crop[0])
 
@@ -118,58 +118,64 @@ class DropImageTab(QTabWidget):
         all_markers = {}
         crops = []
         for tab in self[1:]:
-            crop_marker = {'name': tab.name,
-                           # 'area': tab.area,
-                           'markers': tab.markers_to_dict()}
+            crop_marker = {
+                "name": tab.name,
+                # 'area': tab.area,
+                "markers": tab.markers_to_dict(),
+            }
             crops.append(crop_marker)
 
-        all_markers['crops'] = crops
-        all_markers['markers'] = self.marker_adder.markers_to_dict()
+        all_markers["crops"] = crops
+        all_markers["markers"] = self.marker_adder.markers_to_dict()
 
         return all_markers
 
     def save_markers(self):
-        SaveDialog(parent=self,
-                   caption='Save placement',
-                   filter='Save File (*.json)',
-                   suffix='json',
-                   save_method=self.save_markers_file)
+        SaveDialog(
+            parent=self,
+            caption="Save placement",
+            filter="Save File (*.json)",
+            suffix="json",
+            save_method=self.save_markers_file,
+        )
 
     def save_markers_file(self, file):
-        with open(file, 'w') as f:
+        with open(file, "w") as f:
             json.dump(self.markers_to_dict(), f, indent=2)
 
     def dict_to_markers(self, crop):
         for i in range(1, self.count()):
-            if self.tabs[i].name == crop['name'] and self.tabs[i].markers == []:
+            if self.tabs[i].name == crop["name"] and self.tabs[i].markers == []:
                 # self.tabs[i].area = crop['area']
-                self.tabs[i].load_markers(crop['markers'])
+                self.tabs[i].load_markers(crop["markers"])
                 return True
 
         return False
 
     def load_markers(self):
-        LoadDialog(parent=self,
-                   caption='Load placement',
-                   filter='Save File (*.json);; Any(*)',
-                   load_method=self.load_markers_file)
+        LoadDialog(
+            parent=self,
+            caption="Load placement",
+            filter="Save File (*.json);; Any(*)",
+            load_method=self.load_markers_file,
+        )
 
         ### To update the tabs
         self.change_window(self.currentIndex())
 
     def load_markers_file(self, file):
-        with open(file, 'r') as f:
+        with open(file, "r") as f:
             try:
                 project = json.load(f)
             except TypeError and KeyError:
-                ErrorPopUp('File could not be loaded, wrong format')
+                ErrorPopUp("File could not be loaded, wrong format")
             self.load_project_dict(project)
 
     def load_project_dict(self, project_dict):
-        crops = project_dict['crops']
+        crops = project_dict["crops"]
         if "markers" not in project_dict.keys():
-            project_dict['markers'] = []
-        unplaced_markers = project_dict['markers']
+            project_dict["markers"] = []
+        unplaced_markers = project_dict["markers"]
 
         for crop in crops:
             if not self.dict_to_markers(crop):

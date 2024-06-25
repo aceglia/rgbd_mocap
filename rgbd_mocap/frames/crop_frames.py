@@ -3,7 +3,11 @@ from ..frames.frames import Frames
 
 
 class CropFrames(Frames):
-    def __init__(self, area, frame: Frames,):
+    def __init__(
+        self,
+        area,
+        frame: Frames,
+    ):
         super().__init__(frame.color, frame.depth, frame.index)
         self.area = area
 
@@ -22,4 +26,3 @@ class CropFrames(Frames):
     def get_images(self):
         self.update_image()
         return self.color, self.depth
-

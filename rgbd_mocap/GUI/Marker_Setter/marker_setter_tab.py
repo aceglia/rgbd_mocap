@@ -6,6 +6,7 @@ import cv2
 
 from rgbd_mocap.GUI.Marker_Setter.marker_adder import MarkerAdder
 from rgbd_mocap.GUI.Marker_Setter.display_marker_image import DisplayMarkerImage
+
 # from Marker_Setter.drop_image import DropImage
 from rgbd_mocap.GUI.Marker_Setter.drop_image_tab import DropImageTab
 
@@ -37,17 +38,17 @@ class DropImageButton(QWidget):
         super(DropImageButton, self).__init__(parent)
         self.dimage = dimage
 
-        self.save_button = QPushButton('Save markers')
+        self.save_button = QPushButton("Save markers")
         self.save_button.pressed.connect(dimage.save_markers)
 
-        self.load_button = QPushButton('Load markers')
+        self.load_button = QPushButton("Load markers")
         self.load_button.pressed.connect(dimage.load_markers)
 
-        self.show_markers_name = QCheckBox('Markers name')
+        self.show_markers_name = QCheckBox("Markers name")
         self.show_markers_name.setChecked(True)
         self.show_markers_name.pressed.connect(self.show_markers_name_method)
 
-        self.remove_markers = QPushButton('Remove placed markers')
+        self.remove_markers = QPushButton("Remove placed markers")
         self.remove_markers.pressed.connect(self.remove_markers_method)
 
         layout = QHBoxLayout()
@@ -158,13 +159,15 @@ class MarkerSetter(QMainWindow):
         self.marker_adder.clear()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication([])
     path = "D:\Documents\Programmation\pose_estimation\data_files\P14\gear_5_22-01-2024_16_15_16/color_997.png"
     l = []
-    crops = [('Hand', (191, 226, 308, 357)),
-             ('Arm', (256, 270, 369, 392)),
-             ('Back', (343, 139, 470, 364)),]
+    crops = [
+        ("Hand", (191, 226, 308, 357)),
+        ("Arm", (256, 270, 369, 392)),
+        ("Back", (343, 139, 470, 364)),
+    ]
     w = MarkerSetter(path, l, crops)
     w.show()
 

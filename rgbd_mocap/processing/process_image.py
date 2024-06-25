@@ -15,24 +15,42 @@ class ProcessImage:
     ROTATION = None
     SHOW_IMAGE = False
 
-    def __init__(self, config, tracking_options, static_markers=None, bounded_markers=None,
-                 multi_processing=False, from_dlc=False, dlc_model_path=None, processor=None, marker_names=None,
-                 ignore_all_checks=False):
+    def __init__(
+        self,
+        config,
+        tracking_options,
+        static_markers=None,
+        bounded_markers=None,
+        multi_processing=False,
+        from_dlc=False,
+        dlc_model_path=None,
+        processor=None,
+        dlc_marker_names=(),
+        ignore_all_checks=False,
+        dlc_enhance_markers=(),
+    ):
         # Options
         self.config = config
         self.from_dlc = from_dlc
+        dlc_marker_names = dlc_marker_names if from_dlc else ()
+        dlc_enhance_markers = dlc_enhance_markers if from_dlc else ()
 
         # Printing information
         self.computation_time = 0
-        config = check_tracking_config_file(config, marker_names)
+        config, is_markers = check_tracking_config_file(config, dlc_marker_names, dlc_enhance_markers)
+        if not is_markers and tracking_options["optical_flow"] and from_dlc:
+            raise RuntimeError("You cannot use optical flow while using solely markers from Deeplabcut.")
         # Image
         self.count = 0
-        self.path = config['directory']
-        self.index = config['start_index']
-        self.masks = config['masks']
+        self.path = config["directory"]
+        self.index = config["start_index"]
+        self.masks = config["masks"]
         self._dispatch_mask()
         self.first_image_loaded = False
-        self.color, self.depth, _ = self._load_img(return_color=not self.from_dlc)
+        return_color = (
+            False if (self.from_dlc and not tracking_options["optical_flow"] or len(dlc_enhance_markers) == 0) else True
+        )
+        self.color, self.depth, _ = self._load_img(return_color=return_color)
 
         # Frame
         if not multi_processing:
@@ -45,10 +63,13 @@ class ProcessImage:
         self.bounded_markers, self.bounded_markers_bounds = bounded_markers
 
         # Init Markers
-        self.marker_sets = self._init_marker_set(self.static_markers,
-                                                 self.bounded_markers,
-                                                 self.bounded_markers_bounds,
-                                                 multi_processing)
+        self.marker_sets = self._init_marker_set(
+            self.static_markers,
+            self.bounded_markers,
+            self.bounded_markers_bounds,
+            multi_processing,
+            dlc_enhance_markers,
+        )
         self.loading_time = 0
         self.last_index = 0
 
@@ -57,7 +78,13 @@ class ProcessImage:
         # for i in range(len(self.marker_sets)):
         #     self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
         self.tracking_options = tracking_options
-        self._init_crops(from_dlc=from_dlc, dlc_model_path=dlc_model_path, processor=processor, ignore_all_checks=ignore_all_checks)
+        self._init_crops(
+            from_dlc=from_dlc,
+            dlc_model_path=dlc_model_path,
+            processor=processor,
+            dlc_enhance_markers=dlc_enhance_markers,
+            ignore_all_checks=ignore_all_checks,
+        )
         # Process
         if not multi_processing:
             self.process_handler = ProcessHandler(self.crops)
@@ -70,43 +97,74 @@ class ProcessImage:
             for n, mask in enumerate(self.masks):
                 if mask is None:
                     continue
-                if mask["name"] == crop['name']:
+                if mask["name"] == crop["name"]:
                     crop["filters"]["mask"] = self.masks[n]["value"]
                     break
 
-    def _init_crops(self, from_dlc=False, dlc_model_path=None, processor=None, ignore_all_checks=False):
+    def _init_crops(
+        self, from_dlc=False, dlc_model_path=None, processor=None, dlc_enhance_markers=(), ignore_all_checks=False
+    ):
         self.crops = []
         for i in range(len(self.marker_sets)):
-            self.crops.append(Crop(self.config['crops'][i]["area"], self.frames, self.marker_sets[i],
-                                   self.config['crops'][i]["filters"],
-                        self.tracking_options, from_dlc, dlc_model_path, processor, ignore_all_checks=ignore_all_checks))
+            self.crops.append(
+                Crop(
+                    self.config["crops"][i]["area"],
+                    self.frames,
+                    self.marker_sets[i],
+                    self.config["crops"][i]["filters"],
+                    self.tracking_options,
+                    from_dlc,
+                    dlc_model_path,
+                    processor,
+                    ignore_all_checks=ignore_all_checks,
+                )
+            )
 
     # Init
-    def _init_marker_set(self, static_markers, bounded_markers, bounds, multi_processing):
+    def _init_marker_set(self, static_markers, bounded_markers, bounds, multi_processing, dlc_enhance_markers=()):
         set_names = []
         off_sets = []
         marker_names = []
         base_positions = []
-        for i in range(len(self.config['crops'])):
-            set_names.append(self.config['crops'][i]['name'])
-            off_sets.append(self.config['crops'][i]['area'])
+        dlc_marker = []
+        dlc_markers = []
+        for i in range(len(self.config["crops"])):
+            set_names.append(self.config["crops"][i]["name"])
+            off_sets.append(self.config["crops"][i]["area"])
             marker_name = []
             base_position = []
-            for j in range(len(self.config['crops'][i]['markers'])):
-                marker_name.append(self.config['crops'][i]['markers'][j]['name'])
-                base_position.append((self.config['crops'][i]['markers'][j]['pos'][1],
-                                     self.config['crops'][i]['markers'][j]['pos'][0]))
+            for j in range(len(self.config["crops"][i]["markers"])):
+                marker_name.append(self.config["crops"][i]["markers"][j]["name"])
+                base_position.append(
+                    (self.config["crops"][i]["markers"][j]["pos"][1], self.config["crops"][i]["markers"][j]["pos"][0])
+                )
+            if "dlc_markers" in self.config["crops"][i].keys():
+                for j in range(len(self.config["crops"][i]["dlc_markers"])):
+                    marker_name.append(self.config["crops"][i]["dlc_markers"][j]["name"])
+                    base_position.append(
+                        (
+                            self.config["crops"][i]["dlc_markers"][j]["pos"][1],
+                            self.config["crops"][i]["dlc_markers"][j]["pos"][0],
+                        )
+                    )
+                    dlc_marker.append(self.config["crops"][i]["dlc_markers"][j]["name"])
             marker_names.append(marker_name)
             base_positions.append(base_position)
+            dlc_markers.append(dlc_marker)
 
         marker_sets: list[MarkerSet] = []
         for i in range(len(set_names)):
             marker_set = MarkerSet(set_names[i], marker_names[i], multi_processing)
+            marker_set.markers_from_dlc = dlc_markers[i]
+            marker_set.dlc_enhance_markers = dlc_enhance_markers
             marker_set.set_markers_pos(base_positions[i])
             marker_set.set_offset_pos(off_sets[i][:2])
             depth_cropped = self.frames.get_crop(off_sets[i])[1]
             for marker in marker_set:
-                marker.set_depth(DepthCheck.check(marker.get_pos(), depth_cropped, 0, 10000)[0])
+                if marker.name in marker_set.markers_from_dlc:
+                    marker.set_depth(-1)
+                else:
+                    marker.set_depth(DepthCheck.check(marker.get_pos(), depth_cropped, 0, 10000)[0])
                 if static_markers and marker.name in static_markers:
                     marker.is_static = True
                 if bounded_markers and marker.name in bounded_markers:
@@ -123,7 +181,7 @@ class ProcessImage:
             color, depth = load_img(self.path, self.index + count, self.ROTATION, return_color)
             if (color is None and return_color is True) or depth is None:
                 count += 1
-                if self.index == self.config['end_index']:
+                if self.index == self.config["end_index"]:
                     return None, None
         return color, depth, count
 
@@ -139,7 +197,8 @@ class ProcessImage:
     # Processing
     def _process_after_loading(self):
         # Update frame
-        color, depth, count = self._load_img(return_color=not self.from_dlc)
+        return_color = False if (self.from_dlc and not self.tracking_options["optical_flow"]) else True
+        color, depth, count = self._load_img(return_color=return_color)
 
         tic = time.time()
         # Process image
@@ -153,9 +212,11 @@ class ProcessImage:
         # Start the processing of the current image
         self.process_handler.send_process()
         # self.blobs = self.process_handler.blobs
-
+        return_color = False if (self.from_dlc and not self.tracking_options["optical_flow"]) else True
         # Load next frame
-        color, depth, count = self._load_img(return_color=not self.from_dlc)  # If image could not be loaded then skip to the next one
+        color, depth, count = self._load_img(
+            return_color=return_color
+        )  # If image could not be loaded then skip to the next one
 
         # Wait for the end of the processing of the image
         self.process_handler.receive_process()
@@ -167,7 +228,7 @@ class ProcessImage:
         tik = time.time()
         self._update_img(self.color, self.depth, self.count)
 
-        if self.index == self.config['end_index']:
+        if self.index == self.config["end_index"]:
             return False
         # Process
         if process_while_loading:
@@ -176,7 +237,7 @@ class ProcessImage:
             self.color, self.depth, self.count = self._process_after_loading()
 
         if ProcessImage.SHOW_IMAGE:
-            cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
+            cv2.namedWindow("Main image :", cv2.WINDOW_NORMAL)
             im = self.get_processed_image().copy()
             cv2.putText(
                 im,
@@ -188,8 +249,8 @@ class ProcessImage:
                 2,
                 cv2.LINE_AA,
             )
-            cv2.imshow('Main image :', im)
-            if cv2.waitKey(1) == ord('q'):
+            cv2.imshow("Main image :", im)
+            if cv2.waitKey(1) == ord("q"):
                 return False
         # Get next image
         # self.index += 1
@@ -202,9 +263,9 @@ class ProcessImage:
         total_time = 0
 
         if ProcessImage.SHOW_IMAGE:
-            cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
+            cv2.namedWindow("Main image :", cv2.WINDOW_NORMAL)
 
-        while self.index != self.config['end_index']:
+        while self.index != self.config["end_index"]:
             tik = time.time()
 
             # Get next image
@@ -215,8 +276,8 @@ class ProcessImage:
                 continue
 
             if ProcessImage.SHOW_IMAGE:
-                cv2.imshow('Main image :', self.get_processed_image())
-                if cv2.waitKey(1) == ord('q'):
+                cv2.imshow("Main image :", self.get_processed_image())
+                if cv2.waitKey(1) == ord("q"):
                     break
 
             tok = time.time() - tik
@@ -224,7 +285,7 @@ class ProcessImage:
             self.computation_time = tok
 
         self.process_handler.end_process()
-        nb_img = self.index - self.config['start_index']
+        nb_img = self.index - self.config["start_index"]
         return total_time, total_time / nb_img
 
     def get_processed_image(self):

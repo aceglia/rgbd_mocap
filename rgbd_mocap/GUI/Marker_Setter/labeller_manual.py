@@ -9,6 +9,7 @@ import cv2
 from rgbd_mocap.GUI.Marker_Setter.marker_adder import MarkerAdder
 from rgbd_mocap.GUI.Marker_Setter.display_marker_image import DisplayMarkerImage
 from rgbd_mocap.GUI.Utils.video_player import VideoControl
+
 # from Marker_Setter.drop_image import DropImage
 from rgbd_mocap.GUI.Marker_Setter.drop_image_tab import DropImageTab
 
@@ -40,17 +41,17 @@ class DropImageButton(QWidget):
         super(DropImageButton, self).__init__(parent)
         self.dimage = dimage
 
-        self.save_button = QPushButton('Save markers')
+        self.save_button = QPushButton("Save markers")
         self.save_button.pressed.connect(dimage.save_markers)
 
-        self.load_button = QPushButton('Load markers')
+        self.load_button = QPushButton("Load markers")
         self.load_button.pressed.connect(dimage.load_markers)
 
-        self.show_markers_name = QCheckBox('Markers name')
+        self.show_markers_name = QCheckBox("Markers name")
         self.show_markers_name.setChecked(True)
         self.show_markers_name.pressed.connect(self.show_markers_name_method)
 
-        self.remove_markers = QPushButton('Remove placed markers')
+        self.remove_markers = QPushButton("Remove placed markers")
         self.remove_markers.pressed.connect(self.remove_markers_method)
 
         layout = QHBoxLayout()
@@ -64,6 +65,7 @@ class DropImageButton(QWidget):
     def show_markers_name_method(self):
         for tab in self.dimage.tabs:
             tab.set_marker_name(not self.show_markers_name.isChecked())
+
     def remove_markers_method(self):
         current = self.dimage[self.dimage.currentIndex()]
         if isinstance(current, DisplayMarkerImage):
@@ -173,8 +175,9 @@ class MarkerSetter(QMainWindow):
                 print(f"Could not load {color_path}")
                 return
 
-            cv2.putText(image_color, f"Frame {self.video_player.value}",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+            cv2.putText(
+                image_color, f"Frame {self.video_player.value}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2
+            )
             ### Check if the image has been well loaded
             self.drop_image_tab.set_image(image_color)
 
@@ -202,11 +205,11 @@ class MarkerSetter(QMainWindow):
         self.marker_adder.clear()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication([])
     path = "D:\Documents\Programmation\pose_estimation\data_files\P14\gear_5_22-01-2024_16_15_16"
     l = []
-    crops = [('Labeller', (0, 0,  848, 480))]
+    crops = [("Labeller", (0, 0, 848, 480))]
     w = MarkerSetter(path, l, crops)
     w.show()
 

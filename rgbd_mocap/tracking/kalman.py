@@ -10,7 +10,7 @@ class Kalman:
         points: Origin of the marker
         """
         # self.dt = 1/fps
-        self.dt = 1/fps
+        self.dt = 1 / fps
         self.n_states = n_states
         self.n_measures = n_measures
 
@@ -30,16 +30,15 @@ class Kalman:
         self.kalman.processNoiseCov = np.eye(self.n_states, dtype=np.float32) * 2
         # self.kalman.errorCovPre = np.eye(self.n_states, self.n_states, dtype=np.float32) * 5
 
-        # self.kalman.measurementMatrix = np.zeros((self.n_measures, self.n_states), dtype=np.float32)
         self.kalman.measurementMatrix = np.zeros((self.n_measures, self.n_states), dtype=np.float32)
-        self.kalman.measurementMatrix[:self.n_measures, :self.n_measures] = np.eye((self.n_measures))
-        self.kalman.transitionMatrix[:self.n_measures, self.n_measures:] = np.eye((self.n_measures)) * self.dt
+        self.kalman.measurementMatrix[: self.n_measures, : self.n_measures] = np.eye((self.n_measures))
+        self.kalman.transitionMatrix[: self.n_measures, self.n_measures :] = np.eye((self.n_measures)) * self.dt
 
         pos = np.array(points)
         input_points = np.float32(np.ndarray.flatten(points))
         input_points_list = []
         for n in range(self.n_states):
-            if n < self.n_states/2:
+            if n < self.n_states / 2:
                 input_points_list.append(input_points[n])
             else:
                 input_points_list.append(0)
@@ -51,11 +50,17 @@ class Kalman:
         return self.kalman, pos
 
     def predict(self):
-        self.last_predicted_pos = self.kalman.predict()[:self.n_measures].reshape(self.n_measures, )
+        self.last_predicted_pos = self.kalman.predict()[: self.n_measures].reshape(
+            self.n_measures,
+        )
         return self.last_predicted_pos
 
     def correct(self, points):
-        self.last_corrected_pos = self.kalman.correct(np.array(points[:self.n_measures], dtype=np.float32))[:self.n_measures].reshape(self.n_measures, )
+        self.last_corrected_pos = self.kalman.correct(np.array(points[: self.n_measures], dtype=np.float32))[
+            : self.n_measures
+        ].reshape(
+            self.n_measures,
+        )
         return self.last_corrected_pos
 
 
@@ -88,4 +93,3 @@ class KalmanSet:
 
     def reinit_kalman(self):
         [kalman.init_kalman(self.marker_set[i].pos[:2]) for i, kalman in enumerate(self)]
-

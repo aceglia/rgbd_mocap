@@ -1,9 +1,10 @@
 import numpy as np
 import cv2
+
 try:
     from dlclive import DLCLive, Processor
 except:
-    raise ImportError("Please install the dlclive package to use the DeepLabCup model.")
+    pass
 
 
 class DlcLive:
@@ -30,9 +31,10 @@ class DlcLive:
         depth_frame = self.depth_image if depth_frame is None else self._process_depth(depth_frame, self.depth_scale)
 
         if not self.inference_initialized:
-            self. inference_initialized = True
+            self.inference_initialized = True
             pos = self.dlc_live.init_inference(depth_frame)
             return pos
+
         self.last_value = None if self.value is None else self.value.copy()
         self.value = self.dlc_live.get_pose(depth_frame)
         self.last_value = self.value.copy() if self.last_value is None else self.last_value
@@ -49,43 +51,14 @@ class DlcLive:
 
     def _process_depth(self, depth_frame, depth_scale):
         self.bg_remover_threshold = 1.2
-        depth = np.where((depth_frame > self.bg_remover_threshold / depth_scale) | (depth_frame <=  0.2 / (0.0010000000474974513)), 0, depth_frame)
+        depth = np.where(
+            (depth_frame > self.bg_remover_threshold / depth_scale) | (depth_frame <= 0.2 / (0.0010000000474974513)),
+            0,
+            depth_frame,
+        )
 
         return self.compute_surface_normals(depth)
-        # self.max_depth = self.max_depth if self.max_depth != -1 else np.median(np.sort(depth.flatten())[-30:])
-        # self.min_depth = 0.4 / (0.0010000000474974513)
-        # # min_depth = min_depth if min_depth else np.min(depth[depth > 0])
-        # # max_depth = np.max(depth)
-        # normalize_depth = (depth - self.min_depth) / (self.max_depth - self.min_depth)
-        # normalize_depth[depth == 0] = 0
-        # normalize_depth = normalize_depth * 255
-        # depth = normalize_depth.astype(np.uint8)
-        # depth_3d = np.dstack((depth, depth, depth))
-        # kernel = np.array([[-1, 0, -1],
-        #                    [-1, 7, -1],
-        #                    [-1, 0, -1]])
-        # if "hist" in self.model or "colormap" in self.model:
-        #     hist_eq = cv2.equalizeHist(depth)
-        #     hist_3d = np.dstack((hist_eq, hist_eq, hist_eq))
-        #     depth_colormap = cv2.applyColorMap(hist_3d, cv2.COLORMAP_JET)
-        #     depth_colormap[depth_3d == 0] = 0
-        #     depth_colormap =  cv2.filter2D(depth_colormap, -1,
-        #                         kernel)
-        #
-        #     return depth_colormap
-        #     if "sharp" not in self.model:
-        #         return hist_3d
-        #     elif "colormap" not in self.model:
-        #         return cv2.filter2D(hist_3d, -1,
-        #                                        kernel)
-        #     else:
-        #         depth_colormap = cv2.applyColorMap(hist_3d, cv2.COLORMAP_JET)
-        #         depth_colormap[depth_3d == 0] = 0
-        #         return depth_colormap
-        # else:
-        #     raise RuntimeError("model not recognize")
-        # # return depth_3d
-    #
+
     @staticmethod
     def compute_surface_normals(depth_map):
         rows, cols = depth_map.shape
@@ -100,7 +73,7 @@ class DlcLive:
 
         # Compute the normal vector for each pixel
         normal = np.dstack((-dx, -dy, np.ones((rows, cols))))
-        norm = np.sqrt(np.sum(normal ** 2, axis=2, keepdims=True))
+        norm = np.sqrt(np.sum(normal**2, axis=2, keepdims=True))
         normal = np.divide(normal, norm, out=np.zeros_like(normal), where=norm != 0)
 
         # Map the normal vectors to the [0, 255] range and convert to uint8

@@ -37,15 +37,15 @@ class MarkerList(QWidget):
 
         ### Save and load
         self.kwargs = {}
-        if 'SNAP' in os.environ:
-            self.kwargs['options'] = QFileDialog.DontUseNativeDialog
+        if "SNAP" in os.environ:
+            self.kwargs["options"] = QFileDialog.DontUseNativeDialog
 
         ### Create Scroll Layout and container for the Dock Widget
         self.layout = QVBoxLayout(self)
 
         for marker in l:
             if isinstance(marker, dict):
-                marker = marker['name']
+                marker = marker["name"]
 
             btn = DragMarker(marker)
             self.list.append(btn)
@@ -165,25 +165,27 @@ class MarkerList(QWidget):
 
     ### Load premade marker set
     def load_marker_set(self):
-        LoadDialog(parent=self,
-                   caption='Load placement',
-                   filter='Save File (*.json);; Any(*)',
-                   load_method=self.load_marker_set_file)
+        LoadDialog(
+            parent=self,
+            caption="Load placement",
+            filter="Save File (*.json);; Any(*)",
+            load_method=self.load_marker_set_file,
+        )
 
     def load_marker_set_file(self, file):
-        with open(file, 'r') as f:
+        with open(file, "r") as f:
             all_markers = json.load(f)
             try:
-                placed_markers = all_markers['placed_markers']
-                unplaced_markers = all_markers['unplaced_markers']
+                placed_markers = all_markers["placed_markers"]
+                unplaced_markers = all_markers["unplaced_markers"]
 
                 for crop in placed_markers:
-                    unplaced_markers.extend([marker['name'] for marker in crop['markers']])
+                    unplaced_markers.extend([marker["name"] for marker in crop["markers"]])
 
                 for marker in unplaced_markers:
                     self.add_marker(marker)
             except TypeError and KeyError:
-                ErrorPopUp('File could not be loaded, wrong format')
+                ErrorPopUp("File could not be loaded, wrong format")
 
     def save_marker_set(self):
         pass

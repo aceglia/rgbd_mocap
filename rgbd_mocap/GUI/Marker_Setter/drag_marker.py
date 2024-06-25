@@ -15,12 +15,13 @@ class DragMarker(QLabel):
     This class contains an x and y positions and therefore
     can be dragged and placed upon a DropImage
     """
+
     def __init__(self, text, parent=None):
         super(DragMarker, self).__init__(text, parent=parent)
         self.setFixedHeight(15)
         self.is_focus = False
-        self.over_color = 'lightgrey'
-        self.focused_color = 'lightblue'
+        self.over_color = "lightgrey"
+        self.focused_color = "lightblue"
         self.x = -1
         self.y = -1
         self.area = (0, 0, 0, 0)
@@ -100,7 +101,7 @@ class DragMarker(QLabel):
         :return: None
         """
         self.unfocused()
-        name, accepted = QInputDialog.getText(self, 'Enter the new marker name', 'Name:')
+        name, accepted = QInputDialog.getText(self, "Enter the new marker name", "Name:")
         if accepted and name:
             self.setText(name)
         self.focused()
@@ -143,8 +144,8 @@ class DragMarker(QLabel):
     ### If another marker is selected from the list
     def unfocused(self):
         """
-            Unset the focus and change the appearance of the DragMarker in consequence
-            :return: None
+        Unset the focus and change the appearance of the DragMarker in consequence
+        :return: None
         """
         self.is_focus = False
         self.setStyleSheet(f"border: 0px solid {self.over_color}")
@@ -175,7 +176,7 @@ class DragMarker(QLabel):
         # self.show()
 
     def to_dict(self):
-        return {'name': self.text(), 'pos': (self.x, self.y)}
+        return {"name": self.text(), "pos": (self.x, self.y)}
 
     @property
     def name(self):

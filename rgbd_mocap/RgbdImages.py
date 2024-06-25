@@ -4,6 +4,7 @@ import cv2
 import time
 
 from biosiglive import save
+
 try:
     import pyrealsense2 as rs
 except ImportError:
@@ -48,6 +49,7 @@ class RgbdImages:
             Only used if the images comes from a file and not a live stream.
 
         """
+        self.dlc_enhance_markers = None
         self.from_dlc = None
         self.video_object = None
         self.frame = None
@@ -85,15 +87,26 @@ class RgbdImages:
         self.static_markers = None
 
     def set_static_markers(self, markers):
+        if self.process_image is not None:
+            raise RuntimeError("Please set the static markers before initialization.")
         if not isinstance(markers, list):
             markers = [markers]
         self.static_markers = markers
+
+    def set_dlc_enhance_markers(self, markers):
+        if self.process_image is not None:
+            raise RuntimeError("Please set the dlc enhance markers before initialization.")
+        if not isinstance(markers, list):
+            markers = [markers]
+        self.dlc_enhance_markers = markers
 
     def set_quasi_static_markers(self, markers, bounds=(-15, 15), x_bounds=None, y_bounds=None):
         # if not isinstance(bounds, list):
         #     bounds = [bounds]
         # if len(bounds) != len(markers):
         #     bounds * len(markers)
+        if self.process_image is not None:
+            raise RuntimeError("Please set the quasi static markers before initialization.")
         if bounds and not x_bounds and not y_bounds:
             x_bounds = y_bounds = bounds
         if not bounds and not x_bounds and not y_bounds:
@@ -150,7 +163,7 @@ class RgbdImages:
         """
         if self.static_markers and not self.process_image.static_markers:
             raise RuntimeError("Static marker should be set before initialization.")
-        save_dir = self.tracking_config['directory']
+        save_dir = self.tracking_config["directory"]
         file_path = file_path if file_path else save_dir + os.sep + "markers_pos_test.bio"
         if not fit_model:
             ProcessImage.SHOW_IMAGE = show_image
@@ -162,12 +175,14 @@ class RgbdImages:
         if fit_model:
             tic = time.time()
             if not self.kinematic_model_checker:
-                self.kinematic_model_checker = KinematicModelChecker(self.process_image.frames,
-                                                                     self.process_image.marker_sets,
-                                                                     converter=self.converter,
-                                                                     model_name=self.model_name,
-                                                                     build_model=self.build_kinematic_model,
-                                                                     kin_marker_set=self.kin_marker_sets)
+                self.kinematic_model_checker = KinematicModelChecker(
+                    self.process_image.frames,
+                    self.process_image.marker_sets,
+                    converter=self.converter,
+                    model_name=self.model_name,
+                    build_model=self.build_kinematic_model,
+                    kin_marker_set=self.kin_marker_sets,
+                )
                 self.kinematic_model_checker.ik_method = "kalman"
                 self.kinematic_model_checker.markers_to_exclude = self.markers_to_exclude_for_ik
             self.kinematic_model_checker.fit_kinematics_model(self.process_image)
@@ -183,26 +198,29 @@ class RgbdImages:
                 im = cv2.cvtColor(self.process_image.frames.color, cv2.COLOR_GRAY2RGB)
             process_image = print_marker_sets(im, self.marker_sets)
             from rgbd_mocap.utils import draw_blobs
-            kalman = [pos[0].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:] ]
-            dlc = [pos[1].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:]]
 
-            process_image = draw_blobs(process_image, kalman, (255, 0, 0))
-            process_image = draw_blobs(process_image, dlc, (0,0, 255))
-            for m in range(len(dlc)):
-                process_image = cv2.putText(process_image, str(np.round(self.process_image.crops[0].tracker.likelihood[m], 2)),
-                                    (dlc[m][0] + 10, dlc[m][1] + 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0, 255), 1)
+            # kalman = [pos[0].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:] ]
+            # dlc = [pos[1].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:]]
 
-
+            # process_image = draw_blobs(process_image, kalman, (255, 0, 0))
+            # process_image = draw_blobs(process_image, dlc, (0,0, 255))
+            # for m in range(len(dlc)):
+            #     process_image = cv2.putText(process_image, str(np.round(self.process_image.crops[0].tracker.likelihood[m], 2)),
+            #                         (dlc[m][0] + 10, dlc[m][1] + 10),
+            #                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0, 255), 1)
             for marker_set in self.marker_sets:
                 for marker in marker_set:
                     if marker.is_bounded:
                         x_offset, y_offset = marker.crop_offset
-                        process_image = cv2.rectangle(process_image, (marker.x_bounds.min + x_offset, marker.y_bounds.min + y_offset),
-                                      (marker.x_bounds.max + x_offset, marker.y_bounds.max + y_offset), (255, 0, 0),
-                                                      1)
+                        process_image = cv2.rectangle(
+                            process_image,
+                            (marker.x_bounds.min + x_offset, marker.y_bounds.min + y_offset),
+                            (marker.x_bounds.max + x_offset, marker.y_bounds.max + y_offset),
+                            (255, 0, 0),
+                            1,
+                        )
 
-            cv2.namedWindow('Main image :', cv2.WINDOW_NORMAL)
+            cv2.namedWindow("Main image :", cv2.WINDOW_NORMAL)
             cv2.putText(
                 process_image,
                 f"Frame : {self.process_image.index}",
@@ -213,8 +231,8 @@ class RgbdImages:
                 2,
                 cv2.LINE_AA,
             )
-            cv2.imshow('Main image :', process_image)
-            if cv2.waitKey(1) == ord('q'):
+            cv2.imshow("Main image :", process_image)
+            if cv2.waitKey(1) == ord("q"):
                 return False
 
         for marker_set in self.marker_sets:
@@ -238,7 +256,6 @@ class RgbdImages:
                 "time_to_process": self.process_image.computation_time + fit_model_time,
                 "iteration": self.iter,
                 "frame_idx": self.process_image.index,
-
             }
             save(dic, file_path, add_data=True)
         if save_video:
@@ -257,26 +274,34 @@ class RgbdImages:
                 try:
                     process_image = print_marker_sets(im, self.marker_sets)
                     from rgbd_mocap.utils import draw_blobs
+
                     kalman = [pos[0].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:]]
                     dlc = [pos[1].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:]]
                     process_image = draw_blobs(process_image, kalman, (255, 0, 0))
                     process_image = draw_blobs(process_image, dlc, (0, 0, 255))
                     for m in range(len(dlc)):
-                        process_image = cv2.putText(process_image,
-                                                    str(self.process_image.crops[0].tracker.likelihood[m]),
-                                                    (dlc[m][0] + 10, dlc[m][1] + 10),
-                                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+                        process_image = cv2.putText(
+                            process_image,
+                            str(self.process_image.crops[0].tracker.likelihood[m]),
+                            (dlc[m][0] + 10, dlc[m][1] + 10),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1,
+                            (0, 0, 255),
+                            1,
+                        )
                 except:
                     pass
                 for marker_set in self.marker_sets:
                     for marker in marker_set:
                         if marker.is_bounded:
                             x_offset, y_offset = marker.crop_offset
-                            process_image = cv2.rectangle(process_image, (
-                            marker.x_bounds.min + x_offset, marker.y_bounds.min + y_offset),
-                                                          (marker.x_bounds.max + x_offset,
-                                                           marker.y_bounds.max + y_offset), (255, 0, 0),
-                                                          1)
+                            process_image = cv2.rectangle(
+                                process_image,
+                                (marker.x_bounds.min + x_offset, marker.y_bounds.min + y_offset),
+                                (marker.x_bounds.max + x_offset, marker.y_bounds.max + y_offset),
+                                (255, 0, 0),
+                                1,
+                            )
             if process_image is not None:
                 cv2.putText(
                     process_image,
@@ -288,11 +313,13 @@ class RgbdImages:
                     2,
                     cv2.LINE_AA,
                 )
-                self.video_object = _save_video(process_image,
-                                                (process_image.shape[1], process_image.shape[0]),
-                                                video_path,
-                                                self.converter.color.fps,
-                                                self.video_object)
+                self.video_object = _save_video(
+                    process_image,
+                    (process_image.shape[1], process_image.shape[0]),
+                    video_path,
+                    self.converter.color.fps,
+                    self.video_object,
+                )
         self.iter += 1
         return True
 
@@ -318,10 +345,10 @@ class RgbdImages:
         static_markers=None,
         from_dlc=False,
         dlc_model_path=None,
-        marker_names=None,
+        dlc_marker_names=None,
         processor=None,
-            ignore_all_checks=False,
-            start_idx = None,
+        ignore_all_checks=False,
+        start_idx=None,
     ):
         self.from_dlc = from_dlc
         self.static_markers = static_markers if static_markers else self.static_markers
@@ -330,10 +357,13 @@ class RgbdImages:
             multi_processing = False
             if not images_path:
                 raise ValueError("Please provide the path to the images when using DLC interface.")
-            if use_optical_flow:
-                raise ValueError("Optical flow is not available when using DLC interface.")
+            # if use_optical_flow:
+            #     raise ValueError("Optical flow is not available when using DLC interface.")
             if not dlc_model_path:
                 raise ValueError("Please provide the path to the model when using DLC interface.")
+
+            if len(self.tracking_config["crops"]) > 1:
+                raise RuntimeError("Only one crop can be used when using the deeplabcut option.")
 
         if images_path:
             self.tracking_config["directory"] = images_path
@@ -342,7 +372,7 @@ class RgbdImages:
         if start_idx:
             self.tracking_config["start_index"] = start_idx
 
-        if marker_names is None and tracking_config_dict is None:
+        if dlc_marker_names is None and tracking_config_dict is None:
             raise ValueError("Please provide the marker names or the tracking config file with marker names.")
 
         self.tracking_config["depth_scale"] = self.converter.depth_scale
@@ -355,23 +385,30 @@ class RgbdImages:
             "optical_flow": use_optical_flow,
         }
 
-        self.process_image = ProcessImage(self.tracking_config, tracking_options, self.static_markers,
-                                          multi_processing=multi_processing,
-                                          bounded_markers=[self.quasi_static_markers, self.quasi_static_bounds],
-                                          from_dlc=self.from_dlc,
-                                          dlc_model_path=dlc_model_path,
-                                          processor=processor,
-                                          marker_names=marker_names,
-                                          ignore_all_checks=ignore_all_checks)
-        self.model_name = self.tracking_config['directory'] + os.sep + model_name if model_name else None
+        self.process_image = ProcessImage(
+            self.tracking_config,
+            tracking_options,
+            self.static_markers,
+            multi_processing=multi_processing,
+            bounded_markers=[self.quasi_static_markers, self.quasi_static_bounds],
+            from_dlc=self.from_dlc,
+            dlc_model_path=dlc_model_path,
+            processor=processor,
+            dlc_marker_names=dlc_marker_names,
+            ignore_all_checks=ignore_all_checks,
+            dlc_enhance_markers=self.dlc_enhance_markers,
+        )
+
+        self.model_name = self.tracking_config["directory"] + os.sep + model_name if model_name else None
         self.build_kinematic_model = build_kinematic_model
         if build_kinematic_model:
             if kin_marker_set is None:
                 raise ValueError("Please provide a set of markers to build the kinematic model")
             self.kin_marker_sets = kin_marker_set
-            path = self.tracking_config['directory']
+            path = self.tracking_config["directory"]
             self.model_name = f"{path}/kinematic_model_{dt_string}.bioMod" if not self.model_name else self.model_name
 
     def set_marker_to_exclude(self, markers):
+        if self.process_image is not None:
+            raise RuntimeError("Please set the markers to exclude form ik before initialization.")
         self.markers_to_exclude_for_ik = markers
-

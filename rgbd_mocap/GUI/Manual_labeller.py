@@ -39,26 +39,26 @@ class MainWindowMenuBar(QMenuBar):
         self.mw = main_window
 
         ### Init menu bar actions
-        self.open_file_action = QAction('Load Directory', self)
+        self.open_file_action = QAction("Load Directory", self)
         self.open_file_action.triggered.connect(main_window.vce.load_folder)
 
-        self.quit_app_action = QAction('Quit', self)
+        self.quit_app_action = QAction("Quit", self)
         self.quit_app_action.triggered.connect(main_window.close)
 
-        self.save_crops_action = QAction('Save Crops', self)
+        self.save_crops_action = QAction("Save Crops", self)
         self.save_crops_action.triggered.connect(main_window.save_crop)
 
-        self.load_crops_action = QAction('Load Crops', self)
+        self.load_crops_action = QAction("Load Crops", self)
         self.load_crops_action.triggered.connect(main_window.load_crop)
 
-        self.save_project_action = QAction('Save Project', self)
+        self.save_project_action = QAction("Save Project", self)
         self.save_project_action.triggered.connect(main_window.save_project)
 
-        self.load_project_action = QAction('Load Project', self)
+        self.load_project_action = QAction("Load Project", self)
         self.load_project_action.triggered.connect(main_window.load_project)
 
         ### Init and fill menu bar
-        file = self.addMenu('File')
+        file = self.addMenu("File")
         file.addAction(self.open_file_action)
         file.addSeparator()
         file.addAction(self.save_crops_action)
@@ -89,7 +89,7 @@ class MainWindowButton(QWidget):
         self.quit_app_button.clicked.connect(main_window.close)
         self.quit_app_button.setMaximumWidth(100)
 
-        self.marker_set_button = QPushButton('Set Markers')
+        self.marker_set_button = QPushButton("Set Markers")
         self.marker_set_button.clicked.connect(main_window.marker_setting)
         self.marker_set_button.setMaximumWidth(100)
 
@@ -147,69 +147,71 @@ class MainWindow(QMainWindow):
 
         else:
             self.save_project_file(self.save_file)
-            MessagePopUp('Project saved')
+            MessagePopUp("Project saved")
 
     def load_crop(self):
-        LoadDialog(parent=self,
-                   caption='Load crops file',
-                   filter='Save File (*.json);; Any(*)',
-                   load_method=self.vce.video_cropper.load_crops_file)
+        LoadDialog(
+            parent=self,
+            caption="Load crops file",
+            filter="Save File (*.json);; Any(*)",
+            load_method=self.vce.video_cropper.load_crops_file,
+        )
 
     def save_project(self):
-        SaveDialog(parent=self,
-                   caption='Save Project',
-                   filter='Save File (*json)',
-                   suffix='json',
-                   save_method=self.save_project_file)
+        SaveDialog(
+            parent=self,
+            caption="Save Project",
+            filter="Save File (*json)",
+            suffix="json",
+            save_method=self.save_project_file,
+        )
 
     def save_crop(self):
-        SaveDialog(parent=self,
-                   caption='Save Crops',
-                   filter='Save File (*json)',
-                   suffix='json',
-                   save_method=self.save_crop_file)
+        SaveDialog(
+            parent=self,
+            caption="Save Crops",
+            filter="Save File (*json)",
+            suffix="json",
+            save_method=self.save_crop_file,
+        )
 
     def save_crop_file(self, file):
         infos = {}
-        with open(file, 'w') as file:
+        with open(file, "w") as file:
             for tab in self.vce.video_tab.tabs[1:]:
-                infos[tab.name] = [
-                         int(tab.ve.area[0]),
-                         int(tab.ve.area[1]),
-                         int(tab.ve.area[2]),
-                         int(tab.ve.area[3])]
+                infos[tab.name] = [int(tab.ve.area[0]), int(tab.ve.area[1]), int(tab.ve.area[2]), int(tab.ve.area[3])]
             json.dump(infos, file, indent=2)
-        MessagePopUp('Crops saved')
+        MessagePopUp("Crops saved")
 
     def save_project_file(self, file):
         self.save_file = file
 
         ### Write it
-        with open(file, 'w') as file:
+        with open(file, "w") as file:
             json.dump(self.project_to_dict(), file, indent=2)
 
-        MessagePopUp('Project saved')
+        MessagePopUp("Project saved")
 
     def project_to_dict(self):
         parameters_vce = self.vce.to_dict()
         if self.marker_setter_tab is None:
             self.create_marker_setter()
         parameters_ms = self.marker_setter_tab.to_dict()
-        mask_list = [None] * len(parameters_vce['crops'])
-        for c, crop_vce in enumerate(parameters_vce['crops']):
+        mask_list = [None] * len(parameters_vce["crops"])
+        for c, crop_vce in enumerate(parameters_vce["crops"]):
             if crop_vce["filters"]["mask"] is not None:
                 mask_list[c] = {"name": crop_vce["name"], "value": crop_vce["filters"]["mask"]}
                 crop_vce["filters"]["mask"] = True
 
-        for crop_ms in parameters_ms['crops']:
-            for crop_vce in parameters_vce['crops']:
-                if crop_vce['name'] == crop_ms['name'] and crop_vce['markers'] == []:
-                    crop_vce['markers'] = crop_ms['markers']
+        for crop_ms in parameters_ms["crops"]:
+            for crop_vce in parameters_vce["crops"]:
+                if crop_vce["name"] == crop_ms["name"] and crop_vce["markers"] == []:
+                    crop_vce["markers"] = crop_ms["markers"]
                     break
 
             ### Way to unplace markers if crops not found rather than removing them
-        parameters_vce['markers'] = parameters_ms['markers']
-        parameters_vce['masks'] = mask_list
+        parameters_vce["markers"] = parameters_ms["markers"]
+        parameters_vce["masks"] = mask_list
         return parameters_vce
 
     def save_crops(self):
@@ -219,17 +221,19 @@ class MainWindow(QMainWindow):
 
             # If marker_setter is placed then
             if self.marker_setter_tab is not None:
-                tab_dict['markers'] = self.marker_setter_tab.get_markers_from(tab.name)
+                tab_dict["markers"] = self.marker_setter_tab.get_markers_from(tab.name)
 
             crops.append(tab_dict)
 
         return crops
 
     def load_project(self):
-        LoadDialog(parent=self,
-                   caption='Load project file',
-                   filter='Save File (*.json);; Any(*)',
-                   load_method=self.load_project_file)
+        LoadDialog(
+            parent=self,
+            caption="Load project file",
+            filter="Save File (*.json);; Any(*)",
+            load_method=self.load_project_file,
+        )
 
     def reinit(self):
         ### Video cropping and editing
@@ -249,7 +253,13 @@ class MainWindow(QMainWindow):
         self.buttons = MainWindowButton(self)
 
         ### Place in layout
-        self.layout.addWidget(self.vce, 0, 0, 1, 1,)
+        self.layout.addWidget(
+            self.vce,
+            0,
+            0,
+            1,
+            1,
+        )
         self.layout.addWidget(self.buttons, 1, 0, 1, 1, Qt.AlignBottom)
         self.once_loaded = True
 
@@ -257,11 +267,11 @@ class MainWindow(QMainWindow):
         if self.once_loaded:
             self.reinit()
         self.save_file = file
-        with open(file, 'r') as f:
+        with open(file, "r") as f:
             try:
                 parameters = json.load(f)
             except json.JSONDecodeError:
-                ErrorPopUp('Cannot load file')
+                ErrorPopUp("Cannot load file")
                 return
 
             self.vce.load_project_dict(parameters)
@@ -286,17 +296,19 @@ class MainWindow(QMainWindow):
     def create_marker_setter(self):
         path = self.vce.get_first_frame()
         if path is None:
-            ErrorPopUp('Cannot find first frame index')
+            ErrorPopUp("Cannot find first frame index")
             return
 
         crops = self.vce.get_crops()
-        self.marker_setter_tab = MarkerSetter(path=path,
-                                              marker_set=[],
-                                              crops=crops, )
+        self.marker_setter_tab = MarkerSetter(
+            path=path,
+            marker_set=[],
+            crops=crops,
+        )
 
     def marker_setting(self):
         ### Warning Pop Up
-        if not WarningPopUp('Pass to marker settings').res:
+        if not WarningPopUp("Pass to marker settings").res:
             return
 
         ### If no MarkerSetter then create a new MarkerSetter
@@ -309,7 +321,7 @@ class MainWindow(QMainWindow):
         self.set_marker_setter()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     demo = MainWindow()
     # demo.vce.dir = "../../../../rgbd_mocap/data_files/P4_session2/gear_20_15-08-2023_10_52_14/"
