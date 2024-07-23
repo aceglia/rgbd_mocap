@@ -78,8 +78,11 @@ class DropImageTab(QTabWidget):
         for tab in self.tabs:
             tab.resizeEvent(a0)  # update_image allow resizing for VideoCropper & Cropped Video
 
-    def set_image(self, image_color):
+    def set_image(self, image_color, depth_image=None):
         ### Set the new image color/depth to all tabs
+        if depth_image is not None:
+            depth_3d = cv2.cvtColor(depth_image, cv2.COLOR_GRAY2BGR)
+            image_color = cv2.addWeighted(image_color, 0.5, depth_3d, 0.5, 0, image_color)
         for tab in self.tabs:
             tab.set_image(image_color)
 

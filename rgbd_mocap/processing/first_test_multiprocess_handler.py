@@ -31,15 +31,15 @@ def init_():
     marker_names = []
     base_positions = []
 
-    for i in range(len(config["crops"])):
-        set_names.append(config["crops"][i]["name"])
-        off_sets.append(config["crops"][i]["area"][:2])
+    for i in range(len(config['crops'])):
+        set_names.append(config['crops'][i]['name'])
+        off_sets.append(config['crops'][i]['area'][:2])
 
         mn = []
         bs = []
-        for j in range(len(config["crops"][i]["markers"])):
-            mn.append(config["crops"][i]["markers"][j]["name"])
-            bs.append(config["crops"][i]["markers"][j]["pos"])
+        for j in range(len(config['crops'][i]['markers'])):
+            mn.append(config['crops'][i]['markers'][j]['name'])
+            bs.append(config['crops'][i]['markers'][j]['pos'])
             # bs.append((config['crops'][i]['markers'][j]['pos'][1], config['crops'][i]['markers'][j]['pos'][0]))
 
         marker_names.append(mn)
@@ -58,8 +58,8 @@ def init_():
         marker_set.set_offset_pos(off_sets[i])
 
     # Image
-    path = config["directory"]
-    index = config["start_index"]
+    path = config['directory']
+    index = config['start_index']
     color, depth = load_img(path, index)
 
     # Frame
@@ -82,7 +82,7 @@ def main(index, path, frames, process_handler, marker_sets):
     avg_load_time = 0
     avg_frame_time = 0
     avg_total_time = 0
-    while index != config["end_index"]:
+    while index != config['end_index']:
         tik = time.time()
 
         # Get next image
@@ -92,7 +92,7 @@ def main(index, path, frames, process_handler, marker_sets):
             continue
 
         tok = time.time()
-        avg_load_time += tok - tik
+        avg_load_time += (tok - tik)
 
         frames.set_images(color, depth)
 
@@ -100,18 +100,18 @@ def main(index, path, frames, process_handler, marker_sets):
         process_handler.send_and_receive_process()
 
         tak = time.time()
-        avg_frame_time += tak - tok
-        avg_total_time += tak - tik
+        avg_frame_time += (tak - tok)
+        avg_total_time += (tak - tik)
 
         img = frames.color.copy()
-        img = print_marker_sets(img, marker_sets, config["crops"])
+        img = print_marker_sets(img, marker_sets, config['crops'])
 
-        cv2.imshow("Main image :", img)
-        if cv2.waitKey(1) == ord("q"):
+        cv2.imshow('Main image :', img)
+        if cv2.waitKey(1) == ord('q'):
             process_handler.end_process()
             break
 
-    nb_img = index - config["start_index"]
+    nb_img = index - config['start_index']
     return avg_load_time / nb_img, avg_frame_time / nb_img, avg_total_time / nb_img
 
 
@@ -119,7 +119,7 @@ def main_load_while_processing(index, path, frames, process_handler: MultiProces
     avg_load_time = 0
     avg_frame_time = 0
     avg_total_time = 0
-    while index != config["end_index"]:
+    while index != config['end_index']:
         tik = time.time()
 
         # Process image
@@ -133,14 +133,14 @@ def main_load_while_processing(index, path, frames, process_handler: MultiProces
             continue
 
         tuk = time.time()
-        avg_load_time += tuk - tok
+        avg_load_time += (tuk - tok)
 
         # Receive from process
         process_handler.receive_process()
 
         tak = time.time()
         avg_frame_time += (tak - tik) - (tuk - tok)
-        avg_total_time += tak - tik
+        avg_total_time += (tak - tik)
 
         img = frames.color.copy()
         img = print_marker_sets(img, marker_sets)
@@ -148,16 +148,16 @@ def main_load_while_processing(index, path, frames, process_handler: MultiProces
         # Set next frame
         frames.set_images(color, depth)
 
-        cv2.imshow("Main image :", img)
-        if cv2.waitKey(1) == ord("q"):
+        cv2.imshow('Main image :', img)
+        if cv2.waitKey(1) == ord('q'):
             process_handler.end_process()
             break
 
-    nb_img = index - config["start_index"]
+    nb_img = index - config['start_index']
     return avg_load_time / nb_img, avg_frame_time / nb_img, avg_total_time / nb_img
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Init
     index, path, frames, process_handler, marker_sets = init_()
 
@@ -165,6 +165,6 @@ if __name__ == "__main__":
     load_time, frame_time, tot_time = main_load_while_processing(index, path, frames, process_handler, marker_sets)
 
     print("Everything's fine !")
-    print("Average load time :", load_time)
-    print("Average computation time :", frame_time)
-    print("Average total time :", tot_time)
+    print('Average load time :', load_time)
+    print('Average computation time :', frame_time)
+    print('Average total time :', tot_time)

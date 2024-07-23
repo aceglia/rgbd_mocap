@@ -8,7 +8,7 @@ import cv2
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-from Marker_Setter.model_setter_tab import MarkerSetter
+from Marker_Setter.marker_setter_tab import MarkerSetter
 from video_crop_widget import CropWidget
 from video_crop_window import CropWindow
 from Utils.video_player import VideoControl

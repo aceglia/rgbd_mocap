@@ -1,4 +1,6 @@
 from typing import List, Tuple
+
+import cv2
 import numpy as np
 
 from ..utils import find_closest_blob
@@ -12,20 +14,9 @@ from ..frames.crop_frames import CropFrames
 class Tracker:
     DELTA = 10
 
-    def __init__(
-        self,
-        frame: CropFrames,
-        marker_set: MarkerSet,
-        naive=False,
-        optical_flow=True,
-        kalman=True,
-        depth_range=None,
-        from_dlc=False,
-        dlc_live=None,
-        ignore_all_checks=False,
-        **kwargs
-    ):
-        self.likelihood = None
+    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True,
+                 depth_range=None, from_dlc=False, dlc_live=None, ignore_all_checks=False,
+                 **kwargs):
         self.marker_set = marker_set
         self.from_dlc = from_dlc
         self.ignore_all_checks = ignore_all_checks
@@ -127,14 +118,15 @@ class Tracker:
                     self.estimated_positions[index].append(Position(estimation, False))
 
         if self.from_dlc:
-            if marker.name in self.marker_set.markers_from_dlc:
-                if marker.name in self.marker_set.dlc_enhance_markers:
-                    pos, likelihood, dlc_visible = [0, 0], 0, False
-                else:
-                    pos, likelihood = self.dlc_live[idx_dlc]
-                    dlc_visible = likelihood > self.dlc_live.p_cutoff
-            else:
+            # if marker.name in self.marker_set.markers_from_dlc:
+                # if marker.name in self.marker_set.dlc_enhance_markers:
+            if not marker.from_dlc:
                 pos, likelihood, dlc_visible = [0, 0], 0, False
+            else:
+                pos, likelihood = self.dlc_live[idx_dlc]
+                dlc_visible = likelihood > self.dlc_live.p_cutoff
+            # else:
+            #     pos, likelihood, dlc_visible = [0, 0], 0, False
             self.estimated_positions[index].append(Position(pos, dlc_visible))
             self.likelihood.append(likelihood)
 
@@ -203,6 +195,14 @@ class Tracker:
         # Track the next position for all markers
         if self.optical_flow:
             self.optical_flow.get_optical_flow_pos(frame.color, self.depth, self.marker_set)
+
+
+        # depth_to_show = self.dlc_live.depth_image.copy()
+        # for p in range(poses.shape[0]):
+        #     cv2.circle(depth_to_show, poses[p, :2].astype(int), 5, (255,0,0), -1)
+        #
+        # cv2.imshow("depth", depth_to_show)
+        # cv2.waitKey(0)
 
         self.likelihood = []
         count = 0

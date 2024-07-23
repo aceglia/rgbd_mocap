@@ -11,14 +11,9 @@ class MarkerSet:
     This class is used to store the marker information
     """
 
-    def __init__(
-        self,
-        marker_set_name,
-        marker_names: list[str],
-        shared=False,
-        rotations: Rotations = Rotations.XYZ,
-        translations: Translations = Translations.XYZ,
-    ):
+    def __init__(self, marker_set_name, marker_names: list[str], shared=False,
+                 rotations: Rotations = Rotations.XYZ, translations: Translations = Translations.XYZ,
+                 downsample_ratio=1):
         """
         init markers class with number of markers, names and image index
 
@@ -34,6 +29,8 @@ class MarkerSet:
         self.translations = translations
         self.markers_from_dlc = []
         self.dlc_enhance_markers = []
+        self.ignore_from_dlc = []
+        self.downsample_ratio = downsample_ratio
 
         self.markers: list[Marker] = []
         for marker_name in marker_names:
@@ -48,6 +45,17 @@ class MarkerSet:
     def get_markers_pos(self):
         """
         Get the position of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        return [marker.pos / self.downsample_ratio for marker in self]
+
+    def get_markers_pos_reduced(self):
+        """
+        Get the position of the markers for the downsampled_images
 
         Returns
         -------
@@ -95,6 +103,21 @@ class MarkerSet:
     def get_markers_global_pos_3d(self):
         """
         Get the position of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        marker_poses = self.get_markers_global_pos_3d_reduced()
+        for m in range(len(marker_poses)):
+            marker_poses[m][:2] = [int(marker_poses[m][i] / self.downsample_ratio) for i in range(2)]
+
+        return marker_poses
+
+    def get_markers_global_pos_3d_reduced(self):
+        """
+        Get the position of the markers for the downscaled images
 
         Returns
         -------
@@ -187,10 +210,7 @@ class MarkerSet:
         """
         return [marker.get_depth_visibility() for marker in self.markers]
 
-    def get_marker_by_name(
-        self,
-        name: str,
-    ):
+    def get_marker_by_name(self, name: str,):
         """
         Get a marker from the marker set
 
@@ -211,12 +231,12 @@ class MarkerSet:
         return None
 
     def __str__(self):
-        string = self.name + " ["
+        string = self.name + ' ['
 
         for marker in self.markers[:-1]:
-            string += f"{marker.name}, "
+            string += f'{marker.name}, '
 
-        string += f"{self.markers[-1].name}]"
+        string += f'{self.markers[-1].name}]'
         return string
 
     def __getitem__(self, item):

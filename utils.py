@@ -209,7 +209,7 @@ def load_data_from_dlc(labeled_data_path, dlc_data_path, part, file,):
                            'delt', 'arml',  'epicl', 'larml', 'stylu', 'stylr', 'm1', 'm2', 'm3']
     # init_dlc_markers_names = ['ster', 'xiph', 'clavsc', 'clavac',
     #                        'delt', 'epicl', 'arml', 'stylu', 'stylr', 'larml',   'm1', 'm2', 'm3']
-    init_dlc_markers_names = ['ster', 'xiph', 'clavsc', 'clavac',
+    init_dlc_markers_names = ["ribs", 'ster', 'xiph', 'clavsc', 'clavac',
                                     'delt', 'arml', 'epicl', 'larml', 'stylr', 'stylu', 'm1', 'm2', 'm3']
     names = [init_dlc_markers_names, init_dlc_markers_names]
     measurements_dir_path = "data_collection_mesurement"
@@ -224,7 +224,7 @@ def load_data_from_dlc(labeled_data_path, dlc_data_path, part, file,):
         dict_list[p]["frame_idx"] = data["frame_idx"]
         depth_markers = data["markers_in_meters"]
         markers_in_pixel = data["markers_in_pixel"]
-        depth_markers_names = list(data["markers_names"][:13, 0])
+        depth_markers_names = list(data["markers_names"][:, 0])
         reordered_markers_depth = _reorder_markers_from_names(depth_markers, names[p], depth_markers_names,
                                                                    )
         reordered_markers_pixel = _reorder_markers_from_names(markers_in_pixel, names[p],  depth_markers_names,
@@ -252,7 +252,7 @@ def load_data_from_dlc(labeled_data_path, dlc_data_path, part, file,):
         # dict_list[p]["markers_in_meters"][:, -3, :] = styl_u
         # dict_list[p]["markers_in_meters"][:, -1, :] = larm
     data_dlc, data_labeling = check_frames(dict_list[0], dict_list[1])
-    return data_dlc, data_labeling
+    return data_dlc, data_labeling, dict_list[0]["markers_names"]
 
 
 def check_frames(data_labeling, data_dlc):

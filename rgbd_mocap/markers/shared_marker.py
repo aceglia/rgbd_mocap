@@ -3,9 +3,9 @@ from multiprocessing import RawArray, RawValue
 from ..markers.marker import Marker
 
 
-c_int = "i"
-c_bool = "c"
-c_float = "d"
+c_int = 'i'
+c_bool = 'c'
+c_float = 'd'
 
 
 class SharedMarker(Marker):

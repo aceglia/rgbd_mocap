@@ -15,25 +15,28 @@ class MultiProcessHandler(Handler):
         self.queue_blobs = Queue()
         self.process_list = []
 
-        arguments = {
-            "queue_res": self.queue_res,
-            "queue_end": self.queue_end_proc,
-            "queue_blobs": self.queue_blobs,
-        }
+        arguments = {'queue_res': self.queue_res,
+                     'queue_end': self.queue_end_proc,
+                     'queue_blobs': self.queue_blobs,
+                     }
 
         for i in range(len(markers_sets)):
             queue_arg = Queue()
             queue_arg = queue_arg
             marker_set = markers_sets[i]
-            option = options["crops"][i]
+            option = options['crops'][i]
             if "depth_scale" in options.keys():
                 option["depth_scale"] = options["depth_scale"]
 
-            process = Process(
-                target=MultiProcessHandler._process_function,
-                args=(i, queue_arg, marker_set, shared_frame, option, tracking_option, arguments),
-                daemon=True,
-            )
+            process = Process(target=MultiProcessHandler._process_function,
+                              args=(i,
+                                    queue_arg,
+                                    marker_set,
+                                    shared_frame,
+                                    option,
+                                    tracking_option,
+                                    arguments),
+                              daemon=True)
 
             self.queue_arg_list.append(queue_arg)
             self.process_list.append(process)
@@ -68,15 +71,19 @@ class MultiProcessHandler(Handler):
         for process in self.process_list:
             process.join()
 
-        print("All process stopped")
+        print('All process stopped')
 
     @staticmethod
-    def _process_function(
-        index, queue_arg, marker_set: MarkerSet, shared_frame: SharedFrames, crop_option, tracking_option, arguments
-    ):
+    def _process_function(index,
+                          queue_arg,
+                          marker_set: MarkerSet,
+                          shared_frame: SharedFrames,
+                          crop_option,
+                          tracking_option,
+                          arguments):
         print(f"[Process {index}: Started]")
         # Init Crop
-        crop = Crop(crop_option["area"], shared_frame, marker_set, crop_option["filters"], tracking_option)
+        crop = Crop(crop_option['area'], shared_frame, marker_set, crop_option['filters'], tracking_option)
         if "depth_scale" in crop_option.keys():
             DepthCheck.set_depth_scale(crop_option["depth_scale"])
         while True:
@@ -88,14 +95,12 @@ class MultiProcessHandler(Handler):
             elif arg == Handler.CONTINUE:
                 blobs, positions, estimate_positions = crop.track_markers()
                 set_marker_pos(marker_set, positions)
-                arguments["queue_blobs"].put((index, blobs))
-                Handler.show_image(
-                    f"{crop_option['name']} {index}",
-                    crop.filter.filtered_frame,
-                    blobs=blobs,
-                    markers=crop.marker_set,
-                    estimated_positions=estimate_positions,
-                )
+                arguments['queue_blobs'].put((index, blobs))
+                Handler.show_image(f"{crop_option['name']} {index}",
+                                   crop.filter.filtered_frame,
+                                   blobs=blobs,
+                                   markers=crop.marker_set,
+                                   estimated_positions=estimate_positions)
             elif arg == Handler.RESET:
                 print(f"[Process {index}: Resetting]")
                 crop.re_init(marker_set, tracking_option)
@@ -104,6 +109,6 @@ class MultiProcessHandler(Handler):
                 print(f"[Process {index}: Order {arg} not implemented]")
 
             ### When executed its order send back to res queue its index
-            arguments["queue_res"].put(index)
+            arguments['queue_res'].put(index)
 
         arguments["queue_end"].put(index)

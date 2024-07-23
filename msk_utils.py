@@ -110,7 +110,7 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=120, times=None, d
         print(new_model_path)
 
         msk_function.model = biorbd.Model(new_model_path)
-        q, q_dot = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
+        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
                                                            InverseKinematicsMethods.BiorbdLeastSquare)
         # import bioviz
         # b = bioviz.Viz(loaded_model=msk_function.model)

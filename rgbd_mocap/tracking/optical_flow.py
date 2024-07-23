@@ -7,7 +7,7 @@ def image_gray_and_blur(image, blur_size):
 
 
 def background_remover(frame, depth, clipping_distance, depth_scale, clipping_color, min_dist=0, use_contour=True):
-    depth_image_3d = depth  # np.dstack((depth, depth, depth))
+    depth_image_3d = depth #np.dstack((depth, depth, depth))
     final = np.where(
         (depth_image_3d > clipping_distance / depth_scale) | (depth_image_3d <= min_dist / depth_scale),
         clipping_color,
@@ -42,9 +42,9 @@ def background_remover(frame, depth, clipping_distance, depth_scale, clipping_co
 class OpticalFlow:
     BLUR = 5
     optical_flow_parameters = {
-        "winSize": (15, 15),
-        "maxLevel": 2,
-        "criteria": (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03),
+        'winSize': (15, 15),
+        'maxLevel': 2,
+        'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03),
     }
 
     def __init__(self, frame, depth, marker_set):
@@ -62,7 +62,8 @@ class OpticalFlow:
 
     def get_optical_flow_pos(self, frame, depth, marker_set):
         self.previous_frame = self.frame.copy()
-        frame = background_remover(frame, depth, 1.4, 0.0010000000474974513, 100, use_contour=True)
+        frame = background_remover(frame, depth, 1.4, 0.0010000000474974513,
+                                   100, use_contour=True)
         self.depth = depth
         self.frame = image_gray_and_blur(frame, OpticalFlow.BLUR)
         self.value = cv2.calcOpticalFlowPyrLK(
@@ -89,6 +90,12 @@ class OpticalFlow:
                 count += 1
 
         self.value = [all_pos, all_x, all_y]
+
+        # if len(self.value_to_add) != 0:
+        #     self.value = list(self.value)
+        #     self.value[0] = np.concatenate((self.value[0], np.zeros((len(self.value_to_add), 2))), axis=0)
+        #     self.value[1] = np.concatenate((self.value[1], np.zeros((len(self.value_to_add), 1))), axis=0)
+        #     self.value[2] = np.concatenate((self.value[2], np.zeros((len(self.value_to_add), 1))), axis=0)
         return self.value
 
     def set_positions(self, marker_set):
@@ -100,6 +107,7 @@ class OpticalFlow:
             else:
                 positions.append(mark.pos)
         self.previous_positions = np.array(positions, dtype=np.float32)
+        # self.value_to_add = value_to_add
 
     def __getitem__(self, item):
         if self.value is not None:
