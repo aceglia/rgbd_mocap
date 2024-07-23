@@ -137,8 +137,10 @@ def get_label_image(participant_to_exclude=None):
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     main_path = "Q:\Projet_hand_bike_markerless\RGBD"
 
+    #main_path = "data_files"
     nb_frame = 500
     nb_cycle = 20
+    ratio_down = 3
     empty_depth = []
     all_kps = []
     count = 0
@@ -229,6 +231,27 @@ def get_label_image(participant_to_exclude=None):
                     depth = cv2.resize(depth, (int(depth.shape[1] * ratio), int(depth.shape[0] * ratio)))#, interpolation=cv2.INTER_NEAREST)
 
                 empty_depth.append(compute_surface_normals(depth))
+                # empty_depth.append(compute_surface_normals_k_nearest(depth))
+
+                # cv2.namedWindow("depth", cv2.WINDOW_NORMAL)
+                # cv2.imshow("depth", empty_depth[count])
+
+                # first_min = 0.4 / (0.0010000000474974513)
+                # first_max = np.median(np.sort(depth.flatten())[-30:])
+                # normalize_depth = (depth - first_min) / (first_max - first_min)
+                # normalize_depth[depth == 0] = 0
+                # normalize_depth = normalize_depth * 255
+                # depth = normalize_depth.astype(np.uint8)
+
+                # cv2.imwrite(r"Q:\Projet_hand_bike_markerless\RGBD\fig_surface_normal.png", empty_depth[count])
+                # depth_colormap = cv2.applyColorMap(np.dstack([depth, depth, depth]), cv2.COLORMAP_JET)
+                # cv2.imwrite(r"Q:\Projet_hand_bike_markerless\RGBD\fig_surface_normal.png", empty_depth[count])
+                # cv2.imwrite(r"Q:\Projet_hand_bike_markerless\RGBD\fig_3D.png",depth_colormap )
+                # cv2.imshow("c", depth_colormap)
+
+                # if count % ratio_down == 0:
+                #     cv2.waitKey(0)
+                # cv2.waitKey(0)
                 count += 1
     return empty_depth, all_kps, marker_names
 
@@ -250,6 +273,50 @@ def compute_surface_normals(depth_map, empty_mat = None):
     normal = cv2.cvtColor(normal, cv2.COLOR_RGB2BGR)
     return normal
 
+
+from scipy.spatial import cKDTree
+
+
+def compute_surface_normals_k_nearest(depth_map, k=9):
+    # Get the coordinates of all pixels
+    height, width = depth_map.shape
+    x, y = np.meshgrid(np.arange(width), np.arange(height))
+    coords = np.stack((x, y, depth_map), axis=-1).reshape(-1, 3)
+
+    # Filter out invalid points (where depth is zero or invalid)
+    valid_mask = depth_map > 0
+    valid_coords = coords[valid_mask.reshape(-1)]
+
+    # Build the k-d tree for fast neighbor search
+    tree = cKDTree(valid_coords)
+
+    # Initialize the normal map
+    normals = np.zeros_like(coords, dtype=np.float32)
+
+    # Calculate normals for valid points
+    for i, point in enumerate(valid_coords):
+        _, idx = tree.query(point, k=k)
+        neighbors = valid_coords[idx]
+        # Center the neighborhood around the origin
+        centered_neighbors = neighbors - point
+        # Perform SVD
+        _, _, vt = np.linalg.svd(centered_neighbors)
+        normal = vt[2]  # Normal is the last row of vt
+        normals[valid_mask.reshape(-1)][i] = normal
+
+    # Reshape normals to the original image shape
+    normals = normals.reshape(height, width, 3)
+
+    # Normalize the normals
+    norm = np.linalg.norm(normals, axis=2, keepdims=True)
+    normals = np.divide(normals, norm, out=np.zeros_like(normals), where=norm != 0)
+
+    normals = (normals + 1) * 127.5
+    normals = np.clip(normals, 0, 255).astype(np.uint8)
+    # Convert normal to BGR format for visualization (assuming RGB input)
+    normals_bgr = cv2.cvtColor(normals, cv2.COLOR_RGB2BGR)
+
+    return normals_bgr
 
 if __name__ == '__main__':
     np.random.seed(40)
