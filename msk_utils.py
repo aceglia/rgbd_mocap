@@ -51,6 +51,17 @@ def _comment_markers(data):
             data_tmp = data_tmp[:idx_marker_start] + "/*" +data_tmp[idx_marker_start:idx_marker_end] + "*/" + data_tmp[idx_marker_end:]
     return data_tmp
 
+def _comment_dofs(data):
+    data_tmp = data
+    idx = data_tmp.find("translations")
+    while True:
+        idx = data_tmp.find("rotations", idx)
+        if idx == -1:
+            break
+        data_tmp = data_tmp[:idx] + "//" + data_tmp[idx:]
+        idx += 5
+    return data_tmp
+
 
 def _compute_new_bounds(data):
     bounds = ["rotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n",
@@ -89,29 +100,46 @@ def _compute_new_bounds(data):
 def _compute_ik(msk_function, markers, frame_idx, kalman_freq=120, times=None, dic_to_save=None, file_path=None, n_window=0):
     tic_init = time.time()
     if frame_idx == n_window:
-        # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
-        #                                                    InverseKinematicsMethods.BiorbdLeastSquare, )
+
+        model_path = msk_function.model.path().absolutePath().to_string()
+        with open(model_path, "r") as file:
+            data = file.read()
+
+        data_tmp = _comment_dofs(data)
+        with open(model_path, "w") as file:
+            file.write(data_tmp)
+        markers_nan = markers.copy()
+        markers_nan[:, 5:] = markers_nan[:, 5:] * np.nan
+        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers_nan[:, :, np.newaxis],
+                                                           InverseKinematicsMethods.BiorbdKalman, )
+        msk_function.clean_all_buffers()
+        with open(model_path, "w") as file:
+            file.write(data)
         # import bioviz
         # b = bioviz.Viz(loaded_model=msk_function.model)
         # b.load_movement(np.repeat(q,  5, axis=1))
         # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
         # b.exec()
-        # msk_function.clean_all_buffers()
+
         model_path = msk_function.model.path().absolutePath().to_string()
         with open(model_path, "r") as file:
             data = file.read()
+        rt = f"{q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]}"
         init_idx = data.find("SEGMENT DEFINITION")
         end_idx = data.find("translations xyz // thorax") + len("translations xyz // thorax") + 1
-        data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n"
+        data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT {rt}\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-1 1\n\t\t-1 1\n\t\t-1 1\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n"
         data = data[:init_idx] + data_to_insert + data[end_idx:]
         new_model_path = _compute_new_model_path(file_path, model_path)
         with open(new_model_path, "w") as file:
             file.write(data)
         print(new_model_path)
 
+        #new_model_path = "/mnt/shared/Projet_hand_bike_markerless/RGBD/P10/models/gear_20_model_scaled_dlc_new_seth_param.bioMod"
+
         msk_function.model = biorbd.Model(new_model_path)
-        q, q_dot = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
+        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
                                                            InverseKinematicsMethods.BiorbdLeastSquare)
+        # print(f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax")
         # import bioviz
         # b = bioviz.Viz(loaded_model=msk_function.model)
         # b.load_movement(np.repeat(q,  5, axis=1))
@@ -124,19 +152,22 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=120, times=None, d
            "RT 0 0 0 xyz 0 0 0 // thorax",
            f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax",
         )
-        data = data.replace(
-            "rotations xyz // thorax",
-            f"//rotations xyz // thorax",
-        )
-        data = data.replace(
-            "translations xyz // thorax",
-            f"// translations xyz // thorax",
-        )
-        # new_model_path = _compute_new_model_path(file_path, model_path)
+
+        # data = data.replace(
+        #     "rotations xyz // thorax",
+        #     f"//rotations xyz // thorax",
+        # )
+        # data = data.replace(
+        #     "translations xyz // thorax",
+        #     f"// translations xyz // thorax",
+        # )
+
+        new_model_path = _compute_new_model_path(file_path, model_path)
         with open(new_model_path, "w") as file:
             file.write(data)
-        q = q[6:, :]
-        # q[:3, :] = 0
+        q = q[:, :]
+        #q = np.concatenate((q[3:6, :], q[6:, :]), axis = 0)
+        #q[:3, :] = 0
         # idx_to_delete = [0, 1, 2]
         # q = np.delete(q, idx_to_delete, axis=0)
         # import bioviz
@@ -144,7 +175,11 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=120, times=None, d
         # b.load_movement(np.repeat(q,  5, axis=1))
         # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
         # b.exec()
+        # new_model_path = "/mnt/shared/Projet_hand_bike_markerless/RGBD/P10/models/gear_20_model_scaled_dlc_new_seth_param.bioMod"
         msk_function.model = biorbd.Model(new_model_path)
+        # msk_function.clean_all_buffers()
+        # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
+        #                                                    InverseKinematicsMethods.BiorbdLeastSquare)
         msk_function.clean_all_buffers()
         # q = np.zeros_like(q)
         #q = np.delete(q, idx_to_remove, axis=0)
@@ -317,28 +352,31 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
     if compute_ik:
         if filter_depth:
             # if source == "depth":
-            markers_filtered = []
-            for j in range(3):
-                markers_filtered.append(markers_process[j].process_emg(
-                    markers[j, :, None],
-                    moving_average=True,
-                    band_pass_filter=False,
-                    centering=False,
-                    absolute_value=False,
-                    moving_average_window=7,
-                    # window_weights=[1,1,1,1,1,1, 1,5,5,5,5,5,5,5]
-                )[:, -1:])
-            markers_low_pass = np.array(markers_filtered).reshape(3, -1)
-            dic_to_save["markers_low_pass"] = markers_low_pass[:, :, None]
+            # markers_filtered = []
+            # for j in range(3):
+            #     markers_filtered.append(markers_process[j].process_emg(
+            #         markers[j, :, None],
+            #         moving_average=True,
+            #         band_pass_filter=False,
+            #         centering=False,
+            #         absolute_value=False,
+            #         moving_average_window=7,
+            #         # window_weights=[1,1,1,1,1,1, 1,5,5,5,5,5,5,5]
+            #     )[:, -1:])
+            # markers_low_pass = np.array(markers_filtered).reshape(3, -1)
+            # dic_to_save["markers_low_pass"] = markers_low_pass[:, :, None]
             i = frame_idx
             markers_kalman = np.zeros_like(markers)
-
             for k in range(markers.shape[1]):
-                all_kalman[k].correct(markers[:, k])
-                if i == 0:
-                    markers_kalman[:, k] = all_kalman[k].last_predicted_pos
-                else:
-                    markers_kalman[:, k] = all_kalman[k].predict()
+                markers_kalman[:, k] = all_kalman[k].predict()
+                markers_kalman[:, k] = all_kalman[k].get_future_pose()
+                if markers is not None:
+                    all_kalman[k].correct(markers[:, k, 0])
+                # all_kalman[k].correct(markers[:, k])
+                # if i == 0:
+                #     markers_kalman[:, k] = all_kalman[k].last_predicted_pos
+                # else:
+                #     markers_kalman[:, k] = all_kalman[k].predict()
 
             # markers_for_cluster = markers_kalman[:, -3:, None].copy()
             # anato_from_cluster = _convert_cluster_to_anato(new_cluster, markers_for_cluster * 1000)
@@ -386,12 +424,18 @@ def process_next_frame(markers, msk_function, frame_idx, source, external_loads=
 
 
 def process_all_frames(markers, msk_function, source, external_loads, scaling_factor, emg, f_ext,
+                       img_idx = None,
                        compute_id=True, compute_so=True, compute_jrf=True, stop_frame=None, file=None,
-                       print_optimization_status=False, filter_depth=False, emg_names=None,
-                       marker_names=None, calibration_matrix=None, measurements=None):
+                       print_optimization_status=False, filter_depth=False, emg_names=None, compute_ik=True,
+                       marker_names=None, calibration_matrix=None, measurements=None, part=None):
     final_dic = {}
     stop_frame = markers.shape[2] if stop_frame is None else stop_frame
     all_kalman = []
+    if img_idx is None:
+        img_idx = np.linspace(0, stop_frame, stop_frame)
+    fist_idx = img_idx[0]
+    img_idx = [idx - fist_idx for idx in img_idx]
+
     if filter_depth:
         n_window = 14
 
@@ -400,7 +444,32 @@ def process_all_frames(markers, msk_function, source, external_loads, scaling_fa
         n_window = 0
 
         for k in range(markers.shape[1]):
-            all_kalman.append(Kalman(markers[:, k, 0], n_measures=3, n_states=6))
+            all_kalman.append(Kalman(markers[:, k, 0], n_measures=3, n_states=6, fps=60))
+            params = [33.854932901724865, 197.7562812942389, 199.93930880586052, 191.95792974021674, 197.97717938417674,
+                      199.5130811408595, 197.82220758604234, 199.28326345674344, 195.4406278790149, 199.9810605737064,
+                      199.66869887308272, 0.005686808993401228, 0.3705752906699691, 0.003185363531327173,
+                      64.29170907693764, 47.201566295621404, 86.82672260187417, 135.753299677399, 2.2824916634976464,
+                      1.7542331637223625, 5.340361580895508, 16.826256853013987, 12.94998305317464, 4.793811941481637,
+                      4.840886318204323, 59.74281921540489, 46.31000203221055, 47.094969067927224, 170.15785900624394,
+                      194.17044792496927, 196.82706199721383, 87.42902292192277, 142.08156872668295, 113.44527016352379,
+                      45.865738048337924, 24.55382173100384, 57.3498264421611, 52.074253957784805, 80.24941809928191,
+                      3.4783512052007435, 3.1914902010982225, 3.94431244070897, 24.970269078800314, 68.6252696016883,
+                      199.94077380904093, 117.4451587247961, 72.16796625341426, 62.62788673269098, 26.83341320021353,
+                      97.70306303939348, 50.29650501019472, 25.87917902861797, 171.0175469412674, 108.11970704594938,
+                      29.156171859837347, 11.33030125964347, 30.74678348480026, 11.096760891059505, 40.989508173482015,
+                      2.147907321690937, 32.724156170891554, 149.44546361622034, 158.58512857439393, 77.29024007885553,
+                      80.77755977928494, 74.35814185930617, 12.706579158838624, 78.32293914502515]
+            n_markers = markers.shape[1]
+            measurement_noise_factor = params[:n_markers][k]
+            process_noise_factor = params[n_markers:n_markers * 2][k]
+            error_cov_post_factor = params[n_markers * 2:n_markers * 3][k]
+            error_cov_pre_factor = params[n_markers * 3:][k]
+            all_kalman[k].set_params(measurement_noise_factor,
+                                     process_noise_factor,
+                                     error_cov_post_factor,
+                                     error_cov_pre_factor)
+            all_kalman[k].init_kalman(markers[:, k, 0])
+
     else:
         n_window = 0
         markers_process = None
@@ -410,7 +479,7 @@ def process_all_frames(markers, msk_function, source, external_loads, scaling_fa
     import json
     measurements_dir_path = "data_collection_mesurement"
     calibration_matrix_dir = "../scapula_cluster/calibration_matrix"
-    measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_P9.json"))
+    measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"))
     measurements = measurement_data[f"with_depth"]["measure"]
     calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[f"with_depth"][
         "calibration_matrix_name"]
@@ -418,24 +487,24 @@ def process_all_frames(markers, msk_function, source, external_loads, scaling_fa
                                  measurements[4], measurements[5], calibration_matrix)
     # new_cluster = None
     viz = None
-    for i in range(stop_frame):
+    for i in range(img_idx[-1]):
         if i > electro_delay:
             emg_tmp = emg if emg is None else emg[:, i-electro_delay]
         else:
             emg_tmp = None
+        markers_tmp = markers[..., i] if i in img_idx else None
 
-        dic_to_save, viz = process_next_frame(markers[..., i], msk_function, i, source, external_loads,
+        dic_to_save, viz = process_next_frame(markers_tmp, msk_function, i, source, external_loads,
                                          scaling_factor, emg_tmp,
                                          # f_ext=f_ext[:, i],
                                          kalman_freq=60,
-                                         emg_names=emg_names, compute_id=compute_id,
+                                         emg_names=emg_names, compute_id=compute_id, compute_ik=compute_ik,
                                          compute_so=compute_so, compute_jrf=compute_jrf, file=file,
                                          print_optimization_status=print_optimization_status, filter_depth=filter_depth,
                                          markers_process=markers_process, tracking_idx=track_idx,
                                          map_emg_idx=map_idx, marker_names=marker_names, new_cluster=new_cluster, viz=viz,
-                                              n_window=n_window,
-                                              all_kalman = all_kalman
-
+                                         n_window=n_window,
+                                         all_kalman = all_kalman
                                         )
         if dic_to_save is not None:
             final_dic = dic_merger(final_dic, dic_to_save)
