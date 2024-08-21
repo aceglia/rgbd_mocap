@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import GRU, Dense, Input
+# from tensorflow.keras.models import Sequential
+# from tensorflow.keras.layers import GRU, Dense, Input
 from tensorflow import keras
 from tensorflow.keras import layers
 import matplotlib.pyplot as plt
@@ -64,7 +64,7 @@ def create_dataset(data, target, input_timesteps):
     for s in range(data.shape[0]):
         X.append(data[s, :-1,  0, 10])
         #y.append(series[:-1])
-        y.append(target[s, -1, 0, 10])
+        y.append(data[s, -1, 0, 10])
         # plt.plot(data[s, :-1, 1, 1])
         # plt.plot(target[s, :, 1, 1])
         # plt.scatter(data.shape[1]-1, target[s, -1, 0, 1])
@@ -105,11 +105,10 @@ if train :
     model = keras.Sequential()
     model.add(layers.Input(shape=(input_timesteps-1, 1)))
     model.add(layers.GRU(50, return_sequences=True, activation='relu'))
-    model.add(layers.Dropout(0.2))
     model.add(layers.GRU(50, return_sequences=False))
-    model.add(layers.Dropout(0.2))
     model.add(layers.Dense(num_features))
     model.compile(optimizer='adam', loss='mse')
+    model.summary()
 
 
     # Train the model
