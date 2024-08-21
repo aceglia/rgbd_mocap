@@ -130,9 +130,9 @@ def save_augmented_images(images, kps_aug, path, marker_names):
 
 def get_label_image(participant_to_exclude=None):
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
-    # main_path = "Q:\Projet_hand_bike_markerless\RGBD"
+    # main_path = "Q:/Projet_hand_bike_markerless/RGBD"
     main_path = "data_files"
-    nb_frame = 30
+    nb_frame = 120
     empty_depth = np.zeros((nb_frame * (len(participants) -1 ), 480, 848, 3), dtype=np.uint8)
     all_kps = []
     count = 0
@@ -192,66 +192,9 @@ def get_label_image(participant_to_exclude=None):
 
                 empty_depth[count, ...] = compute_surface_normals(depth)
                 print("time to compute surface normals: ", time.time() - tic)
-
-                # min_depth = np.min(depth[depth > 0])
-                # print(first_min)
-                # min_depth = np.min(depth[depth > 0])
-                # first_min = np.median(np.sort(depth[depth > 0].flatten())[:10]) if first_min == -1 else first_min
-                # print(first_min)
-                # first_min = 0.4 / (0.0010000000474974513)
-                # first_max = np.median(np.sort(depth.flatten())[-30:]) if first_max == -1 else first_max
-                # normalize_depth = (depth - first_min) / (first_max - first_min)
-                # normalize_depth[depth == 0] = 0
-                # normalize_depth = normalize_depth * 255
-                # depth = normalize_depth.astype(np.uint8)
-                # cv2.imshow("depth", depth)
-                # cv2.waitKey(0)
-
-                # first_min = 0.4 / (0.0010000000474974513)
-                # first_min = np.median(np.sort(depth[depth > 0].flatten())[:10]) if first_min == -1 else first_min
-                # first_max = np.median(np.sort(depth.flatten())[-30:]) if first_max == -1 else first_max
-                # depth_list = []
-                # ranges = [0.4, 0.8, 0.95, 1.2]
-                # for d in range(3):
-                #     depth_tmp = np.where(
-                #         (depth > ranges[d+1] / (0.0010000000474974513)) | (depth <= ranges[d]  / (0.0010000000474974513)),
-                #         0,
-                #         depth,
-                #     )
-                #     min = np.median(np.sort(depth.flatten()[depth_tmp.flatten().nonzero()])[:10])
-                #     max = np.median(np.sort(depth_tmp.flatten())[-30:])
-                #     normalize_depth = (depth_tmp - min) / (max - min)
-                #     normalize_depth[depth_tmp == 0] = 0
-                #     normalize_depth = normalize_depth * 255
-                #     depth_tmp = normalize_depth.astype(np.uint8)
-                #     depth_list.append(depth_tmp)
-                # #     cv2.imshow(f"depth_{d}", depth_tmp)
-                # # cv2.waitKey(0)
-                #
-                # depth_3d = np.dstack((depth_list[0], depth_list[1], depth_list[2]))
-
-                # depth_3d = np.dstack((depth, depth, depth))
-                # aply depth color map
-                # depth_colormap = cv2.applyColorMap(empty_depth[count, ...], cv2.COLORMAP_JET)
-                # depth_colormap[empty_depth[count, ...] == 0] = 0
-                # empty_depth[count, ...] = depth_colormap
-                # hist_eq = cv2.equalizeHist(depth)
-                # hist_3d = np.dstack((hist_eq, hist_eq, hist_eq))
-                # # depth_3d = np.dstack((depth, depth, depth))
-                # depth_colormap = cv2.applyColorMap(hist_3d, cv2.COLORMAP_JET)
-                # depth_colormap[depth_3d == 0] = 0
-                # kernel = np.array([[0, 0, 0], [0, 2, 0], [0, 0, 0]])
-                # kernel = np.array([[-1, 0, -1],
-                #                    [-1, 7, -1],
-                #                    [-1, 0, -1]])
-                # empty_depth[count, ...] = cv2.filter2D(depth_3d, -1,
-                #                          kernel)
-                # augment constrast in the depth image using opencv
-                # clahe = cv2.createCLAHE(clipLimit=9.0, tileGridSize=(13, 13))
-                # depth = clahe.apply(depth)
                 cv2.namedWindow("depth", cv2.WINDOW_NORMAL)
                 cv2.imshow("depth", empty_depth[count, ...])
-                cv2.waitKey(0)
+                # cv2.waitKey(0)
                 count += 1
     return empty_depth, all_kps, marker_names
 
@@ -282,47 +225,36 @@ def compute_surface_normals(depth_map):
     x, y = np.meshgrid(np.arange(cols), np.arange(rows))
     x = x.astype(np.float32)
     y = y.astype(np.float32)
+
     # Calculate the partial derivatives of depth with respect to x and y
     dx = cv2.Sobel(depth_map, cv2.CV_32F, 1, 0)
     dy = cv2.Sobel(depth_map, cv2.CV_32F, 0, 1)
-    # dx = np.gradient(depth_map, axis=1)
-    # dy = np.gradient(depth_map, axis=0)
-    # x = x.astype(np.float32)
-    # y = y.astype(np.float32)
-    # # Calculate the partial derivatives of depth with respect to x and y
-    # dx = cv2.Sobel(depth_map, cv2.CV_32F, 1, 0)
-    # dy = cv2.Sobel(depth_map, cv2.CV_32F, 0, 1)
-    # # Compute the normal vector for each pixel
+
+    # Compute the normal vector for each pixel
     normal = np.dstack((-dx, -dy, np.ones((rows, cols))))
-    #
-    # tic= time.time()
-    #
-    norm = np.linalg.norm(normal, axis=2).reshape((rows, cols, 1))
-    # norm = np.sqrt(np.sum(normal ** 2, axis=2, keepdims=True))
-    # grad /= np.linalg.norm(grad, axis=0)
+    norm = np.sqrt(np.sum(normal ** 2, axis=2, keepdims=True))
     normal = np.divide(normal, norm, out=np.zeros_like(normal), where=norm != 0)
-    # print("time to compute normal vectors: ", time.time() - tic)
 
     # Map the normal vectors to the [0, 255] range and convert to uint8
     normal = (normal + 1) * 127.5
     normal = normal.clip(0, 255).astype(np.uint8)
 
     # Save the normal map to a file
-    # normal = _compute_normal(x, y, depth_map, rows, cols)
     normal_bgr = cv2.cvtColor(normal, cv2.COLOR_RGB2BGR)
     return normal_bgr
 
 
 if __name__ == '__main__':
+    prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/Projet_hand_bike_markerless"
     np.random.seed(40)
-    participants = ["P9"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
+    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     for p, part in enumerate(participants):
         print(f"Processing data augmentation excluding {part}...")
-        # training_path = f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\{part}_excluded_normal"
-        # if os.path.exists(training_path):
-        #     shutil.rmtree(training_path, ignore_errors=True)
-        # os.makedirs(training_path)
+        training_path = f"{prefix}/RGBD/Training_data/{part}_excluded_normal_times_two"
+        if os.path.exists(training_path):
+            shutil.rmtree(training_path, ignore_errors=True)
+        os.makedirs(training_path)
         images, markers, marker_names = get_label_image(participant_to_exclude=part)
         # images_aug, kps_aug = get_augmented_images(images, markers)
         # save_augmented_images(images_aug, kps_aug, training_path, marker_names)
-        #save_augmented_images(images, markers, training_path, marker_names)
+        # save_augmented_images(images, markers, training_path, marker_names)

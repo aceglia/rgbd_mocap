@@ -35,7 +35,7 @@ class CameraIntrinsics:
         self.ppy = ppx_ppy[1]
 
         self.dist_coefficients = dist_coefficients
-        self.model = rs.distortion.inverse_brown_conrady if rs_model else None
+        self.model = rs.distortion.inverse_brown_conrady
 
         self.fps = fps
         
