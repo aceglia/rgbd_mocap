@@ -75,17 +75,17 @@ class Crop:
         self.dlc_live = None
         # Image
         self.frame = CropFrames(area, frame)
-        if from_dlc:
-            self.dlc_live = DlcLive(dlc_model, dlc_processor, depth_scale=DepthCheck.DEPTH_SCALE)
-            first_markers_position = self.dlc_live.get_pose(self.frame.depth, min_depth=200, bg_remover_threshold=1.2)[:, :2]
-            self.set_marker_pos(first_markers_position)
-            self.attribute_depth()
 
         self.depth_min = filter_option['distance_in_centimeters'][0] / 100 / DepthCheck.DEPTH_SCALE
         self.depth_max = filter_option['distance_in_centimeters'][1] / 100 / DepthCheck.DEPTH_SCALE
         self.tracking_option = method
         # Image computing
         self.filter = Filter(filter_option)
+        if from_dlc:
+            self.dlc_live = DlcLive(dlc_model, dlc_processor, depth_scale=DepthCheck.DEPTH_SCALE)
+            first_markers_position = self.dlc_live.get_pose(self.frame.depth, min_depth=200, bg_remover_threshold=1.2)[:, :2]
+            self.set_marker_pos(first_markers_position)
+            self.attribute_depth()
         self.tracker = Tracker(
             self.frame, marker_set, depth_range=[self.depth_min, self.depth_max], from_dlc=from_dlc,
             dlc_live=self.dlc_live, ignore_all_checks=ignore_all_checks, **method
@@ -94,7 +94,7 @@ class Crop:
     def attribute_depth_from_position(self, positions: list[Position]):
         assert len(positions) == len(self.marker_set.markers)
         for i in range(len(positions)):
-            if self.marker_set[i].is_static:
+            if self.marker_set[i].is_static and self.marker_set[i].get_depth() != -1:
                 continue
             if isinstance(positions[i], Position):
                 depth, visibility = DepthCheck.check(positions[i].position,
@@ -118,20 +118,28 @@ class Crop:
             dlc_live=self.dlc_live, **method)
 
     def attribute_depth(self):
-        self.attribute_depth_from_position([marker.pos for marker in self.marker_set])
+        self.attribute_depth_from_position([Position(marker.pos, True) for marker in self.marker_set])
 
-    def set_marker_pos(self, positions: List[Position]):
-        assert len(self.marker_set.markers) == len(positions)
+    def set_marker_pos(self, positions: List[Position], dlc_enhance_markers=()):
+        assert len(self.marker_set.markers_from_dlc) == len(positions)
         if isinstance(positions, np.ndarray):
             positions = positions.astype(int)
-        for i in range(len(positions)):
+        count = 0
+        for i, mark in enumerate(self.marker_set.markers):
+            # if mark.name not in self.marker_set.markers_from_dlc and mark.name not in self.marker_set.dlc_enhance_markers:
+            if not mark.from_dlc and mark.name not in self.marker_set.dlc_enhance_markers:
+                if mark.name in self.marker_set.markers_from_dlc:
+                    count += 1
+                continue
+        # for i in range(len(positions)):
             if self.marker_set[i].is_bounded and self.marker_set[i].x_bounds.min == 0 and self.marker_set[i].y_bounds.min == 0:
                 current_max = self.marker_set[i].x_bounds.max
-                self.marker_set[i].x_bounds.set(positions[i][0] - current_max, positions[i][0] + current_max)
+                self.marker_set[i].x_bounds.set(positions[count][0] - current_max, positions[count][0] + current_max)
                 current_max = self.marker_set[i].y_bounds.max
-                self.marker_set[i].y_bounds.set(positions[i][1] - current_max, positions[i][1] + current_max)
-            self.marker_set[i].set_pos(positions[i].astype(int))
+                self.marker_set[i].y_bounds.set(positions[count][1] - current_max, positions[count][1] + current_max)
+            self.marker_set[i].set_pos(positions[count].astype(int))
             self.marker_set[i].set_visibility(True)
+            count += 1
 
     @staticmethod
     def draw_blobs(frame, blobs, color=(255, 0, 0), scale=5):
@@ -147,8 +155,16 @@ class Crop:
         self.frame.update_image()
 
         # Get Blobs
-        blobs = [] if self.from_dlc else self.filter.get_blobs(self.frame)
-        self.dlc_live.update_depth_frame(self.frame.depth)
+        get_blobs = False
+        if not self.from_dlc:
+            get_blobs = True
+        if self.tracking_option["optical_flow"]:
+            get_blobs = True
+        blobs = [] if not get_blobs else self.filter.get_blobs(self.frame)
+        # if self.from_dlc and self.tracking_option["optical_flow"]:
+        #     self.filter.apply_filters(self.frame)
+        if self.from_dlc:
+            self.dlc_live.update_depth_frame(self.filter.filtered_depth)
         # Get tracking positions
         positions, estimate_positions = self.tracker.track(self.frame, self.filter.filtered_depth, blobs)
 

@@ -3,11 +3,14 @@ import json
 
 try:
     import pyrealsense2 as rs
+
     rs_package = True
 except ImportError:
     rs_package = False
     pass
     # print ImportWarning("Cannot use camera: Import of the library pyrealsense2 failed")
+
+
 # from rgbd_mocap.RgbdImages import RgbdImages
 
 
@@ -35,10 +38,10 @@ class CameraIntrinsics:
         self.ppy = ppx_ppy[1]
 
         self.dist_coefficients = dist_coefficients
-        self.model = rs.distortion.inverse_brown_conrady
+        self.model = rs.distortion.inverse_brown_conrady #if rs_model else None
 
         self.fps = fps
-        
+
         self._set_intrinsics_mat()
 
     def set_intrinsics(self, intrinsics):
@@ -86,6 +89,7 @@ class CameraConverter:
     via method 'express_in_pixel' or in meters
     via method 'get_markers_pos_in_meters'.
     """
+
     def __init__(self, use_camera: bool = False, model=None):
         """
         Init the Camera and its intrinsics. You can determine
@@ -128,12 +132,12 @@ class CameraConverter:
         self.depth.set_intrinsics_from_file(conf_data["depth_fx_fy"],
                                             conf_data["depth_ppx_ppy"],
                                             conf_data["dist_coeffs_color"],
-                                            conf_data["size_depth"], 
+                                            conf_data["size_depth"],
                                             conf_data["depth_rate"])
         self.color.set_intrinsics_from_file(conf_data["color_fx_fy"],
                                             conf_data["color_ppx_ppy"],
                                             conf_data["dist_coeffs_color"],
-                                            conf_data["size_color"], 
+                                            conf_data["size_color"],
                                             conf_data["color_rate"])
 
     def _set_extrinsic_from_file(self, conf_data=None):
@@ -233,7 +237,7 @@ class CameraConverter:
         # return markers_in_meters
 
     @staticmethod
-    def _compute_markers(intrinsics, marker_pos, method,):
+    def _compute_markers(intrinsics, marker_pos, method, ):
         """
         Private method.
         Compute the markers positions with the given method and intrinsics.

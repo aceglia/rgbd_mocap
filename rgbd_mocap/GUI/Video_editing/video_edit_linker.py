@@ -11,6 +11,7 @@ class VideoEditLinker(QMainWindow):
     """
     A QWidget linking a VideoFilters to a VideoEdit.
     """
+
     def __init__(self, area, parent=None):
         """
         Initialize a VideoEditLinker and its
@@ -20,18 +21,18 @@ class VideoEditLinker(QMainWindow):
         :type parent: QObject
         """
         super(VideoEditLinker, self).__init__(parent)
-        self.name = 'Crop'
+        self.name = "Crop"
 
         self.ve = VideoEdit(area, parent=self)
         self.setCentralWidget(self.ve)
         self.ve.setAlignment(Qt.AlignCenter)
 
-        self.select_area_button = QCheckBox(text='Select area')
+        self.select_area_button = QCheckBox(text="Select area")
         self.mask = None
         self.filters = VideoFilters(self)
         self.filters.image_options.setParent(self)
 
-        self.dock = DockableImageOption(self.filters.image_options, 'Image Options', self)
+        self.dock = DockableImageOption(self.filters.image_options, "Image Options", self)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.dock)
 
         self.show()
@@ -50,9 +51,10 @@ class VideoEditLinker(QMainWindow):
             if max(mask[0]) < self.mask.shape[0] and max(mask[1]) < self.mask.shape[1]:
                 self.mask[np.array(mask[0]), np.array(mask[1])] = 0
             else:
-                ErrorPopUp('Mask from loaded parameters is not compatible with the current image shape.'
-                           'Mask are modified to handle the new shape.')
-
+                ErrorPopUp(
+                    "Mask from loaded parameters is not compatible with the current image shape."
+                    "Mask are modified to handle the new shape."
+                )
 
     def update_image(self):
         self.ve.update()
@@ -67,12 +69,7 @@ class VideoEditLinker(QMainWindow):
         self.ve.update()
 
     def save_dic(self):
-        dic = {
-            'name': self.name,
-            'area': self.ve.area,
-            'filters': self.filters.image_options.to_dict(),
-            'markers': []
-        }
+        dic = {"name": self.name, "area": self.ve.area, "filters": self.filters.image_options.to_dict(), "markers": []}
 
         return dic
 
@@ -91,7 +88,7 @@ class VerticalSeparator(QFrame):
 
 
 class DockableWidget(QDockWidget):
-    def __init__(self, widget, text='', parent=None):
+    def __init__(self, widget, text="", parent=None):
         super(DockableWidget, self).__init__(parent=parent)
 
         ### Set default parameters for the DockableWidget
@@ -109,7 +106,7 @@ class DockableWidget(QDockWidget):
 
 
 class DockableImageOption(QDockWidget):
-    def __init__(self, image_option: ImageOptions, text='', parent=None):
+    def __init__(self, image_option: ImageOptions, text="", parent=None):
         super(DockableImageOption, self).__init__(parent=parent)
 
         ### Set default parameters for the DockableWidget
@@ -136,7 +133,7 @@ class DockableImageOption(QDockWidget):
         self.setWidget(content)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     main_window = QMainWindow()
 

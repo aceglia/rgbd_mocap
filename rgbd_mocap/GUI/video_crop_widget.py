@@ -6,11 +6,12 @@ import sys
 import time
 
 import cv2
+
 # import qtpy
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-from Marker_Setter.model_setter_tab import MarkerSetter
+# from Marker_Setter.model_setter_tab import MarkerSetter
 from Utils.video_player import VideoControl
 from Video_cropping.crop_video_tab import CropVideoTab
 from Video_cropping.crop_video import VideoCropper
@@ -94,31 +95,32 @@ class CropWidget(QMainWindow):
                 print(f"Could not load {color_path}")
                 return
 
-            cv2.putText(image_color, f"Frame {self.video_player.value}",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+            cv2.putText(
+                image_color, f"Frame {self.video_player.value}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2
+            )
             ### Check if the image has been well loaded
             self.video_tab.set_image(image_color, image_depth)
 
     ### Saves and Loads
     def load_folder(self):
-        """ This function will load the user selected image
-            and set it to label using the set_photo function
+        """This function will load the user selected image
+        and set it to label using the set_photo function
         """
-        folder = LoadFolderDialog(parent=self,
-                                  caption='Load directory')
+        folder = LoadFolderDialog(parent=self, caption="Load directory")
 
-        if folder.filename == '':
+        if folder.filename == "":
             return False
 
         self.dir = folder.filename
         return self.load_images()
 
     def to_dict(self):
-        return {'directory': self.dir,
-                'start_index': self.video_player.slider_anim.value()[0],
-                'end_index': self.video_player.slider_anim.value()[2],
-                'crops': self.save_crops(),
-                }
+        return {
+            "directory": self.dir,
+            "start_index": self.video_player.slider_anim.value()[0],
+            "end_index": self.video_player.slider_anim.value()[2],
+            "crops": self.save_crops(),
+        }
 
     def save_crops(self):
         crops = []
@@ -134,17 +136,19 @@ class CropWidget(QMainWindow):
     #     return self.marker_setter_tab.get_unplaced_markers()
 
     def load_project(self):
-        LoadDialog(parent=self,
-                   caption='Load project file',
-                   filter='Save File (*.json);; Any(*)',
-                   load_method=self.load_project_file)
+        LoadDialog(
+            parent=self,
+            caption="Load project file",
+            filter="Save File (*.json);; Any(*)",
+            load_method=self.load_project_file,
+        )
 
     def load_project_dict(self, parameters):
-        self.dir = parameters['directory']
+        self.dir = parameters["directory"]
         self.load_images()
-        self.video_player.slider_anim.setValue((parameters['start_index'],
-                                                parameters['start_index'],
-                                                parameters['end_index']))
+        self.video_player.slider_anim.setValue(
+            (parameters["start_index"], parameters["start_index"], parameters["end_index"])
+        )
 
         self.video_cropper.load_project(parameters)
 
@@ -158,7 +162,7 @@ class CropWidget(QMainWindow):
         return self.video_tab.get_crops()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     demo = CropWidget()
     # demo.dir = "/home/user/KaelFacon/Project/rgbd_mocap/data_files/P4_session2/gear_20_15-08-2023_10_52_14/"

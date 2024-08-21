@@ -6,6 +6,7 @@ from rgbd_mocap.GUI.Video_editing.video_edit import VideoEdit
 from rgbd_mocap.GUI.Video_editing.image_options import ImageOptions
 from ...filters.filter import Filter
 from ...frames.frames import Frames
+
 # from video_edit_linker import VideoEditLinker
 
 
@@ -26,18 +27,19 @@ class VideoFilters:
             self.filter.blobs_param.maxArea = self.image_options["blob_area"][1]
             self.filter.blobs_param.minCircularity = self.image_options["circularity"] / 100
             self.filter.blobs_param.minConvexity = self.image_options["convexity"] / 100
-            self.filter.blobs_param.minDistBetweenBlobs = self.image_options['distance_between_blobs']
+            self.filter.blobs_param.minDistBetweenBlobs = self.image_options["distance_between_blobs"]
 
         ### Update the clahe filters
         if self.image_options.show_params["clahe_option"]:
             self.filter.clahe.setClipLimit(self.image_options["clahe_clip_limit"])
-            self.filter.clahe.setTilesGridSize((self.image_options["clahe_grid_size"],
-                                         self.image_options["clahe_grid_size"]))
+            self.filter.clahe.setTilesGridSize(
+                (self.image_options["clahe_grid_size"], self.image_options["clahe_grid_size"])
+            )
 
     ##### Main functions ####################################
     def update(self):
-        """ This function will update the photo according to the
-            current values of blur and brightness and set it to photo label.
+        """This function will update the photo according to the
+        current values of blur and brightness and set it to photo label.
         """
         self.update_params()
         if self.parent.ve.color_frame is not None:

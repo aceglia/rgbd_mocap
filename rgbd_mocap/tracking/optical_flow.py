@@ -47,14 +47,20 @@ class OpticalFlow:
         'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03),
     }
 
-    def __init__(self, frame, depth, positions):
+    def __init__(self, frame, depth, marker_set):
+        positions = []
+        for mark in marker_set.markers:
+            if mark.name in marker_set.markers_from_dlc and mark.name not in marker_set.dlc_enhance_markers:
+                continue
+            else:
+                positions.append(mark.pos)
         frame = background_remover(frame, depth, 1.4, 0.0010000000474974513, 100)
         self.frame = image_gray_and_blur(frame, OpticalFlow.BLUR)
         self.previous_frame = self.frame.copy()
         self.previous_positions = np.array(positions, dtype=np.float32)
         self.value = None
 
-    def get_optical_flow_pos(self, frame, depth):
+    def get_optical_flow_pos(self, frame, depth, marker_set):
         self.previous_frame = self.frame.copy()
         frame = background_remover(frame, depth, 1.4, 0.0010000000474974513,
                                    100, use_contour=True)
@@ -68,10 +74,40 @@ class OpticalFlow:
             **OpticalFlow.optical_flow_parameters,
         )
 
+        all_pos = np.ndarray((marker_set.nb_markers, 2))
+        all_x = np.ndarray((marker_set.nb_markers, 1))
+        all_y = np.ndarray((marker_set.nb_markers, 1))
+        count = 0
+        for m, mark in enumerate(marker_set.markers):
+            if mark.name in marker_set.markers_from_dlc and mark.name not in marker_set.dlc_enhance_markers:
+                all_pos[m, :] = [0, 0]
+                all_x[m, :] = 0
+                all_y[m, :] = 0
+            else:
+                all_pos[m, :] = self.value[0][count]
+                all_x[m, :] = self.value[1][count]
+                all_y[m, :] = self.value[2][count]
+                count += 1
+
+        self.value = [all_pos, all_x, all_y]
+
+        # if len(self.value_to_add) != 0:
+        #     self.value = list(self.value)
+        #     self.value[0] = np.concatenate((self.value[0], np.zeros((len(self.value_to_add), 2))), axis=0)
+        #     self.value[1] = np.concatenate((self.value[1], np.zeros((len(self.value_to_add), 1))), axis=0)
+        #     self.value[2] = np.concatenate((self.value[2], np.zeros((len(self.value_to_add), 1))), axis=0)
         return self.value
 
-    def set_positions(self, positions):
+    def set_positions(self, marker_set):
+        positions = []
+        value_to_add = []
+        for mark in marker_set.markers:
+            if mark.name in marker_set.markers_from_dlc and mark.name not in marker_set.dlc_enhance_markers:
+                value_to_add.append([mark.pos])
+            else:
+                positions.append(mark.pos)
         self.previous_positions = np.array(positions, dtype=np.float32)
+        # self.value_to_add = value_to_add
 
     def __getitem__(self, item):
         if self.value is not None:

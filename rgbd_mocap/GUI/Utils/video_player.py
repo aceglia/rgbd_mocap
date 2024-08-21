@@ -85,9 +85,11 @@ class VideoControl(QWidget):
         self.value = value
 
     def start_or_pause(self):
-        (self.timer.stop() or self.button_start_stop.update_icon("SP_MediaPlay")
-         if self.timer.isActive() else
-         self.timer.start() or self.button_start_stop.update_icon("SP_MediaPause"))
+        (
+            self.timer.stop() or self.button_start_stop.update_icon("SP_MediaPlay")
+            if self.timer.isActive()
+            else self.timer.start() or self.button_start_stop.update_icon("SP_MediaPause")
+        )
 
     def go_backward(self):
         self.step -= 1
@@ -110,7 +112,7 @@ class VideoControl(QWidget):
         self.value = min_index
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     main_window = QMainWindow()
     main_window.setCentralWidget(VideoControl())

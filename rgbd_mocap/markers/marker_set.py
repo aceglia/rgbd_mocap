@@ -12,7 +12,8 @@ class MarkerSet:
     """
 
     def __init__(self, marker_set_name, marker_names: list[str], shared=False,
-                 rotations: Rotations = Rotations.XYZ, translations: Translations = Translations.XYZ):
+                 rotations: Rotations = Rotations.XYZ, translations: Translations = Translations.XYZ,
+                 downsample_ratio=1):
         """
         init markers class with number of markers, names and image index
 
@@ -26,6 +27,10 @@ class MarkerSet:
         self.name = marker_set_name
         self.rotations = rotations
         self.translations = translations
+        self.markers_from_dlc = []
+        self.dlc_enhance_markers = []
+        self.ignore_from_dlc = []
+        self.downsample_ratio = downsample_ratio
 
         self.markers: list[Marker] = []
         for marker_name in marker_names:
@@ -40,6 +45,17 @@ class MarkerSet:
     def get_markers_pos(self):
         """
         Get the position of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        return [marker.pos / self.downsample_ratio for marker in self]
+
+    def get_markers_pos_reduced(self):
+        """
+        Get the position of the markers for the downsampled_images
 
         Returns
         -------
@@ -87,6 +103,21 @@ class MarkerSet:
     def get_markers_global_pos_3d(self):
         """
         Get the position of the markers
+
+        Returns
+        -------
+        np.ndarray
+            position of the markers
+        """
+        marker_poses = self.get_markers_global_pos_3d_reduced()
+        for m in range(len(marker_poses)):
+            marker_poses[m][:2] = [int(marker_poses[m][i] / self.downsample_ratio) for i in range(2)]
+
+        return marker_poses
+
+    def get_markers_global_pos_3d_reduced(self):
+        """
+        Get the position of the markers for the downscaled images
 
         Returns
         -------

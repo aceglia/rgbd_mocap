@@ -99,6 +99,7 @@ class Filter:
     def _blob_detector(self):
         if not self.options['blob_option']:
             return []
+
         self.blobs_detector = cv2.SimpleBlobDetector_create(self.blobs_param)
         keypoints = self.blobs_detector.detect(self.filtered_frame)
         centers = [(int(blob.pt[0]), int(blob.pt[1])) for blob in keypoints]
@@ -113,11 +114,17 @@ class Filter:
 
         self.filtered_frame[mask == 0] = 20
 
-    def apply_filters(self):
+    def apply_filters(self, frame):
+        self.frame = frame
+        self.filtered_frame = self.frame.color.copy()
+        self.filtered_depth = self.frame.depth.copy()
         # Clahe filters
         # Masks
         if self.options["clahe_option"]:
             self._clahe_filter()
+        else:
+            self.filtered_frame = cv2.GaussianBlur(self.filtered_frame, (3 * 2 + 1,
+                                                                         3 * 2 + 1), 0)
         if self.options["distance_option"]:
             self._distance_range_mask()
         if self.options['masks_option'] and self.options['mask'] is not None:
@@ -125,9 +132,5 @@ class Filter:
 
 
     def get_blobs(self, frame: Frames):
-        self.frame = frame
-        self.filtered_frame = self.frame.color.copy()
-        self.filtered_depth = self.frame.depth.copy()
-        self.apply_filters()
-
+        self.apply_filters(frame)
         return self._blob_detector()

@@ -348,6 +348,6 @@ class Synchronizer:
 if __name__ == "__main__":
     sync = Synchronizer(from_rgbd=True, from_qualysis=False, use_trigger=True, with_motomed=False)
     sync.fps = 60
-    sync.file_name = ("wheelchair")
-    sync.participant = ("P16")
+    sync.file_name = "wheelchair"
+    sync.participant = "P16"
     sync.start()

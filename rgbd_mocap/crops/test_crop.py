@@ -71,7 +71,7 @@ def main():
     if shared_memory:
         frames = SharedFrames(color_images[0], depth_images[0])
 
-    # Area (Full img for test)
+    # Area (Full img for test.json)
     area = (137, 191, 461, 355)
     # area = (0, 0, frames.width, frames.height)
 
