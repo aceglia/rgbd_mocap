@@ -141,7 +141,7 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=120, times=None, d
 
         msk_function.model = biorbd.Model(new_model_path)
         q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
-                                                           InverseKinematicsMethods.BiorbdLeastSquare)
+                                                           InverseKinematicsMethods.BiorbdKalman)
         #print(f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax")
         # import bioviz
         # b = bioviz.Viz(loaded_model=msk_function.model)
@@ -166,8 +166,6 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=120, times=None, d
            "translations xyz // thorax",
            f"// translations xyz // thorax",
         )
-
-        new_model_path = _compute_new_model_path(file_path, model_path)
         with open(new_model_path, "w") as file:
             file.write(data)
         q = q[6:, :]
@@ -226,7 +224,7 @@ def _compute_new_model_path(file_path, model_path):
         name = Path(file_path).stem.split("_")[:2]
         name = "_".join(name)
         parent = str(Path(file_path).parent)
-        new_model_path = parent + "/models/" + name + "_" + Path(model_path).stem + ".bioMod"
+        new_model_path = parent + "/models/" + name + "_" + Path(model_path).stem + "_param.bioMod"
         if not os.path.isdir(parent + "/models"):
             os.mkdir(parent + "/models")
         if not os.path.isdir(parent + "/models/" + "Geometry_left"):
@@ -251,8 +249,9 @@ def _compute_id(msk_function, f_ext, external_loads, times, dic_to_save):
                                                 velocities_from_inverse_kinematics=True,
                                                 accelerations_from_inverse_kinematics=True,
                                                 state_idx_to_process=[],
-                                                windows_length=5,
-                                                external_load=external_loads)
+                                                windows_length=10,
+                                                external_load=external_loads
+                                                )
     time_id = time.time() - tic
     times["id"] = time_id
     dic_to_save["tau"] = tau[:, -1:]
@@ -542,7 +541,7 @@ def process_all_frames(markers, msk_function, source, external_loads, scaling_fa
         kalman_freq = 60 if filter_depth else 120
         dic_to_save = process_next_frame(markers_tmp, msk_function, count, source, external_loads,
                                          scaling_factor, emg_tmp,
-                                         # f_ext=f_ext[:, i],
+                                         f_ext=f_ext[:, i],
                                          kalman_freq=kalman_freq,
                                          emg_names=emg_names, compute_id=compute_id, compute_ik=compute_ik,
                                          compute_so=compute_so, compute_jrf=compute_jrf, file=file,

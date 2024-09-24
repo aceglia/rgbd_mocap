@@ -106,13 +106,24 @@ if __name__ == '__main__':
             std_tmp.append(compute_std(data_tmp["ref_in_pixel"][:2, :, :fix_len], data_tmp["dlc_in_pixel"][:2, :, :fix_len]))
         all_errors_std.append([np.round(np.mean(error_tmp), 2), np.round(np.mean(std_tmp), 2)])
     mean_errors = np.mean(np.array(all_errors_std)[:, 0])
-    variance = np.repeat(mean_errors, 8) - np.array(all_errors_std)[:, 0]
+    variance = np.abs(np.repeat(mean_errors, 8) - np.array(all_errors_std)[:, 0])
     print(variance)
     var = np.var(np.array(all_errors_std)[:, 0])
     print(mean_errors, var)
     for er in all_errors_std:
         print("err", er[0], "std", er[1])
 print(
+    r"""
+    Participant & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 \\
+    Gender & M & M & M & F & F & M & F & M \\ """ + "\n"
+    "\par{Mean (pixel)}&" + f"{all_errors_std[0][0]:0,.2f} & {all_errors_std[1][0]:0,.2f} "
+                            f" & {all_errors_std[2][0]:0,.2f}  & {all_errors_std[3][0]:0,.2f}  "
+                            f"& {all_errors_std[4][0]:0,.2f}  & {all_errors_std[5][0]:0,.2f}  &"
+                            f" {all_errors_std[6][0]:0,.2f}  & {all_errors_std[7][0]:0,.2f} " + r"\\" + "\n"
+    "\par{STD (pixel)}&"  + f"{all_errors_std[0][1]:0,.2f} & {all_errors_std[1][1]:0,.2f} "
+                            f" & {all_errors_std[2][1]:0,.2f}  & {all_errors_std[3][1]:0,.2f}  "
+                            f"& {all_errors_std[4][1]:0,.2f}  & {all_errors_std[5][1]:0,.2f}  &"
+                            f" {all_errors_std[6][1]:0,.2f}  & {all_errors_std[7][1]:0,.2f} " + r"\\"
 r"""
 \begin{table}[ht]
 \caption{Root-mean-square error (RMSE) and standard deviation (SD) of the error in pixel between annotated image and detection for each model.}

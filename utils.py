@@ -205,7 +205,8 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
     forces = ExternalLoads()
     forces.add_external_load(
         point_of_application=[0, 0, 0],
-        applied_on_body="radius_left_pro_sup_left",
+        #applied_on_body="radius_left_pro_sup_left",
+        applied_on_body="hand_left",
         express_in_coordinate="ground",
         name="hand_pedal",
         load=np.zeros((6, 1)),
@@ -740,6 +741,20 @@ def reorder_markers(markers, model, names):
             final_names.append(model.markerNames()[i].to_string())
             count += 1
     return reordered_markers, final_names
+
+def get_muscular_torque(x, act, model):
+    """
+    Get the muscular torque.
+    """
+    muscular_torque = np.zeros((model.nbQ(), x.shape[1]))
+    states = model.stateSet()  # Get the muscle state set
+    for i in range(act.shape[1]):
+        for a, state in zip(act[:, i], states):
+            state.setActivation(a)  # And fill it with the current value
+        muscular_torque[:, i] = model.muscularJointTorque(
+            states, x[: model.nbQ(), i], x[model.nbQ() : model.nbQ() * 2, i]
+        ).to_array()
+    return muscular_torque
 
 def get_next_frame_from_kalman(kalman_instance=Union[None, list[Kalman]], markers_data=None, scapula_cluster=None,
                                measurement_noise_factor=100, process_noise_factor=5,
