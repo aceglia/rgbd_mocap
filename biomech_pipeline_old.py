@@ -177,49 +177,6 @@ def adjust_idx(data, idx_start, idx_end):
     return data_tmp
 
 
-def compute_id(q_init, model, f_ext):
-    q_filtered = OfflineProcessing().butter_lowpass_filter(q_init,
-                                                           6, 120, 2)
-    # import matplotlib.pyplot as plt
-    # plt.plot(q_init[0, :])
-    # plt.plot(q_filtered[0, :])
-    # plt.show()
-    qdot_new = np.zeros_like(q_init)
-    qdot_new[:, 1:-1] = (q_filtered[:, 2:] - q_filtered[:, :-2]) / (2 / 120)
-    qdot_new[:, 0] = q_filtered[:, 1] - q_filtered[:, 0]
-    qdot_new[:, -1] = q_filtered[:, -1] - q_filtered[:, -2]
-
-    # for i in range(1, q_filtered.shape[1] - 2):
-    #     qdot_new[:, i] = (q_filtered[:, i + 1] - q_filtered[:, i - 1]) / (2 / 120)
-    qddot_new = np.zeros_like(qdot_new)
-    qddot_new[:, 1:-1] = (qdot_new[:, 2:] - qdot_new[:, :-2]) / (2 / 120)
-    qddot_new[:, 0] = qdot_new[:, 1] - qdot_new[:, 0]
-    qddot_new[:, -1] = qdot_new[:, -1] - qdot_new[:, -2]
-
-
-    # for i in range(1, qdot_new.shape[1] - 2):
-    #     qddot_new[:, i] = (qdot_new[:, i + 1] - qdot_new[:, i - 1]) / (2 / 120)
-    tau = np.zeros_like(q_init)
-    for i in range(q_init.shape[1]):
-        if f_ext is not None:
-            B = [0, 0, 0, 1]
-            all_jcs = model.allGlobalJCS(q_filtered[:, i])
-            RT = all_jcs[-1].to_array()
-            # A = RT @ A
-            B = RT @ B
-            vecteur_OB = B[:3]
-            f_ext[:3, i] = f_ext[:3, i] + np.cross(vecteur_OB, f_ext[3:6, i])
-            # force_global = change_ref_for_global(ind_1, q, model, force_locale)
-            # ddq = nlp.model.forward_dynamics(q, qdot, tau, force_global)
-            ext = model.externalForceSet()
-            ext.add("hand_left", f_ext[:, i])
-            tau[:, i] = model.InverseDynamics(q_filtered[:, i], qdot_new[:, i], qddot_new[:, i], ext).to_array()
-        else:
-            tau[:, i] = model.InverseDynamics(q_filtered[:, i], qdot_new[:, i], qddot_new[:, i]).to_array()
-        #tau[:, i] -= model.passiveJointTorque(q_filtered[:, i], qdot_new[:, i]).to_array()
-        #tau[3, i] += 15 * np.exp(-40*q_filtered[3, i] + 18) + 1
-    return q_filtered, qdot_new, qddot_new, tau
-
 def main(model_dir, participants, processed_data_path, save_data=False, plot=True, results_from_file=False, stop_frame=None,
          source=(), model_source=(), source_to_keep=(), live_filter=False, interpolate_dlc=True, in_pixel=False):
     prefix = "/mnt/shared" if os.name == "posix" else "Q:/"
@@ -451,31 +408,25 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                         count += 1
                     for j in range(3):
                         plt.plot(all_results["depth"]["tracked_markers"][j, i, :stop_frame], c=c[0])
-                        # plt.plot(t, all_results["dlc_1"]["tracked_markers"][j, count, :stop_frame], c=c[1])
+                        plt.plot(t, all_results["dlc_1"]["tracked_markers"][j, count, :stop_frame], c=c[1])
                         plt.plot(all_results["minimal_vicon"]["tracked_markers"][j, i, :stop_frame], c=c[3])
                     plt.title(all_results[source[0]]["marker_names"][i] + all_results["dlc_1"]["marker_names"][count] + all_results["minimal_vicon"]["marker_names"][i])
                     count += 1
                 plt.legend([source[0], "dlc_1", "minimal_vicon"])
                 factor = 1 # 57.3
-                model_path = f"{model_dir}/{part}/models/{file.split('_')[0]}_{file.split('_')[1]}_model_scaled_{model_source[0]}_new_seth.bioMod"
-                id_depth = compute_id(all_results[source[0]]["q_raw"][:, :stop_frame], biorbd.Model(model_path), f_ext.copy())
-                model_path = f"{model_dir}/{part}/models/{file.split('_')[0]}_{file.split('_')[1]}_model_scaled_minimal_vicon_new_seth.bioMod"
-                id_minimal = compute_id(all_results["minimal_vicon"]["q_raw"][:, :stop_frame], biorbd.Model(model_path), f_ext.copy())
-                model_path = f"{model_dir}/{part}/models/{file.split('_')[0]}_{file.split('_')[1]}_model_scaled_vicon_new_seth.bioMod"
-                id_vicon = compute_id(all_results["vicon"]["q_raw"][:, :stop_frame], biorbd.Model(model_path), f_ext.copy())
                 plt.figure("q")
                 for i in range(all_results[source[0]]["q_raw"].shape[0]):
                     plt.subplot(4, 4, i + 1)
-                    plt.plot(all_results[source[0]]["q_raw"][i, :stop_frame] * 57.3, c=c[0])
-                    # plt.plot( t, all_results["dlc_1"]["q"][i, :stop_frame] * 57.3, c=c[1])
-                    plt.plot(all_results["minimal_vicon"]["q_raw"][i, :stop_frame] * 57.3, c=c[2])
-                    plt.plot(all_results["vicon"]["q_raw"][i, :stop_frame] * 57.3, c=c[3])
+                    plt.plot(all_results[source[0]]["q"][i, :stop_frame] * 57.3, c=c[0])
+                    plt.plot( t, all_results["dlc_1"]["q"][i, :stop_frame] * 57.3, c=c[1])
+                    plt.plot(all_results["minimal_vicon"]["q"][i, :stop_frame] * 57.3, c=c[2])
+                    plt.plot(all_results["vicon"]["q"][i, :stop_frame] * 57.3, c=c[3])
                 plt.legend([source[0], "dlc_1", "minimal_vicon"])
                 plt.figure("qdot")
                 for i in range(all_results[source[0]]["q_raw"].shape[0]):
                     plt.subplot(4, 4, i + 1)
                     plt.plot(all_results[source[0]]["q_dot"][i, :stop_frame] * factor, c=c[0])
-                    # plt.plot( t, all_results["dlc_1"]["q_dot"][i, :stop_frame] * factor, c=c[1])
+                    plt.plot( t, all_results["dlc_1"]["q_dot"][i, :stop_frame] * factor, c=c[1])
                     plt.plot(all_results["minimal_vicon"]["q_dot"][i, :stop_frame] * factor, c=c[2])
                     plt.plot(all_results["vicon"]["q_dot"][i, :stop_frame] * factor, c=c[3])
                 plt.legend([source[0], "dlc_1", "minimal_vicon"])
@@ -495,38 +446,6 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                     plt.plot(all_results["minimal_vicon"]["tau"][i, :stop_frame], c=c[2])
                     plt.plot(all_results["vicon"]["tau"][i, :stop_frame], c=c[3])
                 plt.legend([source[0], "dlc_1", "minimal_vicon"])
-                plt.figure("tau_new")
-                for i in range(all_results[source[0]]["q_raw"].shape[0]):
-                    plt.subplot(4, 4, i + 1)
-                    plt.plot(id_depth[-1][i, :stop_frame], c=c[0])
-                    # plt.plot( t, all_results["dlc_1"]["tau"][i, :stop_frame], c=c[1])
-                    plt.plot(id_minimal[-1][i, :stop_frame], c=c[2])
-                    plt.plot(id_vicon[-1][i, :stop_frame], c=c[3])
-                plt.legend([source[0], "dlc_1", "minimal_vicon", "vicon"])
-                plt.figure("q_new")
-                for i in range(all_results[source[0]]["q_raw"].shape[0]):
-                    plt.subplot(4, 4, i + 1)
-                    plt.plot(id_depth[0][i, :stop_frame], c=c[0])
-                    # plt.plot( t, all_results["dlc_1"]["tau"][i, :stop_frame], c=c[1])
-                    plt.plot(id_minimal[0][i, :stop_frame], c=c[2])
-                    plt.plot(id_vicon[0][i, :stop_frame], c=c[3])
-                plt.legend([source[0], "dlc_1", "minimal_vicon", "vicon"])
-                plt.figure("qdot_new")
-                for i in range(all_results[source[0]]["q_raw"].shape[0]):
-                    plt.subplot(4, 4, i + 1)
-                    plt.plot(id_depth[1][i, :stop_frame], c=c[0])
-                    # plt.plot( t, all_results["dlc_1"]["tau"][i, :stop_frame], c=c[1])
-                    plt.plot(id_minimal[1][i, :stop_frame], c=c[2])
-                    plt.plot(id_vicon[1][i, :stop_frame], c=c[3])
-                plt.legend([source[0], "dlc_1", "minimal_vicon", "vicon"])
-                plt.figure("qddot_new")
-                for i in range(all_results[source[0]]["q_raw"].shape[0]):
-                    plt.subplot(4, 4, i + 1)
-                    plt.plot(id_depth[2][i, :stop_frame], c=c[0])
-                    # plt.plot( t, all_results["dlc_1"]["tau"][i, :stop_frame], c=c[1])
-                    plt.plot(id_minimal[2][i, :stop_frame], c=c[2])
-                    plt.plot(id_vicon[2][i, :stop_frame], c=c[3])
-                plt.legend([source[0], "dlc_1", "minimal_vicon", "vicon"])
                 plt.show()
             if save_data:
                 all_results = process_cycles(all_results, peaks, n_peaks=None)
@@ -545,7 +464,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
 if __name__ == '__main__':
     prefix = "/mnt/shared" if os.name == "posix" else "Q:/"
     model_dir = prefix + "/Projet_hand_bike_markerless/RGBD"
-    participants = [f"P{i}" for i in range(9, 15)]
+    participants = [f"P{i}" for i in range(10, 15)]
     participants.pop(participants.index("P12"))
     # participants.pop(participants.index("P15"))
     # participants.pop(participants.index("P16"))
@@ -555,7 +474,7 @@ if __name__ == '__main__':
     source = ["depth", "minimal_vicon", "vicon",  "dlc"]
     model_source = ["depth", "minimal_vicon", "vicon", "dlc_ribs"]
     processed_data_path = prefix + "/Projet_hand_bike_markerless/RGBD"
-    main(model_dir, participants, processed_data_path, save_data=False, results_from_file=False, stop_frame=1000,
-         plot=True, source=source, model_source=model_source, source_to_keep=[], live_filter=False,
+    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
+         plot=False, source=source, model_source=model_source, source_to_keep=[], live_filter=True,
          interpolate_dlc=True, in_pixel=False)
 
