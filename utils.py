@@ -1,13 +1,22 @@
+from typing import Union
+
 from biosiglive import load
 import os
 import numpy as np
 import scipy.stats as st
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 from biosiglive.processing.msk_utils import ExternalLoads
 from biosiglive import OfflineProcessing
 from scipy.signal import find_peaks
 from scipy.interpolate import interp1d
-from scapula_cluster.from_cluster_to_anato import ScapulaCluster
+try:
+    from scapula_cluster.from_cluster_to_anato import ScapulaCluster
+except:
+    pass
+from rgbd_mocap.tracking.kalman import Kalman
 import json
 
 
@@ -41,6 +50,7 @@ def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
             vicon_to_depth_idx.append(vicon_markers_names.index(name))
     return vicon_to_depth_idx
 
+
 def load_results_offline(participants, processed_data_path, trials=None, file_name="", to_exclude=None, recompute_cycles=True):
     if trials is None:
         trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
@@ -71,7 +81,8 @@ def load_results_offline(participants, processed_data_path, trials=None, file_na
     return all_data, trials
 
 
-def load_results(participants, processed_data_path, trials=None, file_name="", to_exclude=None, recompute_cycles=True):
+def load_results(participants, processed_data_path, trials=None, file_name="", to_exclude=(), recompute_cycles=True,
+                 trials_to_exclude=()):
     if trials is None:
         trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     all_data = {}
@@ -81,12 +92,21 @@ def load_results(participants, processed_data_path, trials=None, file_name="", t
         all_files = [file for file in all_files if "gear" in file
                      # and "result_offline" in file
                      and file_name in file
+                     and "ik" not in file
                      # and "3_crops" in file and "3_crops_3_crops" not in file
                      ]
+        for exc in to_exclude:
+            all_files = [file for file in all_files if exc not in file]
         trials_tmp = []
+
         for file in all_files:
             for trial in trials[p]:
-                if trial not in file:
+                pass_trial = False
+                for trial_to_excl in trials_to_exclude:
+                    if part in trial_to_excl[0] and trial_to_excl[1] in trial:
+                        pass_trial = True
+                        continue
+                if trial not in file or pass_trial:
                     continue
                 print(f"Processing participant {part}, trial : {file}")
                 all_data[part][file] = load(f"{processed_data_path}/{part}/{file}")
@@ -147,14 +167,31 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
     # plt.plot(peaks, sensix_data["crank_angle"][0, peaks], "x")
     # plt.show()
 
+
     markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
     names_from_source.append(list(np.array(vicon_markers_names)[vicon_to_depth_idx]))
-    markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
-    for i in range(3):
-        markers_depth_filtered[i, :, :] = OfflineProcessing().butter_lowpass_filter(markers_depth[i, :, :],
-                                                                                    2, 120, 2)
-    depth = markers_depth_filtered if filter_depth else markers_depth
-    markers_from_source = [depth, markers_vicon, markers_minimal_vicon]
+
+    if filter_depth:
+        markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
+        for i in range(3):
+            markers_depth_filtered[i, :7, :] = OfflineProcessing().butter_lowpass_filter(
+                markers_depth[i, :7, :],
+                2, 120, 2)
+            markers_depth_filtered[i, 7:, :] = OfflineProcessing().butter_lowpass_filter(
+                markers_depth[i, 7:, :],
+                10, 120, 2)
+        markers_depth = markers_depth_filtered
+        # markers_vicon_filtered = np.zeros((3, markers_vicon.shape[1], markers_vicon.shape[2]))
+        # for i in range(3):
+        #     markers_vicon_filtered[i, :7, :] = OfflineProcessing().butter_lowpass_filter(
+        #         markers_vicon[i, :7, :],
+        #         2, 120, 2)
+        #     markers_vicon_filtered[i, 7:, :] = OfflineProcessing().butter_lowpass_filter(
+        #         markers_vicon[i, 7:, :],
+        #         10, 120, 2)
+        # markers_vicon = markers_vicon_filtered
+        # markers_minimal_vicon = markers_vicon_filtered[:, vicon_to_depth_idx, :]
+    markers_from_source = [markers_depth, markers_vicon, markers_minimal_vicon]
     # plt.figure("markers")
     # for i in range(markers_depth_filtered.shape[1]):
     #     plt.subplot(4, ceil(markers_depth_filtered.shape[1] / 4), i + 1)
@@ -168,7 +205,8 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
     forces = ExternalLoads()
     forces.add_external_load(
         point_of_application=[0, 0, 0],
-        applied_on_body="radius_left_pro_sup_left",
+        #applied_on_body="radius_left_pro_sup_left",
+        applied_on_body="hand_left",
         express_in_coordinate="ground",
         name="hand_pedal",
         load=np.zeros((6, 1)),
@@ -192,68 +230,107 @@ def load_data(data_path, part, file, filter_depth, end_idx=None, ):
 
 
 def _reorder_markers_from_names(markers_data, ordered_markers_names, markers_names):
-    count = 0
-    reordered_markers = np.zeros((markers_data.shape[0], len(ordered_markers_names), markers_data.shape[2]))
-    for i in range(len(markers_names)):
+    # count = 0
+    # reordered_markers = np.zeros((markers_data.shape[0], len(ordered_markers_names), markers_data.shape[2]))
+    idx = []
+    # for i in range(len(markers_names)):
+    #     if markers_names[i] == "elb":
+    #         markers_names[i] = "elbow"
+    #     if _convert_string(markers_names[i]) in ordered_markers_names:
+    #         reordered_markers[:, ordered_markers_names.index(_convert_string(markers_names[i])),
+    #         :] = markers_data[:, count, :]
+    #         # idx.append(ordered_markers_names.index(_convert_string(markers_names[i])))
+    #         count += 1
+    markers_names = [_convert_string(name) for name in markers_names]
+    for i in range(len(ordered_markers_names)):
         if markers_names[i] == "elb":
             markers_names[i] = "elbow"
-        if _convert_string(markers_names[i]) in ordered_markers_names:
-            reordered_markers[:, ordered_markers_names.index(_convert_string(markers_names[i])),
-            :] = markers_data[:, count, :]
-            count += 1
-    return reordered_markers
+        if _convert_string(ordered_markers_names[i]) in markers_names:
+            idx.append(markers_names.index(_convert_string(ordered_markers_names[i])))
+    return markers_data[:, idx], idx
 
 
-def load_data_from_dlc(labeled_data_path, dlc_data_path, part, file,):
+def load_data_from_dlc(labeled_data_path=None, dlc_data_path=None, part=None, file=None, in_pixel=False):
     init_depth_markers_names = ['ster', 'xiph', 'clavsc', 'clavac',
                            'delt', 'arml',  'epicl', 'larml', 'stylu', 'stylr', 'm1', 'm2', 'm3']
     # init_dlc_markers_names = ['ster', 'xiph', 'clavsc', 'clavac',
     #                        'delt', 'epicl', 'arml', 'stylu', 'stylr', 'larml',   'm1', 'm2', 'm3']
     init_dlc_markers_names = ["ribs", 'ster', 'xiph', 'clavsc', 'clavac',
                                     'delt', 'arml', 'epicl', 'larml', 'stylr', 'stylu', 'm1', 'm2', 'm3']
-    names = [init_dlc_markers_names, init_dlc_markers_names]
+
+    names = [init_depth_markers_names, init_dlc_markers_names]
     measurements_dir_path = "data_collection_mesurement"
     calibration_matrix_dir = "../scapula_cluster/calibration_matrix"
     markers_names_list = []
     reordered_markers_list = []
     dict_list = [{}, {}]
+    plt.figure("markers")
+    measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"
+                                      ))
+    measurements = measurement_data[f"with_depth"]["measure"]
+    calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[f"with_depth"][
+        "calibration_matrix_name"]
     for p, path in enumerate([labeled_data_path, dlc_data_path]):
         markers_names_list.append([])
         reordered_markers_list.append([])
+        if p == 0 and labeled_data_path is None:
+            continue
         data = load(path)
         dict_list[p]["frame_idx"] = data["frame_idx"]
         depth_markers = data["markers_in_meters"]
         markers_in_pixel = data["markers_in_pixel"]
         depth_markers_names = list(data["markers_names"][:, 0])
-        reordered_markers_depth = _reorder_markers_from_names(depth_markers, names[p], depth_markers_names,
+        reordered_markers_depth, idx = _reorder_markers_from_names(depth_markers, names[p], depth_markers_names,
                                                                    )
-        reordered_markers_pixel = _reorder_markers_from_names(markers_in_pixel, names[p],  depth_markers_names,
+        reordered_markers_pixel, _ = _reorder_markers_from_names(markers_in_pixel, names[p],  depth_markers_names,
                                                                    )
-        measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"
-))
-        measurements = measurement_data[f"with_depth"]["measure"]
-        calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[f"with_depth"][
-            "calibration_matrix_name"]
-        anato_from_cluster, landmarks_dist = _convert_cluster_to_anato(measurements,
-                                                                            calibration_matrix,
-                                                                            reordered_markers_depth[:,
-                                                                            -3:, :] * 1000)
-        first_idx = init_depth_markers_names.index("clavac")
-        reordered_markers_depth = np.concatenate((reordered_markers_depth[:3, :first_idx + 1, :],
-                                                    anato_from_cluster[:3, :, :] * 0.001,
-                                                    reordered_markers_depth[:3, first_idx + 1:, :]),
-                                                   axis=1)
-        depth_markers_names = names[p][:first_idx + 1] + ["scapaa", "scapia", "scapts"] + names[p][first_idx+1:]
+        # reordered_markers_depth = depth_markers
+
+        # anato_from_cluster, landmarks_dist = _convert_cluster_to_anato(measurements,
+        #                                                                     calibration_matrix,
+        #                                                                     reordered_markers_depth[:,
+        #                                                                     -3:, :] * 1000)
+        # first_idx = names[p].index("clavac")
+        # reordered_markers_depth = np.concatenate((reordered_markers_depth[:3, :first_idx + 1, :],
+        #                                             anato_from_cluster[:3, :, :] * 0.001,
+        #                                             reordered_markers_depth[:3, first_idx + 1:, :]),
+        #                                            axis=1)
+        # depth_markers_names = names[p][:first_idx + 1] + ["scapaa", "scapts", "scapia"] + names[p][first_idx+1:]
         dict_list[p]["markers_in_meters"] = reordered_markers_depth
         dict_list[p]["markers_in_pixel"] = reordered_markers_pixel
-        dict_list[p]["markers_names"] = depth_markers_names
+        dict_list[p]["markers_names"] = names[p]
+        dict_list[p]["time_to_process"] = data["time_to_process"]
         # styl_u = dict_list[p]["markers_in_meters"][:, -1, :].copy()
         # larm = dict_list[p]["markers_in_meters"][:, -3, :].copy()
         # dict_list[p]["markers_in_meters"][:, -3, :] = styl_u
         # dict_list[p]["markers_in_meters"][:, -1, :] = larm
-    data_dlc, data_labeling = check_frames(dict_list[0], dict_list[1])
-    return data_dlc, data_labeling, dict_list[0]["markers_names"]
+    if labeled_data_path is None:
+        return dict_list[1]["markers_in_meters"], dict_list[1]["markers_in_pixel"], dict_list[1]["markers_names"], dict_list[1]["frame_idx"]
+    data_dlc, data_labeling, idx_start, idx_end = check_frames(dict_list[0], dict_list[1])
+    return data_dlc, data_labeling, dict_list[1]["markers_names"], dict_list[1]["time_to_process"], idx_start, idx_end
 
+def refine_synchro(marker_full, marker_to_refine, plot_fig=True):
+    error_list = []
+    for i in range(300):
+        marker_to_refine_tmp = marker_to_refine[:, :, :-i] if i != 0 else marker_to_refine
+        marker_to_refine_tmp = _interpolate_data(marker_to_refine_tmp, marker_full.shape[2])
+        error_markers = compute_error_mark(
+            marker_full[:, ...], marker_to_refine_tmp[:, ...])
+        error_tmp = np.abs(np.mean(error_markers))
+        error_list.append(error_tmp)
+
+    idx = error_list.index(min(error_list))
+    marker_to_refine_tmp = marker_to_refine[:, :, :-idx] if idx != 0 else marker_to_refine[:, :, :]
+    marker_to_refine_tmp = _interpolate_data(marker_to_refine_tmp, marker_full.shape[2])
+    if plot_fig:
+        plt.figure("refine synchro")
+        for i in range(marker_to_refine_tmp.shape[1]):
+            plt.subplot(4, 4, i + 1)
+            for j in range(0, 3):
+                plt.plot(marker_to_refine_tmp[j, i, :], "b")
+                plt.plot(marker_full[j, i, :], 'r')
+    print("idx to refine synchro : ", idx, "error",  min(error_list))
+    return marker_to_refine_tmp, idx
 
 def check_frames(data_labeling, data_dlc):
     data = list(np.copy(data_labeling["frame_idx"]))
@@ -262,6 +339,8 @@ def check_frames(data_labeling, data_dlc):
     type = 0
     idx_init = 0
     idx = 0
+    overall_init_idx = None
+    overall_final_idx = None
     datalist = [data_dlc, data_labeling]
     for key in data_dlc.keys():
         if key == "markers_names":
@@ -271,9 +350,11 @@ def check_frames(data_labeling, data_dlc):
             ref = ref[idx_init:]
             type_1 = 0
         elif data[0] < ref[0]:
+            overall_init_idx = (ref[0] - data[0]) * 2
             idx_init = data.index(ref[0])
             data = data[idx_init:]
             type_1 = 1
+
         if isinstance(data_dlc[key], np.ndarray):
             datalist[type_1][key] = datalist[type_1][key][..., idx_init:]
         else:
@@ -284,6 +365,7 @@ def check_frames(data_labeling, data_dlc):
             ref = ref[:idx]
             type = 0
         elif data[-1] > ref[-1]:
+            overall_final_idx = (data[-1] - ref[-1]) * 2
             idx = data.index(ref[-1])
             idx += 1
             data = data[:idx]
@@ -293,6 +375,7 @@ def check_frames(data_labeling, data_dlc):
                 datalist[type][key] = datalist[type][key][..., :idx]
             else:
                 datalist[type][key] = datalist[type][key][:idx]
+
     if ref != data:
         # longest = ref if len(ref) > len(data) else data
         # smallest = data if len(ref) > len(data) else ref
@@ -307,10 +390,15 @@ def check_frames(data_labeling, data_dlc):
         #             else:
         #                 datalist[type][key].pop(longest.index(idx))
         print(1)
-    return datalist[0], datalist[1]
+    return datalist[0], datalist[1], overall_init_idx, overall_final_idx
 
 
-def _convert_cluster_to_anato(measurements,
+def _convert_cluster_to_anato(new_cluster, data):
+    anato_pos = new_cluster.process(marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"],
+                                    save_file=False)
+    return anato_pos
+
+def _convert_cluster_to_anato_old(measurements,
                               calibration_matrix, data):
 
     new_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
@@ -318,10 +406,6 @@ def _convert_cluster_to_anato(measurements,
 
     anato_pos = new_cluster.process(marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"],
                                     save_file=False)
-    anato_pos_ordered = np.zeros_like(anato_pos)
-    anato_pos_ordered[:, 0, :] = anato_pos[:, 0, :]
-    anato_pos_ordered[:, 1, :] = anato_pos[:, 2, :]
-    anato_pos_ordered[:, 2, :] = anato_pos[:, 1, :]
     land_dist = new_cluster.get_landmarks_distance()
     return anato_pos, land_dist
 
@@ -355,6 +439,20 @@ def dispatch_bio_results(bio_results):
     dic_result["state"] = bio_results["state"]
     return dic_result
 
+
+def compute_error_mark(ref_mark, mark):
+    # new_markers_depth_int = OfflineProcessing().butter_lowpass_filter(new_markers_depth_int, 6, 120, 4)
+    err_markers = np.zeros((ref_mark.shape[1], 1))
+    for i in range(ref_mark.shape[1]):
+        nan_index = np.argwhere(np.isnan(ref_mark[:, i, :]))
+        new_markers_depth_tmp = np.delete(mark[:, i, :], nan_index, axis=1)
+        new_markers_vicon_int_tmp = np.delete(ref_mark[:, i, :], nan_index, axis=1)
+        nan_index = np.argwhere(np.isnan(new_markers_depth_tmp))
+        new_markers_depth_tmp = np.delete(new_markers_depth_tmp, nan_index, axis=1)
+        new_markers_vicon_int_tmp = np.delete(new_markers_vicon_int_tmp, nan_index, axis=1)
+        err_markers[i, 0] = np.median(np.sqrt(
+            np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0)))
+    return list(err_markers[:, 0])
 
 def compute_error(depth_dic, vicon_dic):
 
@@ -626,3 +724,111 @@ def _interpolate_data_2d(data, shape):
     new_data = f_mark(x_new)
     return new_data
 
+
+def reorder_markers(markers, model, names):
+    model_marker_names = [_convert_string(model.markerNames()[i].to_string()) for i in range(model.nbMarkers())]
+    assert len(model_marker_names) == len(names)
+    assert len(model_marker_names) == markers.shape[1]
+    count = 0
+    reordered_markers = np.zeros((markers.shape[0], len(model_marker_names), markers.shape[2]))
+    final_names = []
+    for i in range(len(names)):
+        if names[i] == "elb":
+            names[i] = "elbow"
+        if _convert_string(names[i]) in model_marker_names:
+            reordered_markers[:, model_marker_names.index(_convert_string(names[i])),
+            :] = markers[:, count, :]
+            final_names.append(model.markerNames()[i].to_string())
+            count += 1
+    return reordered_markers, final_names
+
+def get_muscular_torque(x, act, model):
+    """
+    Get the muscular torque.
+    """
+    muscular_torque = np.zeros((model.nbQ(), x.shape[1]))
+    states = model.stateSet()  # Get the muscle state set
+    for i in range(act.shape[1]):
+        for a, state in zip(act[:, i], states):
+            state.setActivation(a)  # And fill it with the current value
+        muscular_torque[:, i] = model.muscularJointTorque(
+            states, x[: model.nbQ(), i], x[model.nbQ() : model.nbQ() * 2, i]
+        ).to_array()
+    return muscular_torque
+
+def get_next_frame_from_kalman(kalman_instance=Union[None, list[Kalman]], markers_data=None, scapula_cluster=None,
+                               measurement_noise_factor=100, process_noise_factor=5,
+                               error_cov_post_factor=0, error_cov_pre_factor=0, rt_matrix=None,
+                               n_markers=None, forward=0, idx_cluster_markers=None, params=None, in_pixel=False,  camera_converter=None,
+                               convert_cluster_before_kalman=True, return_in_meter=True, fps=60):
+
+
+    if in_pixel and camera_converter is None:
+        raise RuntimeError("a camera converter must be provided when markers are in pixel.")
+    if in_pixel and convert_cluster_before_kalman and markers_data is not None:
+        markers_data = camera_converter.get_markers_pos_in_meter(markers_data[:, :, 0].T)[..., None]
+    if rt_matrix is not None and markers_data is not None:
+        markers_dlc_hom = np.ones((4, markers_data.shape[1], 1))
+        markers_dlc_hom[:3, :, 0] = markers_data[..., 0]
+        markers_data = np.dot(np.array(rt_matrix), markers_dlc_hom[:, :, 0])[:3, :, None]
+
+    if markers_data is not None and convert_cluster_before_kalman:
+        anato_from_cluster = _convert_cluster_to_anato(scapula_cluster, markers_data[:, -3:, :] * 1000) * 0.001
+        markers_data = np.concatenate(
+            (markers_data[:, :idx_cluster_markers + 1, :], anato_from_cluster[:3, ...], markers_data[:, idx_cluster_markers + 1:, :]),
+            axis=1)
+        if in_pixel:
+            markers_data[:2, :, 0] = camera_converter.get_marker_pos_in_pixel(markers_data[:, :, 0].T).T
+    # next_frame = markers_data
+    if n_markers is None:
+        if kalman_instance is not None:
+            n_markers = len(kalman_instance)
+        elif markers_data is not None:
+            n_markers = markers_data.shape[1]
+        else:
+            raise ValueError("Impossible to know how many markers there are.")
+    next_frame = np.zeros((3, n_markers, 1))
+    kalman_instance = [None] * n_markers if kalman_instance is None else kalman_instance
+    if markers_data is not None and in_pixel:
+        markers_data[2, ...] *= 500
+    for k in range(n_markers):
+        if kalman_instance[k] is None and markers_data is not None:
+            measurement_noise_factor = params[:int(markers_data.shape[1])][k]
+            process_noise_factor = params[int(markers_data.shape[1]):int(markers_data.shape[1] * 2)][k]
+            # error_cov_post_factor = \
+            # params[int(markers_data.shape[1] * 2):int(markers_data.shape[1] * 3)][k]
+            # error_cov_pre_factor = params[int(markers_data.shape[1] * 3):-1][k]
+            kalman_instance[k] = Kalman(markers_data[:, k, 0], n_measures=3, n_diff=2, fps=fps,
+                                        measurement_noise_factor=measurement_noise_factor,
+                                        process_noise_factor=process_noise_factor,
+                                        error_cov_post_factor=error_cov_post_factor,
+                                        error_cov_pre_factor=error_cov_pre_factor
+                                        )
+            next_frame[:, k, 0] = kalman_instance[k].predict()
+        elif kalman_instance[k] is not None:
+            next_frame[:, k, 0] = kalman_instance[k].predict()
+            if markers_data is not None:
+                next_frame[:, k, 0] = kalman_instance[k].correct(markers_data[:, k, 0])
+            if forward != 0:
+                next_frame[:, k, 0] = kalman_instance[k].get_future_pose(dt=forward)
+        else:
+            raise ValueError("Unexpected error.")
+
+    if in_pixel:
+        next_frame[2, ...] /= 500
+        if return_in_meter or rt_matrix is not None or not convert_cluster_before_kalman:
+            next_frame = camera_converter.get_markers_pos_in_meter(next_frame[:, :, 0].T)[..., None]
+
+    if not convert_cluster_before_kalman:
+        anato_from_cluster = _convert_cluster_to_anato(scapula_cluster, next_frame[:, -3:, :] * 1000) * 0.001
+        next_frame = np.concatenate(
+            (next_frame[:, :idx_cluster_markers + 1, :], anato_from_cluster[:3, ...], next_frame[:, idx_cluster_markers + 1:, :]),
+            axis=1)
+
+    # if rt_matrix is not None:
+    #     markers_dlc_hom = np.ones((4, next_frame.shape[1], 1))
+    #     markers_dlc_hom[:3, :, 0] = next_frame[..., 0]
+    #     next_frame = np.dot(np.array(rt_matrix), markers_dlc_hom[:, :, 0])[:3, :, None]
+    if not return_in_meter and (rt_matrix is not None or not convert_cluster_before_kalman):
+        next_frame[:2, :, 0] = camera_converter.get_marker_pos_in_pixel(next_frame[:, :, 0].T).T
+    return next_frame[..., 0], kalman_instance

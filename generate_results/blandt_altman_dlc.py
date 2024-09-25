@@ -3,7 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 
-from biosiglive import load
+from biosiglive import load, save
 from utils import load_data, _get_vicon_to_depth_idx, _convert_string
 from utils import *
 
@@ -66,25 +66,51 @@ def get_end_frame(part, file):
 if __name__ == '__main__':
     # participants = ["P9", "P10",  "P11", "P12", "P13", "P14", "P15", "P16"]
     participants = [f"P{i}" for i in range(9, 17)]
-    #participants.pop(participants.index("P12"))
+    # participants.pop(participants.index("P11"))
     #trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     #trials[-1] = ["gear_10"]
     colors = plt.cm.tab10(np.linspace(0, 1, len(participants)))
+
+
+    # plt.show()
+    reload_data = True
+    if reload_data:
+        all_data, trials = load_results(participants,
+                                "/mnt/shared/Projet_hand_bike_markerless/process_data",
+                                file_name="normal_500_down_b1_no_root.bio", recompute_cycles=False,
+                                        to_exclude=["live_filt"],
+                                         # trials_to_exclude=[
+                                             # ["P13", "gear_5"],
+                                        # #                    ["P13", "gear_15"],
+                                        #                     ["P12", "gear_15"],
+                                        #                     ["P11", "gear_20"]]
+                                        )
+        save(all_data, "_all_data_tmp.bio", safe=False)
+    else:
+        all_data = load("_all_data_tmp.bio")
+
+    all_data_tmp = all_data.copy()
+    participants = [f"P{i}" for i in range(9, 17)]
+    #participants.pop(participants.index("P16"))
+    # participants.pop(participants.index("P14"))
+    # # participants.pop(participants.index("P11"))
+
+    all_data = {}
+    for p in participants:
+        all_data[p] = all_data_tmp[p]
 
     plt.figure("colors")
     for i in range(len(participants)):
         plt.scatter(i, i, color=colors[i], s=200, alpha=0.5)
     plt.legend(participants)
-    # plt.show()
-    all_data, trials = load_results(participants,
-                            "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                            file_name="normal_times_three_filtered_all_dofs", recompute_cycles=False)
 
-    keys = ["tracked_markers", "q_raw", "q_dot"]  # "q_ddot", "tau", "mus_act", "mus_force"]
-    factors = [1000, 180 / np.pi, 180 / np.pi]  #, 180 / np.pi, 1, 100, 1]
-    units = ["°", "°/s", "°/s²", "N.m", "%", "N"]
-    source = ["vicon", "vicon", "depth"]
-    to_compare_source = ["depth", "dlc", "dlc"]
+    keys = ["tracked_markers", "q_raw", "q_dot", "center_of_rot"]  # "q_ddot", "tau", "mus_act", "mus_force"]
+    factors = [1000, 180 / np.pi, 180 / np.pi, 1000]  #, 180 / np.pi, 1, 100, 1]
+    units = ["mm", "°", "°/s", "mm"]
+    # source = ["minimal_vicon", "minimal_vicon", "minimal_vicon"]
+    source = ["vicon", "vicon", "vicon"]
+
+    to_compare_source = ["dlc_0_8", "dlc_0_9", "dlc_1"]
     # plot the colors
     n_comparison = len(to_compare_source)
     #colors = ["b", "orange", "g"]
@@ -98,18 +124,20 @@ if __name__ == '__main__':
         all_bias[k] = []
         all_loa[k] = []
         all_colors = []
-        shape_idx = 1 if "markers" in key else 0
+        shape_idx = 1 if ("markers" in key or "center" in key) else 0
         n_key = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["depth"][key].shape[shape_idx]
+        # if key =="q_dot":
+        #     n_key -= 1
         means_file = np.ndarray((n_comparison, len(participants) * n_key))
         diffs_file = np.ndarray((n_comparison, len(participants) * n_key))
         rmse = np.ndarray((n_comparison, len(participants) * n_key))
         std = np.ndarray((n_comparison, len(participants) * n_key))
         for p, part in enumerate(all_data.keys()):
-            means = np.ndarray((n_comparison, n_key, len(trials[p])))
-            diffs = np.ndarray((n_comparison, n_key, len(trials[p])))
+            means = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
+            diffs = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
             all_colors.append([colors[p]] * n_key)
-            rmse_file = np.ndarray((n_comparison, n_key, len(trials[p])))
-            std_file = np.ndarray((n_comparison, n_key, len(trials[p])))
+            rmse_file = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
+            std_file = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
             for f, file in enumerate(all_data[part].keys()):
                 for j in range(n_comparison):
                     end_frame = get_end_frame(part, file)
@@ -119,27 +147,35 @@ if __name__ == '__main__':
                         to_compare = all_data[part][file][to_compare_source[j]][key][...,
                                      :end_frame] if end_frame is not None else \
                         all_data[part][file][to_compare_source[j]][key]
-                        idx_scap_ia = markers_names.index("SCAP_IA")
-                        idx_scap_ts = markers_names.index("SCAP_TS")
+                        from utils import _reorder_markers_from_names
+                        idx_scap_ia = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_IA")
+                        idx_scap_ts = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_TS")
+                        all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ia] = "SCAP_TS"
+                        all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ts] = "SCAP_IA"
+                        to_compare, _ = _reorder_markers_from_names(
+                            to_compare,
+                            ordered_markers_names=all_data[part][file][source_tmp]["marker_names"],
+                            markers_names=all_data[part][file][to_compare_source[j]]["marker_names"])
                         # exchange _IA and _TS
-                        to_compare[:, idx_scap_ia, :], to_compare[:, idx_scap_ts, :] = to_compare[:, idx_scap_ts, :], to_compare[
-                            :, idx_scap_ia, :]
-                        idx_to_remove = markers_names.index("ribs")
-                        to_compare = np.delete(to_compare, idx_to_remove, axis=1)
                     else:
                         to_compare = all_data[part][file][to_compare_source[j]][key][..., :end_frame] if end_frame is not None else all_data[part][file][to_compare_source[j]][key]
                     ref_data = all_data[part][file][source_tmp][key][..., :end_frame] if end_frame is not None else \
                         all_data[part][file][source_tmp][key]
+                    # if key =="q_dot":
+                    #     to_compare = to_compare[:-1, :]
+                    #     ref_data = ref_data[:-1, :]
                     rmse_file[j, :, f] = compute_error(to_compare * factors[k],
                                                        ref_data * factors[k])
                     std_file[j, :, f] = compute_std(to_compare * factors[k],
                                                     ref_data * factors[k])
+                    # if key == "q_dot":
+                    #     print(part, file, np.mean(rmse_file[j, :, f]))
                     sum_minimal = (to_compare + ref_data) / 2
                     dif_minimal = to_compare - ref_data
                     nan_idx = np.argwhere(np.isnan(sum_minimal))
-                    print(part, file, nan_idx.shape)
+                    # print(part, file, nan_idx.shape)
                     nan_idx_bis = np.argwhere(np.isnan(dif_minimal))
-                    axis = 2 if "markers" in key else 1
+                    axis = 2 if ("markers" in key or "center" in key) else 1
                     nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
                     sum_minimal = np.delete(sum_minimal, nan_idx, axis=axis)
                     dif_minimal = np.delete(dif_minimal, nan_idx, axis=axis)
@@ -153,11 +189,12 @@ if __name__ == '__main__':
                     #         means[j, m, f] = np.mean(sum_minimal_tmp_clipped)
                     #         diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
                     # else:
-                    if "markers" in key:
+                    if "markers" in key or "center" in key:
                         sum_minimal = np.mean(sum_minimal, axis=0)
                         dif_minimal = np.mean(dif_minimal, axis=0)
                     means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
                     diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
+                    #print("part:", part, "trial", file, "mean", diffs[j, :, f])
 
             for j in range(n_comparison):
                 means_file[j, n_key * p: n_key * (p+1)] = np.mean(means[j, :, :], axis=1)
@@ -167,60 +204,52 @@ if __name__ == '__main__':
         all_rmse.append(rmse.mean(axis=1).round(2))
         all_std.append(std.mean(axis=1).round(2))
         bias, lower_loa, upper_loa = compute_blandt_altman(means_file[0, :], diffs_file[0, :],
-                              units=units[k], title="Bland-Altman Plot for " + key + " depth vs vicon",
+                              units=units[k], title="Bland-Altman Plot for " + key + " 0.8",
                               show=False, color=all_colors)
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
         bias, lower_loa, upper_loa = compute_blandt_altman(means_file[1, :], diffs_file[1, :], units=units[k],
-                              title="Bland-Altman Plot for " + key + " dlc vs vicon",
+                              title="Bland-Altman Plot for " + key + " 0.9",
                               show=False, color=all_colors)
 
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
         bias, lower_loa, upper_loa = compute_blandt_altman(means_file[2, :], diffs_file[2, :], units=units[k],
-                              title="Bland-Altman Plot for " + key + " dlc vs depth",
+                              title="Bland-Altman Plot for " + key + "1.0",
                               show=False, color=all_colors)
 
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
 
     print(r"""
-    \begin{table}[h]
+    \begin{table*}[h]
     \caption{Root Mean Square Deviation (RMSD), along with Bland-Altman limit of agreement (LOA) and Bland-Altman Bias,
      of the biomechanical outcomes using both Vicon-based methods, with redundancy and minimal, as reference standards.}
     \centering
     \begin{tabular}{l|l|cc|cc|c}
     \hline
-         & & \multicolumn{2}{c|}{RMSD $\pm$ SD} & \multicolumn{2}{c|}{LOA} & Bias \\
+         & Ratio & \multicolumn{2}{c|}{RMSE/D SD} & \multicolumn{2}{c|}{LOA} & Bias \\
          &  &  & & Low & High &  \\
          \hline
          """
           "\multirow{3}*{Markers (mm)} "
-          "& depth vs vicon &" + f" {all_rmse[0][0]}& {all_std[0][0]} & {all_loa[0][0][0]}& {all_loa[0][0][1]}& {all_bias[0][0]}" + r"\\" + "\n" 
-          "& dlc vs vicon &" + f" {all_rmse[0][1]}& {all_std[0][1]}  & {all_loa[0][1][0]}& {all_loa[0][1][1]}& {all_bias[0][1]}" + r"\\" + "\n" 
-          "& dlc vs depth &" + f" {all_rmse[0][2]}& {all_std[0][2]}  & {all_loa[0][2][0]}& {all_loa[0][2][1]}& {all_bias[0][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
-          "\multirow{3}*{Joint angles (\degree~)} "
-          "& depth vs vicon &" + f" {all_rmse[1][0]}& {all_std[1][0]} & {all_loa[1][0][0]}& {all_loa[1][0][1]}& {all_bias[1][0]}" + r"\\" + "\n" 
-          "& dlc vs vicon &" + f" {all_rmse[1][1]}& {all_std[1][1]}  & {all_loa[1][1][0]}& {all_loa[1][1][1]}& {all_bias[1][1]}" + r"\\" + "\n" 
-          "& dlc vs depth &" + f" {all_rmse[1][2]}& {all_std[1][2]}  & {all_loa[1][2][0]}& {all_loa[1][2][1]}& {all_bias[1][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"                                                                                                                                                       
-          "\multirow{3}*{Joint velocity (\degree~/s)} "
-          "& RGBD vs redundant &" + f" {all_rmse[2][0]}& {all_std[2][0]} & {all_loa[2][0][0]}& {all_loa[2][0][1]}& {all_bias[2][0]}" + r"\\" + "\n" 
-          "& minimal vs redundant &" + f" {all_rmse[2][1]}& {all_std[2][1]}  & {all_loa[2][1][0]}& {all_loa[2][1][1]}& {all_bias[2][1]}" + r"\\" + "\n" 
-          "& RGBD vs minimal &" + f" {all_rmse[2][2]}& {all_std[2][2]}  & {all_loa[2][2][0]}& {all_loa[2][2][1]}& {all_bias[2][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
-                                                                                                                                                                      
-          #   "\multirow{3}*{Joint torques (N.m)} "
-          # "& RGBD vs redundant &" + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]}& {all_loa[3][0][1]}& {all_bias[3][0]}" + r"\\" + "\n" 
-          # "& minimal vs redundant &" + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]}& {all_loa[3][1][1]}& {all_bias[3][1]}" + r"\\" + "\n" 
-          # "& RGBD vs minimal &" + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]}& {all_loa[3][2][1]}& {all_bias[3][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
-          #   
-          # "\multirow{3}*{Muscle forces (N)} "
-          # "& RGBD vs redundant &" + f" {all_rmse[5][0]}& {all_std[5][0]} & {all_loa[5][0][0]}& {all_loa[5][0][1]}& {all_bias[5][0]}" + r"\\" + "\n" 
-          # "& minimal vs redundant &" + f" {all_rmse[5][1]}& {all_std[5][1]}  & {all_loa[5][1][0]}& {all_loa[5][1][1]}& {all_bias[5][1]}" + r"\\" + "\n" 
-          # "& RGBD vs minimal &" + f" {all_rmse[5][2]}& {all_std[5][2]}  & {all_loa[5][2][0]}& {all_loa[5][2][1]}& {all_bias[5][2]}"+ r"\\" + "\n" + r"\hline" + "\n"                                                                                                                                         
-         r"""                                                                                                      
-    \end{tabular}
-
-    \label{tab:errors}
-\end{table}
+          "&0.8&" + f" {all_rmse[0][0]: .2f}& {all_std[0][0]: .2f} & {all_loa[0][0][0]: .2f}& {all_loa[0][0][1]: .2f}& {all_bias[0][0]: .2f}" + r"\\" + "\n" 
+          "&0.9&" + f" {all_rmse[0][1]: .2f}& {all_std[0][1]: .2f}  & {all_loa[0][1][0]: .2f}& {all_loa[0][1][1]: .2f}& {all_bias[0][1]: .2f}" + r"\\" + "\n" 
+          "&1.0   &" + f" {all_rmse[0][2]: .2f}& {all_std[0][2]: .2f}  & {all_loa[0][2][0]: .2f}& {all_loa[0][2][1]: .2f}& {all_bias[0][2]: .2f}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
+          "\multirow{3}*{Joint angles (\degree)} "
+          "& 0.8&" + f" {all_rmse[1][0]: .2f}& {all_std[1][0]: .2f} & {all_loa[1][0][0]: .2f}& {all_loa[1][0][1]: .2f}& {all_bias[1][0]: .2f}" + r"\\" + "\n" 
+          "& 0.9 &" + f" {all_rmse[1][1]: .2f}& {all_std[1][1]: .2f}  & {all_loa[1][1][0]: .2f}& {all_loa[1][1][1]: .2f}& {all_bias[1][1]: .2f}" + r"\\" + "\n" 
+          "& 1.0    &" + f" {all_rmse[1][2]: .2f}& {all_std[1][2]: .2f}  & {all_loa[1][2][0]: .2f}& {all_loa[1][2][1]: .2f}& {all_bias[1][2]: .2f}"+ r"\\" + "\n" +  r" \hdashline" + "\n"                                                                                                                                                       
+          "\multirow{3}*{Joint velocity (\degree/s)} "
+          "& 0.8&" + f" {all_rmse[2][0]: .2f}& {all_std[2][0]: .2f} & {all_loa[2][0][0]: .2f}& {all_loa[2][0][1]: .2f}& {all_bias[2][0]: .2f}" + r"\\" + "\n" 
+          "& 0.9  &" + f" {all_rmse[2][1]: .2f}& {all_std[2][1]: .2f}  & {all_loa[2][1][0]: .2f}& {all_loa[2][1][1]: .2f}& {all_bias[2][1]: .2f}" + r"\\" + "\n" 
+          "& 1.0    &" + f" {all_rmse[2][2]: .2f}& {all_std[2][2]: .2f}  & {all_loa[2][2][0]: .2f}& {all_loa[2][2][1]: .2f}& {all_bias[2][2]: .2f}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
+         "\multirow{3}*{Center of rotation (mm)} "
+          "&   0.8 &" + f" {all_rmse[3][0]: .2f}& {all_std[3][0]: .2f} & {all_loa[3][0][0]: .2f}& {all_loa[3][0][1]: .2f}& {all_bias[3][0]: .2f}" + r"\\" + "\n" 
+          "&0.9 &" + f" {all_rmse[3][1]: .2f}& {all_std[3][1]: .2f}  & {all_loa[3][1][0]: .2f}& {all_loa[3][1][1]: .2f}& {all_bias[3][1]: .2f}" + r"\\" + "\n" 
+          "&1.0   &" + f" {all_rmse[3][2]: .2f}& {all_std[3][2]: .2f}  & {all_loa[3][2][0]: .2f}& {all_loa[3][2][1]: .2f}& {all_bias[3][2]: .2f}"+ r"\\" + "\n" +  r" \hdashline" + "\n"                                                                                                                                       
+         r"""\end{tabular}
+\label{tab:errors}
+\end{table*}
 """)
     plt.show()

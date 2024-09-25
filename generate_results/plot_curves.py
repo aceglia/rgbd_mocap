@@ -1,23 +1,27 @@
 from math import ceil
+
+import numpy as np
+
 from utils import *
 
 
 def plot_results(all_results,
                  track_idx=None,
+                 to_plot = None,
                  vicon_to_depth=None, sources=("depth", "vicon", "minimal_vicon"),
                  stop_frame=None, cycle=False, init_subplots=None, fig_suffix="", trial_name="", count=None,
                  n_cycle=None):
-    joints_names = ["Pro/retraction", "Depression/Elevation",
+    init_joints_names = ["Pro/retraction", "Depression/Elevation",
                     "Pro/retraction", "Lateral/medial rotation", "Tilt",
                     "Plane of elevation", "Elevation", "Axial rotation",
                     "Flexion/extension", "Pronation/supination"]
 
-    sources = []
+    #sources = []
     results_from_sources = []
-    for key in all_results.keys():
-        sources.append(key)
+    for key in sources:
+        #sources.append(key)
         results_from_sources.append(all_results[key]) if not cycle else results_from_sources.append(all_results[key]["cycles"])
-        print(f"mean time for source: {key} ", np.mean(all_results[key]["time"]["tot"][1:]))
+        #print(f"mean time for source: {key} ", np.mean(all_results[key]["time"]["tot"][1:]))
 
     #if cycle:
     results_from_sources_tmp = []
@@ -47,45 +51,96 @@ def plot_results(all_results,
               f"Q://Projet_hand_bike_markerless/process_data/{part}/models/{trial_name}_processed_3_model_scaled_minimal_vicon_seth.bioMod"]
 
     # import bioviz
-    # b = bioviz.Viz(f"/mnt/shared/Projet_hand_bike_markerless/process_data/{part}/models/gear_10_processed_3_model_scaled_vicon.bioMod")
-    # b.load_movement(results_from_sources[1]["q"])
+    # b = bioviz.Viz(f"/mnt/shared/Projet_hand_bike_markerless/RGBD/{part}/models/{trial_name}_model_scaled_dlc_ribs_new_seth.bioMod")
+    # b.load_movement(results_from_sources[0]["q_raw"]["mean"])
     # b.exec()
 
     # stop_frame = results_from_sources[0]["markers"].shape[2] if stop_frame is None else stop_frame
     color = ["b", "orange", "g"]
     line = ["-", "-", "-"]
-
-    # plt.figure("markers" + fig_suffix)
-    # for i in range(results_from_sources[0]["markers"]["mean"].shape[1]):
-    #     plt.subplot(4, ceil(results_from_sources[0]["markers"]["mean"].shape[1] / 4), i+1)
-    #     for j in range(3):
-    #         for k in range(len(results_from_sources)):
-    #             idx = vicon_to_depth[i] if sources[k] == "vicon" else i
-    #             plt.plot(results_from_sources[k]["markers"]["mean"][j, idx, :], line[k], color=color[k])
-    #
-    #     plt.legend(sources)
+    idx = [idx_tmp for idx_tmp in range(len(sources)) if "vicon" in sources[idx_tmp]][0]
+    idx_dlc = [idx_tmp for idx_tmp in range(len(sources)) if "dlc" in sources[idx_tmp]][0]
+    plt.figure("markers" + fig_suffix)
+    from utils import _reorder_markers_from_names
+    idx_scap_ia = all_results[sources[idx_dlc]]["marker_names"].index("SCAP_IA")
+    idx_scap_ts = all_results[sources[idx_dlc]]["marker_names"].index("SCAP_TS")
+    all_results[sources[idx_dlc]]["marker_names"][idx_scap_ia] = "SCAP_TS"
+    all_results[sources[idx_dlc]]["marker_names"][idx_scap_ts] = "SCAP_IA"
+    if sources[idx] != "vicon":
+        reordered_dlc, _ = _reorder_markers_from_names(results_from_sources[idx_dlc]["tracked_markers"]["mean"],
+                                                    ordered_markers_names=all_results[sources[idx]]["marker_names"],
+                                                    markers_names=all_results[sources[idx_dlc]]["marker_names"])
+        results_from_sources[idx_dlc]["tracked_markers"]["mean"] = reordered_dlc
+        count = 0
+        for i in range(results_from_sources[idx]["tracked_markers"]["mean"].shape[1]):
+            plt.subplot(4, ceil(results_from_sources[idx]["markers"]["mean"].shape[1] / 4), i+1)
+            for k in range(len(results_from_sources)):
+                for j in range(3):
+                    if k ==0:
+                        plt.plot(results_from_sources[k]["tracked_markers"]["mean"][j, i, :] * 1000, line[k], color=color[k])
+                    else:
+                        plt.plot(results_from_sources[k]["tracked_markers"]["mean"][j, i, :] * 1000, line[k], color=color[k])
+            # plt.title(all_results[sources[0]]["marker_names"][count] + all_results[sources[1]]["marker_names"][i])
+            plt.legend(sources)
+    plt.figure("COR")
+    if cycle:
+        t = np.linspace(0, 100, results_from_sources[0]["center_of_rot"]["mean"].shape[-1])
+        final_idx = None
+    else:
+        final_idx = n_cycle * 120 if n_cycle else results_from_sources[0]["center_of_rot"]["mean"].shape[-1]
+        if final_idx > results_from_sources[0]["center_of_rot"]["mean"].shape[-1]:
+            final_idx = results_from_sources[0]["center_of_rot"]["mean"].shape[-1]
+        t = np.linspace(0, final_idx, final_idx)
+    for i in range(results_from_sources[idx]["center_of_rot"]["mean"].shape[1]):
+        plt.subplot(4, ceil(results_from_sources[idx]["center_of_rot"]["mean"].shape[1] / 4), i+1)
+        for k in range(len(results_from_sources)):
+            for j in range(3):
+                #if k ==0:
+                # plt.fill_between(t, (
+                #         results_from_sources[k]["center_of_rot" ]["mean"][j, i, :]*1000 - results_from_sources[k]["center_of_rot"][
+                #                                                                   "std"][j, i, :]) * 1000,
+                #                 (results_from_sources[k]["center_of_rot"]["mean"][j, i, :]*1000 +
+                #                  results_from_sources[k]["center_of_rot"]["std"][j, i, :]) * 1000,
+                #                 color=color[k], alpha=0.3)
+                plt.plot(t, results_from_sources[k]["center_of_rot"]["mean"][j, i, :] * 1000, line[k], color=color[k])
+                #else:
+                #    plt.plot(results_from_sources[k]["center_of_rot"]["mean"][j, i, :] * 1000, line[k], color=color[k])
+        # plt.title(all_results[sources[0]]["marker_names"][count] + all_results[sources[1]]["marker_names"][i])
+        plt.legend(sources)
     font_size = 18
     factors = [180 / np.pi, 180 / np.pi, 180 / np.pi, 1]
-    segments = ["Clavicle", "Clavicle",
+    init_segments = ["Clavicle", "Clavicle",
                 "Scapula", "Scapula", "Scapula",
                 "Humerus", "Humerus", "Humerus",
                 "Forearm", "Forearm"]
 
     metrics = ["Joint angle (°)", "Joint angular velocity (°/s)", "Joint angular acceleration (°/s²)", "Torque (N.m)"]
-    plot_names = ["q_raw"]# , "q_dot", "q_ddot", "tau"]
+    # plot_names = ["q_raw"]# , "q_dot", "q_ddot", "tau"]
+    plot_names = to_plot
     for p, plt_name in enumerate(plot_names):
         factor = factors[p]
         if cycle:
             t = np.linspace(0, 100, results_from_sources[0][plt_name]["mean"].shape[1])
+            final_idx = None
         else:
-            t = np.linspace(0, results_from_sources[0][plt_name]["mean"].shape[1], results_from_sources[0][plt_name]["mean"].shape[1])
+            final_idx = n_cycle * 120 if n_cycle else results_from_sources[0][plt_name]["mean"].shape[1]
+            if final_idx > results_from_sources[0][plt_name]["mean"].shape[1]:
+                final_idx = results_from_sources[0][plt_name]["mean"].shape[1]
+            t = np.linspace(0, final_idx, final_idx)
         color = ["b", "r", "g"]
         line = ["-", "-", "-"]
         fig = plt.figure(num=plt_name + fig_suffix, constrained_layout=False)
-        subplots = fig.subplots(4, 3, sharex=False, sharey=False)
+        subplots = fig.subplots((results_from_sources[0][plt_name]["mean"].shape[0] + 2) // 3, 3, sharex=False, sharey=False)
         count = 0
         for i in range(results_from_sources[0][plt_name]["mean"].shape[0] + 2):
-            if i in [2, 11]:
+            to_add = results_from_sources[0][plt_name]["mean"].shape[0] - 10
+            if results_from_sources[0][plt_name]["mean"].shape[0] != len(init_joints_names):
+                joints_names = [ "TX", "Ty", "Tz", "list", "tils", "rot"] + init_joints_names
+                segments = ["Thorax"] * 6 + init_segments
+            else:
+                joints_names = init_joints_names
+                segments = init_segments
+            if i in [2 + to_add, 11 + to_add]:
                 subplots.flat[i].remove()
                 continue
             ax = subplots.flat[i]
@@ -96,23 +151,26 @@ def plot_results(all_results,
                                                                                           "std"][count, :]) * factor,
                                                             (results_from_sources[k][plt_name]["mean"][count, :] + results_from_sources[k][plt_name]["std"][count, :]) * factor,
                                                             color=color[k], alpha=0.3)
-                ax.plot(t, results_from_sources[k][plt_name]["mean"][count, :] * factor, line[k], color=color[k], alpha=0.7)
+                    ax.plot(t, results_from_sources[k][plt_name]["mean"][count, :] * factor, line[k], color=color[k], alpha=0.7)
+                else:
+                    ax.plot(t, results_from_sources[k][plt_name]["mean"][count, :final_idx] * factor, line[k], color=color[k], alpha=0.7)
             ax.set_title(joints_names[count], fontsize=font_size)
             ax.tick_params(axis='y', labelsize=font_size - 2)
-            if i not in [8, 9, 10]:
+            if i not in [8 + to_add, 9 + to_add, 10 + to_add]:
                 ax.set_xticks([])
                 ax.set_xticklabels([])
             else:
                 ax.set_xlabel("Mean cycle (%)", fontsize=font_size)
                 ax.tick_params(axis='x', labelsize=font_size - 2)
-            if i in [0, 3, 6, 9]:
+            if i in [0 + to_add, 3 + to_add, 6 + to_add, 9 + to_add]:
                 ax.set_ylabel(segments[count] + "\n\n" + metrics[p], fontsize=font_size, rotation=90)
                 ax.tick_params(axis='y', labelsize=font_size - 2)
-            ax.set_xlim(0, 100)
+            if cycle:
+                ax.set_xlim(0, 100)
             count += 1
-        fig.legend(["From annotated images", "From DLC", "From Vicon"],
+        fig.legend(sources,
                    loc='upper right', bbox_to_anchor=(0.98, 0.95), fontsize=font_size, frameon=False)
-        fig.align_ylabels(subplots)
+        #fig.align_ylabels(subplots)
         #fig.tight_layout()
     subplots = None
     ax = None
@@ -226,14 +284,15 @@ def plot_results(all_results,
 
 
 if __name__ == '__main__':
-    participants = ["P9"]#, "P11", "P12", "P13", "P14", "P15", "P16"]
+    participants = ["P10"]#, "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)#, "gear_15", "gear_20"]] * len(participants)
-    trials = [["gear_10"]] * len(participants)
+    trials = [["gear_20"]] * len(participants)
     all_data, _ = load_results(participants,
                             # "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
-                               "Q://Projet_hand_bike_markerless/process_data",
-                            file_name="normal_alone", trials=trials,
-                               recompute_cycles=False)
+                               "/mnt/shared/Projet_hand_bike_markerless/process_data",
+                            file_name="normal_500_down_b1_no_root.bio", trials=trials,
+                               recompute_cycles=False,
+                               )
         # load_results(participants,
         #                     "/mnt/shared/Projet_hand_bike_markerless/process_data",
         #                     trials, file_name="_seth")
@@ -249,7 +308,8 @@ if __name__ == '__main__':
             plot_results(all_data[part][file],
                          # all_data[part][file]["depth"]["track_idx"],
                          # all_data[part][file]["depth"]["vicon_to_depth"],
-                         sources=("dlc", "depth", "minimal_vicon"),
+                         to_plot=["q_raw", "q_dot"],
+                         sources=("dlc_1", "vicon"),
                  stop_frame=None, cycle=True, trial_name=trials[0][f], fig_suffix="_" + str(count),
                          n_cycle=None)
             count += 1

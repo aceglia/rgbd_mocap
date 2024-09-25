@@ -319,6 +319,7 @@ def compute_surface_normals_k_nearest(depth_map, k=9):
     return normals_bgr
 
 if __name__ == '__main__':
+    prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/Projet_hand_bike_markerless"
     np.random.seed(40)
     participants = ["P16"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     for p, part in enumerate(participants):
