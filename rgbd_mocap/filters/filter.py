@@ -6,6 +6,7 @@ from ..frames.frames import Frames
 
 class Filter:
     def __init__(self, options):
+        self.use_threshold = True
         self.frame = None
         self.filtered_frame = None
         self.filtered_depth = None
@@ -17,6 +18,9 @@ class Filter:
             tileGridSize=(self.options["clahe_grid_size"],
                           self.options["clahe_grid_size"])
         )
+        keys = self.options.keys() if isinstance(self.options, dict) else self.options.to_dict().keys()
+        if "use_threshold" in keys:
+            self.use_threshold = self.options["use_threshold"]
         self.white_range = self.options["white_range"]
         ### Blobs options
         self.blobs_param = cv2.SimpleBlobDetector_Params()
@@ -86,9 +90,10 @@ class Filter:
         # self.filtered_frame = cv2.GaussianBlur(self.filtered_frame, (3, 3), 0)
 
         self.filtered_frame = self.clahe.apply(self.filtered_frame)
-        ret, self.filtered_frame = cv2.threshold(self.filtered_frame,
-                                                 int(self.options["white_range"][0]),
-                                                 int(self.options["white_range"][1]), 0)
+        if self.use_threshold:
+            ret, self.filtered_frame = cv2.threshold(self.filtered_frame,
+                                                     int(self.options["white_range"][0]),
+                                                     int(self.options["white_range"][1]), 0)
         # self.filtered_frame = cv2.cvtColor(self.filtered_frame, cv2.COLOR_RGB2HSV)[:, :, 1]
 
         if self.options["gaussian_blur"] and self.options["gaussian_blur"] > 0:

@@ -5,6 +5,7 @@ import biorbd
 from pathlib import Path
 import matplotlib.pyplot as plt
 
+from utils import _reorder_markers_from_names
 def _convert_string(string):
     return string.lower().replace("_", "")
 
@@ -17,8 +18,9 @@ def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
             vicon_to_depth_idx.append(vicon_markers_names.index(name))
     return vicon_to_depth_idx
 
+
 def get_model_markers_names(model, names=None):
-    if names :
+    if names:
         markers = []
         for name in names:
             for i in range(model.nbMarkers()):
@@ -32,78 +34,48 @@ def get_model_markers_names(model, names=None):
 
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
-    # data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data"
-    data_path = "D:\Documents\Programmation\pose_estimation\data_files"
+    participants = [f"P{i}" for i in range(10, 11)]
+    # participants.pop(participants.index("P14"))
+
     data_path = "Q://Projet_hand_bike_markerless/RGBD"
-    source = ["depth", "dlc", "vicon"]
-    markers_keys = ["markers_depth", "markers_dlc", "markers_vicon"]
-    names_keys = ["markers_names"] * 3
+    model_source = ["dlc_ribs", "vicon"]
+    sources = ["dlc_1"] #, "vicon"]
     for participant in participants:
-        # file = fr"{data_path}/{participant}/anato_processed_3_crops.bio"
         all_files = os.listdir(fr"{data_path}\{participant}")
         all_files = [file for file in all_files if "gear" in file]
         for file in all_files:
-            # if not os.path.exists(fr"Q://Projet_hand_bike_markerless/RGBD\{participant}\{file}\reoriented_dlc_markers.bio"):
-            #     continue
-            file_tmp = fr"Q://Projet_hand_bike_markerless/RGBD\{participant}\{file}\reoriented_dlc_markers.bio"
+            model = "normal_500_down_b1"
+            filt = "filtered"
+            file_tmp = f"Q://Projet_hand_bike_markerless/process_data/{participant}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}_{model}_no_root.bio"
             if not os.path.isfile(file_tmp):
                 continue
-            # data = load(file_tmp)
             print("processing file : ", file_tmp)
-            load_markers = load(file_tmp)
-            # depth_markers_names = load_markers["depth_markers_names"]
-            # # idx_ts = depth_markers_names.index("scapts")
-            # # idx_ai = depth_markers_names.index("scapia")
-            # # depth_markers_names[idx_ts] = "scapia"
-            # # depth_markers_names[idx_ai] = "scapts"
-            # vicon_markers_names = load_markers["vicon_markers_names"]
-            # idx_ts = vicon_markers_names.index("scapts")
-            # idx_ai = vicon_markers_names.index("scapia")
-            # vicon_markers_names[idx_ts] = "scapia"
-            # vicon_markers_names[idx_ai] = "scapts"
-            # vicon_to_depth_idx = _get_vicon_to_depth_idx(depth_markers_names, vicon_markers_names)
-            models = ["wu_bras_gauche_depth.bioMod", "wu_bras_gauche_vicon.bioMod", "wu_bras_gauche_depth.bioMod"]
-            rate = [120, 120, 120]
-            for i in range(len(source)):
-                marker_names_tmp = load_markers[names_keys[i]]
-                markers = load_markers[markers_keys[i]][..., :350]
-                # markers = data["markers_in_meters"][..., :150]
-                # from utils import load_data_from_dlc
-                # data_dlc, data_labeling = load_data_from_dlc(file_tmp, file_tmp, participant, file)
-                # markers = data_dlc["markers_in_meters"][:, :-3, :150]
-                # markers = OfflineProcessing().butter_lowpass_filter(markers, 2, 60, 2)
-
-                # if i == 0:
-                #     markers = OfflineProcessing().butter_lowpass_filter(markers, 4, 60, 4)
-                # if i == 2:
-                    # markers = markers[:, vicon_to_depth_idx, :]
-                # markers = markers[:, :-3, :]
-
-                model = biorbd.Model(f"models/{models[i]}")
-                marker_names = get_model_markers_names(model, marker_names_tmp)
-                # ia_idx = marker_names.index("SCAP_IA")
-                # ts_idx = marker_names.index("SCAP_TS")
-                # marker_names[ia_idx] = "SCAP_TS"
-                # marker_names[ts_idx] = "SCAP_IA"
-                ia_idx = marker_names.index("EPICl")
-                ts_idx = marker_names.index("ARMl")
-                marker_names[ia_idx] = "ARMl"
-                marker_names[ts_idx] = "EPICl"
-                ia_idx = marker_names.index("STYLu")
-                ts_idx = marker_names.index("larm_l")
-                marker_names[ia_idx] = "larm_l"
-                marker_names[ts_idx] = "STYLu"
-                output_path = f"Q://Projet_hand_bike_markerless/RGBD\{participant}/{file}/{Path(file).stem}_{source[i]}.trc"
+            data = load(file_tmp)
+            rate = 120
+            for s, source in enumerate(sources):
+                if source not in data.keys():
+                    raise ValueError(f"source {source} not in data keys")
+                model_path = f"Q://Projet_hand_bike_markerless/RGBD/P10/model_scaled_{model_source[s]}.bioMod"
+                import numpy as np
+                markers = data[source]["tracked_markers"][..., :1000]
+                if source == "vicon":
+                    markers = np.nan_to_num(markers, nan=0.0)
+                model = biorbd.Model(model_path)
+                marker_names = get_model_markers_names(model)
+                output_path = f"Q://Projet_hand_bike_markerless/RGBD\{participant}/{file}/{Path(file).stem}_{source}_ribs_and_cluster.trc"
                 if os.path.exists(output_path):
                     os.remove(output_path)
+                ordered_names = [_convert_string(name) for name in marker_names]
+                markers_ordered = _reorder_markers_from_names(markers, ordered_names, data[source]["marker_names"])
+
                 C3DtoTRC.WriteTrcFromMarkersData(
                     output_file_path=output_path,
-                    markers=markers,
+                    markers=markers_ordered,
                     marker_names=marker_names,
-                    data_rate=rate[i],
-                    cam_rate=rate[i],
+                    data_rate=rate,
+                    cam_rate=rate,
                     n_frames=markers.shape[2],
                     start_frame=1,
                     units="m",
                 ).write()
+                print(f"File {output_path} written")

@@ -128,6 +128,7 @@ class ImageOptions(QWidget):
             "clahe_grid_size": 3,
             "gaussian_blur": 0,
             "use_contour": True,
+            "use_threshold": True,
             "mask": None,
         }
 

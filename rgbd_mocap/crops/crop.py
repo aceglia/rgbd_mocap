@@ -6,7 +6,10 @@ from ..frames.shared_frames import SharedFrames
 from ..markers.marker_set import MarkerSet
 from ..tracking.tracking_markers import Tracker, Position
 from ..filters.filter import Filter
-from ..tracking.dlc_live import DlcLive
+try:
+    from ..tracking.dlc_live import DlcLive
+except ImportError:
+    pass
 
 
 def get_pixels(array, x, y, delta):
