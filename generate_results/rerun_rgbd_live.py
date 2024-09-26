@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 # import pyrealsense2 as rs
 import rerun as rr  # pip install rerun-sdk
-from utils import load_data_from_dlc, _convert_string
+from utils_old import load_data_from_dlc, _convert_string
 import biorbd
 import biosiglive
 from rgbd_mocap.camera.camera_converter import CameraConverter

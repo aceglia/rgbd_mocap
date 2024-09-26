@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import biorbd
-from utils import load_results
+from utils_old import load_results
 from math import ceil
 
 

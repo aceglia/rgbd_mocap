@@ -34,7 +34,7 @@ def get_model_markers_names(model, names=None):
 if __name__ == '__main__':
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     # data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data"
-    data_path = "D:\Documents\Programmation\pose_estimation\data_files"
+    data_path = "/data_files"
     data_path = "Q://Projet_hand_bike_markerless/RGBD"
     source = ["depth", "dlc", "vicon"]
     markers_keys = ["markers_depth", "markers_dlc", "markers_vicon"]

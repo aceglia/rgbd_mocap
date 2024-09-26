@@ -1,0 +1,16 @@
+name: rgbd_mocap
+channels:
+- conda-forge
+- default
+dependencies:
+- python >=3.9
+- packaging
+- matplotlib-base
+- numpy
+- scipy
+- pandas
+- biorbd
+- casadi
+- pip
+- pip:
+  - opencv-python

@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import load_results
+from utils_old import load_results
 
 
 def compute_error(data, ref):

@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from biosiglive import load
-from utils import load_data, _get_vicon_to_depth_idx, _convert_string
-from utils import *
+from utils_old import load_data, _get_vicon_to_depth_idx, _convert_string
+from utils_old import *
 
 
 def compute_error(data, ref):

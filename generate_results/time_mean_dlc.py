@@ -1,6 +1,6 @@
 import numpy as np
 
-from utils import *
+from utils_old import *
 from biosiglive import save, load
 
 if __name__ == '__main__':

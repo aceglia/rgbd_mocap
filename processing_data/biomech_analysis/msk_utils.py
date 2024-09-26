@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 import biorbd
 import numpy as np
-from utils import _convert_string
+from utils_old import _convert_string
 import time
 from biosiglive import InverseKinematicsMethods
 

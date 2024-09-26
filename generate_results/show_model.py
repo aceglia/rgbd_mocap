@@ -2,7 +2,7 @@ from biosiglive import load, MskFunctions, InverseKinematicsMethods
 import bioviz
 import biorbd
 import numpy as np
-from utils import load_all_data
+from utils_old import load_all_data
 
 
 

@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from utils import load_all_data
+from utils_old import load_all_data
 from scipy.signal import find_peaks
 import numpy as np
 

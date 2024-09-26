@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from biosiglive import load
-from utils import load_data, _get_vicon_to_depth_idx, _convert_string
-from utils import *
+from utils_old import load_data, _get_vicon_to_depth_idx, _convert_string
+from utils_old import *
 
 if __name__ == '__main__':
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]

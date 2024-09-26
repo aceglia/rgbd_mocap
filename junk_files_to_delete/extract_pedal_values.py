@@ -7,7 +7,7 @@ import csv
 import biorbd
 import bioviz
 from scipy.interpolate import interp1d
-from utils import load_all_data
+from utils_old import load_all_data
 from biosiglive import MskFunctions, InverseKinematicsMethods
 from scipy.signal import find_peaks
 

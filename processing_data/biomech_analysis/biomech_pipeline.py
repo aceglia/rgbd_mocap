@@ -1,192 +1,219 @@
 import os
 import numpy as np
 import biorbd
-from biomech_utils import get_all_file
+import json
 from msk_utils import compute_cor, compute_ik, compute_so, compute_jrf, compute_id, get_map_activation_idx
+from rgbd_mocap.tracking.kalman import Kalman
+import time
+
 try:
     from msk_utils import process_all_frames, get_tracking_idx, reorder_markers
 except:
     pass
-from biosiglive import MskFunctions, load, save
+from biosiglive import MskFunctions, load, save, RealTimeProcessing, RealTimeProcessingMethod
+from processing_data.file_io import get_data_from_sources, get_all_file
+from processing_data.biomech_analysis.enums import FilteringMethod
 import bioviz
+from scapula_cluster.from_cluster_to_anato import ScapulaCluster
+from processing_data.data_processing_helper import convert_cluster_to_anato, reorder_markers_from_names
 
 prefix = "/mnt/shared" if os.name == "posix" else "Q:/"
 
 class BiomechPipeline:
     def __init__(self, stop_frame=None):
+        self.fps = 120
+        self.scapula_cluster = None
+        self.kalman_instance = None
+        self.n_markers = None
+        self.processed_markers = None
         self.stop_frame = stop_frame
+        self.range_frame = None
+        self.msk_function = MskFunctions(model=None, data_buffer_size=20, system_rate=120)
+        self.forces = None
+        self.frame_idx = None
+        self.key = None
+        self.rt_matrix = None
+        self.range_idx = None
+        self.external_loads = None
+        self.emg = None
+        self.peaks = None
+        self.vicon_to_depth_idx = None
+        self.f_ext = None
+        self.emg_names = ["PectoralisMajorThorax_M",
+                 "BIC",
+                 "TRI_lat",
+                 "LatissimusDorsi_S",
+                 'TrapeziusScapula_S',
+                 "DeltoideusClavicle_A",
+                 'DeltoideusScapula_M',
+                 'DeltoideusScapula_P']
 
-    @staticmethod
-    def _adjust_idx(data, idx_start, idx_end):
-        if idx_start is None and idx_end is None:
-            return data
-        data_tmp = {}
-        for key in data.keys():
-            if "names" in key:
-                data_tmp[key] = data[key]
-                continue
-            idx_start = 0 if idx_start is None else idx_start
-            if isinstance(data[key], np.ndarray):
-                idx_end = data[key].shape[-1] + 1 if idx_end is None else -idx_end
-                data_tmp[key] = data[key][..., idx_start:idx_end]
-            elif isinstance(data[key], list):
-                data_tmp[key] = data[key][idx_start:idx_end]
-            else:
-                data_tmp[key] = data[key]
-        return data_tmp
-
-    def process_all_frames(self, markers, msk_function, source, external_loads, scaling_factor, emg, f_ext,
-                           img_idx=None,
-                           compute_id=True, compute_so=True, compute_jrf=True, stop_frame=None, file=None,
-                           print_optimization_status=False, filter_depth=False, emg_names=None, compute_ik=True,
-                           marker_names=None, calibration_matrix=None, measurements=None, part=None, rt_matrix=None,
-                           in_pixel=False, range_idx=None):
-        final_dic = {}
-        # stop_frame = markers.shape[2] if stop_frame is None else stop_frame
-        # all_kalman = None
-        # if img_idx is None:
-        #     img_idx = np.linspace(0, stop_frame, stop_frame)
-        # fist_idx = img_idx[0]
-        # img_idx = [idx - fist_idx for idx in img_idx]
-        stop_frame = stop_frame if stop_frame else markers.shape[2]
-        all_kalman = None
-        if filter_depth:
-            # n_window = 14
-            # markers_process = [RealTimeProcessing(60, n_window), RealTimeProcessing(60, n_window),
-            #                    RealTimeProcessing(60, n_window)]
-            before_kalman = True
-            if not in_pixel:
-                # kalman_params = [1] * 17 + [1] * 17
-                # kalman_params = [1e-3] * 17 + [1e-3] * 17
-                # kalman_params[0:8] = [0.4] * 8
-                # kalman_params[0+17:8+17] = [1e-3] * 8
-                # kalman_params[8] = 1e-2
-                # kalman_params[8 + 17] = 1e-3
-                measurement_noise = [2] * 17
-                proc_noise = [1] * 17
-                measurement_noise[:8] = [5] * 8
-                proc_noise[:8] = [1e-1] * 8
-                measurement_noise[11:14] = [1] * 3
-                proc_noise[11:14] = [1] * 3
-                kalman_params = measurement_noise + proc_noise
-            elif not before_kalman:
-                kalman_params = [300] * 14 + [30] * 14
-                kalman_params[:4] = [500] * 4
-                kalman_params[14:4 + 14] = [5] * 4
-                kalman_params[5] = 100
-                kalman_params[5 + 14] = 30
-                kalman_params[11:11 + 3] = [300] * 3
-                kalman_params[11 + 14:11 + 3 + 14] = [30] * 3
-                # kalman_params = [300] * 14 + [30] * 14
-            else:
-                measurement_noise = [30] * 17
-                proc_noise = [3] * 17
-                measurement_noise[8] = 10
-                proc_noise[8] = 3
-                measurement_noise[3] = 50
-                proc_noise[3] = 1
-                measurement_noise[5:8] = [150] * 3
-                proc_noise[5:8] = [3] * 3
-                measurement_noise[4] = 50
-                proc_noise[4] = 1
-
-                kalman_params = measurement_noise + proc_noise
-
-            n_window = 0
+    def set_stop_frame(self, stop_frame, frame_idx, key, live_filter):
+        self.frame_idx = frame_idx
+        self.key=key
+        if stop_frame is None:
+            stop_frame = (frame_idx[-1] - frame_idx[0]) * 2
+        if (frame_idx[-1] - frame_idx[0]) * 2 < stop_frame:
+            stop_frame = (frame_idx[-1] - frame_idx[0]) * 2
+        if stop_frame % 2 != 0:
+            stop_frame -= 1
+        stop_frame_tmp = int(stop_frame // 2) if live_filter and "dlc" in key else stop_frame
+        if "dlc" not in key or not live_filter:
+            range_frame = range(stop_frame_tmp)
         else:
-            n_window = 0
-            kalman_params = None
+            range_frame = range(frame_idx[0], frame_idx[-1])
+        self.range_frame = range_frame
+
+    def init_scapula_cluster(self, participant, measurements_dir_path=None, calibration_matrix_dir=None, config="with_depth"):
+        measurements_dir_path = "../../data_collection_mesurement" if measurements_dir_path is None else measurements_dir_path
+        calibration_matrix_dir = "../../../scapula_cluster/calibration_matrix" if calibration_matrix_dir is None else calibration_matrix_dir
+        measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{participant}.json"))
+        measurements = measurement_data[config]["measure"]
+        calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[config][
+            "calibration_matrix_name"]
+        self.scapula_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
+                                     measurements[4], measurements[5], calibration_matrix)
+
+    def _get_next_frame_from_kalman(self, markers_data=None, forward=0, rotate=False):
+        if rotate and (self.rt_matrix is not None and markers_data is not None):
+            markers_dlc_hom = np.ones((4, markers_data.shape[1], 1))
+            markers_dlc_hom[:3, :, 0] = markers_data[..., 0]
+            markers_data = np.dot(np.array(self.rt_matrix), markers_dlc_hom[:, :, 0])[:3, :, None]
+        # next_frame = markers_data
+        if self.n_markers is None:
+            if self.kalman_instance is not None:
+                self.n_markers = len(self.kalman_instance)
+            elif markers_data is not None:
+                self.n_markers = markers_data.shape[1]
+            else:
+                raise ValueError("Impossible to know how many markers there are.")
+        next_frame = np.zeros((3, self.n_markers, 1))
+        self.kalman_instance = [None] * self.n_markers if self.kalman_instance is None else self.kalman_instance
+        for k in range(self.n_markers):
+            if self.kalman_instance[k] is None and markers_data is not None:
+                measurement_noise_factor = self.kalman_params[:int(markers_data.shape[1])][k]
+                process_noise_factor = self.kalman_params[int(markers_data.shape[1]):int(markers_data.shape[1] * 2)][k]
+                self.kalman_instance[k] = Kalman(markers_data[:, k, 0], n_measures=3, n_diff=2, fps=self.fps,
+                                            measurement_noise_factor=measurement_noise_factor,
+                                            process_noise_factor=process_noise_factor,
+                                            error_cov_post_factor=None,
+                                            error_cov_pre_factor=None
+                                            )
+                next_frame[:, k, 0] = self.kalman_instance[k].predict()
+            elif self.kalman_instance[k] is not None:
+                next_frame[:, k, 0] = self.kalman_instance[k].predict()
+                if markers_data is not None:
+                    next_frame[:, k, 0] = self.kalman_instance[k].correct(markers_data[:, k, 0])
+                if forward != 0:
+                    next_frame[:, k, 0] = self.kalman_instance[k].get_future_pose(dt=forward)
+            else:
+                raise ValueError("Unexpected error.")
+        anato_from_cluster = convert_cluster_to_anato(self.scapula_cluster, next_frame[:, -3:, :] * 1000) * 0.001
+        next_frame = np.concatenate(
+            (next_frame[:, :self.idx_cluster + 1, :], anato_from_cluster[:3, ...],
+             next_frame[:, self.idx_cluster + 1:, :]),
+            axis=1)
+        return next_frame[..., 0]
+
+    def set_variable(self, variable, value):
+        setattr(self, variable, value)
+
+    def _filter_markers(self, markers):
+        self.processed_markers = np.zeros_like(markers) if self.processed_markers is None else self.processed_markers
+        for i in range(3):
+            self.processed_markers[:, i, :] = self.rt_processing_list[i].process_generic_signal(markers[:, i, :],
+                                                                                           band_pass_filter=False,
+                                                                                           centering=False,
+                                                                                           absolute_value=False,
+                                                                                           moving_average_window=self.moving_window,
+                                                                                           )
+        return markers
+
+    def get_filter_function(self, live_filter_method, **kwargs):
+        if live_filter_method == FilteringMethod.NONE:
+            self.moving_window = 0
+            return lambda x: x
+
+        elif live_filter_method == FilteringMethod.MovingAverage:
+            self.moving_window = 14
+            self.rt_processing_list = [RealTimeProcessing(120, self.moving_window),
+                               RealTimeProcessing(120, self.moving_window),
+                               RealTimeProcessing(120, self.moving_window)]
+
+            return lambda x: self._filter_markers(x)
+
+        elif live_filter_method == FilteringMethod.Kalman:
+            self.moving_window = 0
+            measurement_noise = [2] * 17
+            proc_noise = [1] * 17
+            measurement_noise[:8] = [5] * 8
+            proc_noise[:8] = [1e-1] * 8
+            measurement_noise[11:14] = [1] * 3
+            proc_noise[11:14] = [1] * 3
+            self.kalman_params = measurement_noise + proc_noise
+            return self._get_next_frame_from_kalman
+        else:
+            raise ValueError("Invalid filtering method")
+
+    def get_filtered_markers(self, markers, live_filter_method):
+        if live_filter_method == FilteringMethod.NONE and "dlc" not in self.key:
+            return markers
+        if "depth" in self.key:
+            return self.filter_function(markers[..., self.frame_count:self.frame_count + 1])
+        elif "dlc" in self.key:
+            count_dlc = self.dlc_frame_count if live_filter_method == FilteringMethod.NONE else self.frame_count
+            if live_filter_method == 0 or (live_filter_method != 0 and self.current_frame in self.frame_idx):
+                markers_tmp = markers[..., count_dlc:count_dlc + 1]
+                self.dlc_frame_count += 1
+            else:
+                markers_tmp = None
+            if self.frame_count == 0:
+                self.idx_cluster = self.marker_names.index("clavac")
+                self.marker_names = self.marker_names[:self.idx_cluster + 1] + ["scapaa", "scapia", "scapts"] + self.marker_names[self.idx_cluster + 1:]
+
+            markers_tmp = self.filter_function(markers_tmp, rotate=True)
+            model_names = [self.msk_function.model.markerNames()[i].to_string() for i in range(self.msk_function.model.nbMarkers())]
+            markers_tmp = reorder_markers_from_names(markers_tmp[:, :-3, None], model_names,
+                                                         self.marker_names[:-3])
+            markers_tmp = markers_tmp[:, :, 0]
+
+    def process_all_frames(self, markers: np.ndarray, model_path: str, live_filter_method: FilteringMethod = FilteringMethod.NONE,
+                           compute_id: bool=True, compute_so: bool=True, compute_jrf:bool =False,
+                           print_optimization_status: bool =False, compute_ik: bool =True,
+                           marker_names:list =None):
+        self.comute_so = compute_so
+        self.compute_jrf = compute_jrf
+        self.compute_id = compute_id
+        self.compute_ik = compute_ik
+        self.print_optimization_status = print_optimization_status
+        self.msk_function.clean_all_buffers()
+        self.msk_function.model = biorbd.Model(model_path)
+        final_dic = {}
+        self.filter_function = self.get_filter_function(live_filter_method)
+        self.emg_track_idx = get_tracking_idx(self.msk_function.model, self.emg_names)
+        self.muscle_map_idx = get_map_activation_idx(self.msk_function.model, self.emg_names)
 
         electro_delay = 0
-        track_idx = get_tracking_idx(msk_function.model, emg_names)
-        map_idx = get_map_activation_idx(msk_function.model, emg_names)
-        import json
-        measurements_dir_path = "../data_collection_mesurement"
-        calibration_matrix_dir = "../../scapula_cluster/calibration_matrix"
-        measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"))
-        measurements = measurement_data[f"with_depth"]["measure"]
-        calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[f"with_depth"][
-            "calibration_matrix_name"]
-        new_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
-                                     measurements[4], measurements[5], calibration_matrix)
         count = 0
         count_dlc = 0
         idx_cluster = 0
         dlc_markers = None
         camera_converter = None
-        for i in range_idx:
+        self.frame_count = 0
+        self.current_frame = 0
+        self.dlc_frame_count = 0
+        for i in self.range_frame:
+            self.current_frame = i
             tic = time.time()
-            # if i > electro_delay:
-            #     emg_tmp = emg if emg is None else emg[:, i-electro_delay]
-            # else:
-            emg_tmp = None
             reorder_names = marker_names
-            # if filter_depth:
-            if "dlc" in source and filter_depth:
-                if i in img_idx:
-                    markers_tmp = markers[..., count_dlc:count_dlc + 1]
-                    count_dlc += 1
-                else:
-                    markers_tmp = None
-                if count == 0:
-                    idx_cluster = marker_names.index("clavac")
-                    print(marker_names)
-                    marker_names = marker_names[:idx_cluster + 1] + ["scapaa", "scapia", "scapts"] + marker_names[
-                                                                                                     idx_cluster + 1:]
-                    if in_pixel:
-                        camera_converter = CameraConverter()
-                        camera_converter.set_intrinsics("config_camera_files/config_camera_P10.json")
-                markers_kalman, all_kalman = get_next_frame_from_kalman(all_kalman, markers_tmp,
-                                                                        new_cluster, params=kalman_params,
-                                                                        rt_matrix=rt_matrix,
-                                                                        idx_cluster_markers=idx_cluster, forward=0,
-                                                                        camera_converter=camera_converter,
-                                                                        in_pixel=in_pixel,
-                                                                        convert_cluster_before_kalman=before_kalman)
-
-                # if markers_tmp is not None:
-                #     anato_from_cluster = _convert_cluster_to_anato(new_cluster, markers_tmp[:, -3:, :] * 1000) * 0.001
-                #     dlc_markers = np.concatenate(
-                #         (markers_tmp[:, :idx_cluster + 1, :], anato_from_cluster[:3, ...],
-                #          markers_tmp[:, idx_cluster + 1:, :]),
-                #         axis=1)
-                # # else:
-                # #      dlc_markers = markers[..., count_dlc:count_dlc + 1]
-                # markers_data = dlc_markers
-                # markers_dlc_hom = np.ones((4, markers_data.shape[1], 1))
-                # markers_dlc_hom[:3, :, 0] = markers_data[..., 0]
-                # markers_data = np.dot(np.array(rt_matrix), markers_dlc_hom[:, :, 0])[:3, :, None]
-                # for k in range(markers_kalman.shape[1]):
-                #     if k not in list(range(idx_cluster + 1 , idx_cluster + 4)):
-                #         markers_kalman[:, i, :] = markers_tmp[]
-                markers_tmp, reorder_names = reorder_markers(markers_kalman[:, :-3, None], msk_function.model,
-                                                             marker_names[:-3])
-                markers_tmp = markers_tmp[:, :, 0]
-
-                # markers_tmp[:, reorder_names.index("ribs")] = np.nan
-            else:
-                if "dlc" in source:
-                    if count == 0:
-                        idx_cluster = marker_names.index("clavac")
-                        marker_names = marker_names[:idx_cluster + 1] + ["scapaa", "scapia", "scapts"] + marker_names[
-                                                                                                         idx_cluster + 1:]
-                    markers_tmp, reorder_names = reorder_markers(markers[:, :-3, count:count + 1], msk_function.model,
-                                                                 marker_names[:-3])
-                    markers_tmp = markers_tmp[:, :, 0]
-                else:
-                    markers_tmp = markers[:, :, count]
-            kalman_freq = 60 if filter_depth else 120
-            dic_to_save = self.process_next_frame(markers_tmp, msk_function, count, source, external_loads,
-                                             scaling_factor, emg_tmp,
-                                             f_ext=f_ext[:, i],
-                                             kalman_freq=kalman_freq,
-                                             emg_names=emg_names, compute_id=compute_id, compute_ik=compute_ik,
+            markers_tmp = self.get_filtered_markers(markers[:, :, i], live_filter_method)
+            dic_to_save = self.process_next_frame(markers_tmp,
+                                             kalman_freq=kalman_freq,compute_id=compute_id, compute_ik=compute_ik,
                                              compute_so=compute_so, compute_jrf=compute_jrf, file=file,
                                              print_optimization_status=print_optimization_status,
                                              filter_depth=filter_depth,
                                              tracking_idx=track_idx,
                                              map_emg_idx=map_idx,
-                                             n_window=n_window
                                              )
             tim_ti_get_frame = time.time() - tic
             dic_to_save["time"]["time_to_get_frame"] = tim_ti_get_frame
@@ -194,6 +221,7 @@ class BiomechPipeline:
             if dic_to_save is not None:
                 final_dic = dic_merger(final_dic, dic_to_save)
             count += 1
+            self.frame_count += 1
             if count == stop_frame:
                 break
         if "dlc" in source:
@@ -329,7 +357,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                             all_results[source[s]] = data[source[s]]
                             continue
                         elif "dlc" not in source[s]:
-                            markers_from_source[s] = self.adjust_idx({"mark": markers_from_source[s]}, idx_start, idx_end)["mark"]
+                            markers_from_source[s] = adjust_idx({"mark": markers_from_source[s]}, idx_start, idx_end)["mark"]
                         # if source[s] == "dlc":
                         #     model_path = f"{model_dir}/{part}/model_scaled_dlc_test_wu_fixed.bioMod"
                         # else:
@@ -405,7 +433,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                             if "dlc" in src_tmp:
                                 all_results[src_tmp]["time"]["time_to_get_markers"] = dlc_times
                                 from data_processing.post_process_data import ProcessData
-                                from utils import refine_synchro
+                                from utils_old import refine_synchro
                                 tmp1 = all_results[src_tmp]["tracked_markers"][:, 7, :].copy()
                                 tmp2 = all_results[src_tmp]["tracked_markers"][:, 6, :].copy()
                                 all_results[src_tmp]["tracked_markers"][:, 6, :] = tmp1
@@ -530,24 +558,55 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                 print("Saved")
 
 
-def main_new(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
-     plot=False, source=None, model_source=None, source_to_keep=[], live_filter=True,
-     interpolate_dlc=True, in_pixel=False, emg_names=None):
+def main_new(model_dir, participants, processed_data_path, source, filter_depth=False, save_data=True, stop_frame=None,
+             plot=False,
+             model_source=None, source_to_keep=None, live_filter_method=FilteringMethod.NONE):
+    source_to_keep = [] if source_to_keep is None else source_to_keep
     biomech_pipeline = BiomechPipeline(stop_frame=stop_frame)
     all_files, mapped_part = get_all_file(participants, processed_data_path)
     for part, file in zip(mapped_part, all_files):
-        get_data_from_sources(source, )
+        output_file = prefix + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}.bio"
+        markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frame_idx = get_data_from_sources(
+            part, file, source, model_dir, model_source, filter_depth, live_filter_method != 0, source_to_keep, output_file)
+        biomech_pipeline.set_variable("forces", forces)
+        biomech_pipeline.set_variable("f_ext", f_ext)
+        biomech_pipeline.set_variable("emg", emg)
+        biomech_pipeline.set_variable("vicon_to_depth_idx", vicon_to_depth)
+        biomech_pipeline.set_variable("peaks", peaks)
+        biomech_pipeline.set_variable("rt_matrix", rt)
+        biomech_pipeline.init_scapula_cluster()
+        for key in markers_dic.keys():
+            biomech_pipeline.set_stop_frame(stop_frame, dlc_frame_idx, key, live_filter_method != 0)
+
+            biomech_pipeline.process_all_frames(markers_dic[key][1], compute_ik=True,
+                                                compute_id=True, compute_so=False, live_filter_method=filter_method)
+
+            result_biomech = process_all_frames(
+                                                forces, (1000, 10), emg,
+                                                f_ext,
+                                                img_idx=frame_idx,
+                                                compute_ik=True,
+                                                compute_id=True, compute_so=False, compute_jrf=False,
+                                                range_idx=range_frame,
+                                                stop_frame=stop_frame_tmp,
+                                                file=f"{processed_data_path}/{part}" + "/" + file,
+                                                print_optimization_status=False, filter_depth=live_filter,
+                                                emg_names=emg_names,
+                                                measurements=None,
+                                                marker_names=reordered_names,
+                                                part=part,
+                                                rt_matrix=rt,
+                                                in_pixel=in_pixel
+                                                )
+            result_biomech["markers"] = markers_from_source[s]
+            # if "depth" in source[s] or "vicon" in source[s]:
+            #     result_biomech["tracked_markers"] = reorder_marker_from_source[..., :stop_frame]
+            #     result_biomech["marker_names"] = reordered_names
+            all_results[src_tmp] = result_biomech
 
 
 if __name__ == '__main__':
-    emg_names = ["PectoralisMajorThorax_M",
-                 "BIC",
-                 "TRI_lat",
-                 "LatissimusDorsi_S",
-                 'TrapeziusScapula_S',
-                 "DeltoideusClavicle_A",
-                 'DeltoideusScapula_M',
-                 'DeltoideusScapula_P']
+
     model_dir = prefix + "/Projet_hand_bike_markerless/RGBD"
     participants = [f"P{i}" for i in range(10, 15)]
     participants.pop(participants.index("P12"))
@@ -556,12 +615,11 @@ if __name__ == '__main__':
     #participants.pop(participants.index("P14"))
     source = ["depth", "minimal_vicon", "vicon",  "dlc"]
     model_source = ["depth", "minimal_vicon", "vicon", "dlc_ribs"]
-    source = ["depth", "minimal_vicon", "vicon",  "dlc"]
-    model_source = ["depth", "minimal_vicon", "vicon", "dlc_ribs"]
     processed_data_path = prefix + "/Projet_hand_bike_markerless/RGBD"
-    main_new(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
-         plot=False, source=source, model_source=model_source, source_to_keep=[], live_filter=True,
-         interpolate_dlc=True, in_pixel=False)
+
+    main_new(model_dir, participants, processed_data_path, save_data=True, stop_frame=None,
+         plot=False, source=source,
+             model_source=model_source, live_filter_method=FilteringMethod.NONE, filter_depth=False)
     main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
          plot=False, source=source, model_source=model_source, source_to_keep=[], live_filter=True,
          interpolate_dlc=True, in_pixel=False)

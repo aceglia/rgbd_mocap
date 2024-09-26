@@ -6,9 +6,9 @@ import numpy as np
 # import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import biorbd
-from utils import load_data, load_data_from_dlc
+from utils_old import load_data, load_data_from_dlc
 try:
-    from biomech_pipeline.msk_utils import process_all_frames, get_tracking_idx
+    from processing_data.biomech_analysis.msk_utils import process_all_frames, get_tracking_idx
 except:
     pass
 
@@ -26,14 +26,7 @@ def rmse(data, data_ref):
     return np.sqrt(np.mean(((data - data_ref) ** 2), axis=-1))
 
 
-def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
-    vicon_markers_names = [_convert_string(name) for name in names_vicon]
-    depth_markers_names = [_convert_string(name) for name in names_depth]
-    vicon_to_depth_idx = []
-    for name in vicon_markers_names:
-        if name in depth_markers_names:
-            vicon_to_depth_idx.append(vicon_markers_names.index(name))
-    return vicon_to_depth_idx
+
 
 
 def _interpolate_data(markers_depth, shape):
@@ -124,7 +117,7 @@ def _get_dlc_data(data_path, model, filt, part, file, path, labeled_data_path, r
                                                               shape=shape,
                                                               fill=True)
         import json
-        from utils import _convert_cluster_to_anato_old
+        from utils_old import _convert_cluster_to_anato_old
         measurements_dir_path = "data_collection_mesurement"
         calibration_matrix_dir = "../scapula_cluster/calibration_matrix"
         measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"
@@ -336,7 +329,7 @@ def main(model_dir, participants, processed_data_path, save_data=False, plot=Tru
                             if "dlc" in src_tmp:
                                 all_results[src_tmp]["time"]["time_to_get_markers"] = dlc_times
                                 from data_processing.post_process_data import ProcessData
-                                from utils import refine_synchro
+                                from utils_old import refine_synchro
                                 tmp1 = all_results[src_tmp]["tracked_markers"][:, 7, :].copy()
                                 tmp2 = all_results[src_tmp]["tracked_markers"][:, 6, :].copy()
                                 all_results[src_tmp]["tracked_markers"][:, 6, :] = tmp1

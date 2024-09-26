@@ -2,7 +2,7 @@ from math import ceil
 
 import numpy as np
 
-from utils import *
+from utils_old import *
 
 
 def plot_results(all_results,
@@ -61,7 +61,7 @@ def plot_results(all_results,
     idx = [idx_tmp for idx_tmp in range(len(sources)) if "vicon" in sources[idx_tmp]][0]
     idx_dlc = [idx_tmp for idx_tmp in range(len(sources)) if "dlc" in sources[idx_tmp]][0]
     plt.figure("markers" + fig_suffix)
-    from utils import _reorder_markers_from_names
+    from utils_old import _reorder_markers_from_names
     idx_scap_ia = all_results[sources[idx_dlc]]["marker_names"].index("SCAP_IA")
     idx_scap_ts = all_results[sources[idx_dlc]]["marker_names"].index("SCAP_TS")
     all_results[sources[idx_dlc]]["marker_names"][idx_scap_ia] = "SCAP_TS"

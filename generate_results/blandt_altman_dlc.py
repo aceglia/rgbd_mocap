@@ -4,8 +4,8 @@ import os
 import matplotlib.pyplot as plt
 
 from biosiglive import load, save
-from utils import load_data, _get_vicon_to_depth_idx, _convert_string
-from utils import *
+from utils_old import load_data, _get_vicon_to_depth_idx, _convert_string
+from utils_old import *
 
 
 def compute_error(data, ref):
@@ -147,7 +147,7 @@ if __name__ == '__main__':
                         to_compare = all_data[part][file][to_compare_source[j]][key][...,
                                      :end_frame] if end_frame is not None else \
                         all_data[part][file][to_compare_source[j]][key]
-                        from utils import _reorder_markers_from_names
+                        from utils_old import _reorder_markers_from_names
                         idx_scap_ia = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_IA")
                         idx_scap_ts = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_TS")
                         all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ia] = "SCAP_TS"

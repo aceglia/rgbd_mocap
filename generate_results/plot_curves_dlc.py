@@ -1,5 +1,5 @@
 from math import ceil
-from utils import *
+from utils_old import *
 
 
 def plot_results(all_results, cycle=False, fig_suffix="", trial_name="", n_cycle=None):
