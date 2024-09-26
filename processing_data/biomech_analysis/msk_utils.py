@@ -3,6 +3,8 @@ from pathlib import Path
 import shutil
 import biorbd
 import numpy as np
+
+from rgbd_mocap.GUI.Utils.file_dialog import kwargs
 from utils_old import _convert_string
 import time
 from biosiglive import InverseKinematicsMethods
@@ -109,65 +111,31 @@ def _compute_new_bounds(data):
             count += 1
     return data_tmp
 
-
-def compute_ik(msk_function, markers, frame_idx, kalman_freq=120, times=None, dic_to_save=None, file_path=None, n_window=0):
+def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None, file_path=None, init_ik=False, model_prefix=""):
     tic_init = time.time()
-    if frame_idx == n_window:
-        # model_path = msk_function.model.path().absolutePath().to_string()
-        # with open(model_path, "r") as file:
-        #     data = file.read()
-        #
-        # data_tmp = _comment_dofs(data)
-        # with open(model_path, "w") as file:
-        #     file.write(data_tmp)
-        # markers_nan = markers.copy()
-        # markers_nan[:, 5:] = markers_nan[:, 5:] * np.nan
-        # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers_nan[:, :, np.newaxis],
-        #                                                    InverseKinematicsMethods.BiorbdKalman)
-        # msk_function.clean_all_buffers()
-        # with open(model_path, "w") as file:
-        #     file.write(data)
-        # import bioviz
-        # b = bioviz.Viz(loaded_model=msk_function.model)
-        # b.load_movement(np.repeat(q,  5, axis=1))
-        # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
-        # b.exec()
-
+    model_path = msk_function.model.path().absolutePath().to_string()
+    if init_ik:
         model_path = msk_function.model.path().absolutePath().to_string()
         with open(model_path, "r") as file:
             data = file.read()
-        #rt = f"{q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]}"
         rt = f"1.57 -1.57 0 xyz 0 0 0"
         init_idx = data.find("SEGMENT DEFINITION")
         end_idx = data.find("translations xyz // thorax") + len("translations xyz // thorax") + 1
         data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT {rt}\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-1 1\n\t\t-1 1\n\t\t-1 1\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n"
         data = data[:init_idx] + data_to_insert + data[end_idx:]
-        new_model_path = compute_new_model_path(file_path, model_path)
+        new_model_path = compute_new_model_path(model_path, model_prefix=model_prefix)
         with open(new_model_path, "w") as file:
             file.write(data)
-        print(new_model_path)
-
-        #new_model_path = "/mnt/shared/Projet_hand_bike_markerless/RGBD/P10/models/gear_20_model_scaled_dlc_new_seth_param.bioMod"
-
         msk_function.model = biorbd.Model(new_model_path)
-        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
-                                                           InverseKinematicsMethods.BiorbdKalman)
-        #print(f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax")
-        # import bioviz
-        # b = bioviz.Viz(loaded_model=msk_function.model)
-        # b.load_movement(np.repeat(q,  5, axis=1))
-        # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
-        # b.exec()
-
+        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers,
+                                                           InverseKinematicsMethods.BiorbdLeastSquare)
         with open(new_model_path, "r") as file:
             data = file.read()
         data = data.replace(
            "RT 0 0 0 xyz 0 0 0 // thorax",
             f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax",
-            #f"RT 0 0 0 xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax",
 
         )
-
         data = data.replace(
            "rotations xyz // thorax",
            f"//rotations xyz // thorax",
@@ -179,72 +147,44 @@ def compute_ik(msk_function, markers, frame_idx, kalman_freq=120, times=None, di
         with open(new_model_path, "w") as file:
             file.write(data)
         q = q[6:, :]
-        #q = np.concatenate((q[:3, :], q[6:, :]), axis = 0)
-        # q[:6, :] = 0
-        # idx_to_delete = [0, 1, 2]
-        # q = np.delete(q, idx_to_delete, axis=0)
-        # import bioviz
-        # b = bioviz.Viz(loaded_model=msk_function.model)
-        # b.load_movement(np.repeat(q,  5, axis=1))
-        # b.load_experimental_markers(np.repeat(markers[:, :, np.newaxis], 5, axis=2))
-        # b.exec()
-        # new_model_path = "/mnt/shared/Projet_hand_bike_markerless/RGBD/P10/models/gear_20_model_scaled_dlc_new_seth_param.bioMod"
         msk_function.model = biorbd.Model(new_model_path)
-        # msk_function.clean_all_buffers()
-        # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
-        #                                                    InverseKinematicsMethods.BiorbdLeastSquare)
         msk_function.clean_all_buffers()
-        # q = np.zeros_like(q)
-        #q = np.delete(q, idx_to_remove, axis=0)
-        #q = np.zeros_like(q)
-
-        #q[:3, :] = 0
     else:
         q = msk_function.kin_buffer[0].copy()
-    if "P11" in file_path:
+    if "P11" in model_path:
         q[-1, :] = 0.7
-    if "P16" in file_path:
+    if "P16" in model_path:
         q[5, :] = -0.1
         q[7, :] = 0.1
     initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
-
-    # if frame_idx == 14:
-    #     initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
-    # else:
-    #     initial_guess = None
-    msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
+    msk_function.compute_inverse_kinematics(markers,
                                             method=InverseKinematicsMethods.BiorbdKalman,
                                             kalman_freq=kalman_freq,
                                             initial_guess=initial_guess,
                                             # noise_factor=1e-3,
                                             # error_factor=1e-7,
-                                            # noise_factor=1e-5,
-                                            # error_factor=1e-8,
+                                            # noise_factor=1e-1,
+                                            # error_factor=1e-5,
                                             )
     q = msk_function.kin_buffer[0].copy()
     time_ik = time.time() - tic_init
     times["ik"] = time_ik
-    dic_to_save["q_raw"] = q[:, -1:]
+    dic_to_save["q"] = q[:, -1:]
     dic_to_save["q_dot"] = msk_function.kin_buffer[1][:, -1:]
     return times, dic_to_save
 
 
-def compute_new_model_path(file_path, model_path):
-    if file_path is not None:
-        name = Path(file_path).stem.split("_")[:2]
-        name = "_".join(name)
-        parent = str(Path(file_path).parent)
-        new_model_path = parent + "/models/" + name + "_" + Path(model_path).stem + "_param.bioMod"
-        if not os.path.isdir(parent + "/models"):
-            os.mkdir(parent + "/models")
-        if not os.path.isdir(parent + "/models/" + "Geometry_left"):
-            shutil.copytree(str(Path(model_path).parent) + "/Geometry_left", parent + "/models/" + "Geometry_left")
-    else:
-        new_model_path = model_path[:-7] + "_tmp.bioMod"
+def compute_new_model_path(model_path, model_prefix=""):
+    parent = str(Path(model_path).parent)
+    new_model_path = parent + "/output_models/" + model_prefix + "_" + Path(model_path).stem + ".bioMod"
+    if not os.path.isdir(parent + "/output_models"):
+        os.mkdir(parent + "/output_models")
+    if not os.path.isdir(parent + "/output_models/" + "Geometry"):
+        shutil.copytree(str(Path(model_path).parent) + "/Geometry", parent + "/output_models/" + "Geometry")
     return new_model_path
 
 
-def compute_id(msk_function, f_ext, external_loads, times, dic_to_save):
+def run_id(msk_function, f_ext, external_loads, times, dic_to_save):
     tic = time.time()
     B = [0, 0, 0, 1]
     f_ext_mat = np.zeros((6, 1))
@@ -271,8 +211,8 @@ def compute_id(msk_function, f_ext, external_loads, times, dic_to_save):
     return times, dic_to_save
 
 
-def compute_so(msk_function, emg, times, dic_to_save, scaling_factor,
-                print_optimization_status=False, emg_names=None, track_idx=None, map_emg_idx=None):
+def run_so(msk_function, emg, times, dic_to_save, scaling_factor,
+                print_optimization_status=False, emg_names=None, track_idx=None, map_emg_idx=None, **kwargs):
     if msk_function.model.nbQ() > 12:
         msk_function.tau_buffer[:6, :] = np.zeros((6, msk_function.tau_buffer.shape[1]))
 
@@ -292,6 +232,7 @@ def compute_so(msk_function, emg, times, dic_to_save, scaling_factor,
                 "pas_tau": 10000000},
         print_optimization_status=print_optimization_status,
         torque_tracking_as_objective=True,
+        **kwargs,
     )
     mus_act = np.clip(mus_act, 0.0001, 0.999999)
     mus_force = compute_muscle_force(mus_act, msk_function.model,  msk_function.id_state_buffer[0][:, -1:],
@@ -315,7 +256,7 @@ def compute_muscle_force(mus_act, model, q, q_dot):
     return muscles_force
 
 
-def compute_jrf(msk_function, times, dic_to_save, external_loads=None):
+def run_jrf(msk_function, times, dic_to_save, external_loads=None):
     q_df, q_dot_df, q_ddot_df = (msk_function.id_state_buffer[0][:, -1:],
                                  msk_function.id_state_buffer[1][:, -1:]
                                  , msk_function.id_state_buffer[2][:, -1:])

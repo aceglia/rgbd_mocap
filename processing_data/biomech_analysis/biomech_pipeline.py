@@ -1,26 +1,34 @@
 import os
+from math import ceil
+
 import numpy as np
 import biorbd
 import json
-from msk_utils import compute_cor, compute_ik, compute_so, compute_jrf, compute_id, get_map_activation_idx
+
+from lxml.html.defs import frame_tags
+
+from processing_data.biomech_analysis.msk_utils import compute_cor, run_ik, run_so, run_jrf, run_id, get_map_activation_idx, get_tracking_idx
 from rgbd_mocap.tracking.kalman import Kalman
 import time
-
-try:
-    from msk_utils import process_all_frames, get_tracking_idx, reorder_markers
-except:
-    pass
-from biosiglive import MskFunctions, load, save, RealTimeProcessing, RealTimeProcessingMethod
-from processing_data.file_io import get_data_from_sources, get_all_file
+from biosiglive import MskFunctions, save, RealTimeProcessing
+from biosiglive.file_io.save_and_load import dic_merger
 from processing_data.biomech_analysis.enums import FilteringMethod
-import bioviz
 from scapula_cluster.from_cluster_to_anato import ScapulaCluster
-from processing_data.data_processing_helper import convert_cluster_to_anato, reorder_markers_from_names
+from processing_data.data_processing_helper import convert_cluster_to_anato, reorder_markers_from_names, process_cycles, fill_and_interpolate, refine_synchro
 
 prefix = "/mnt/shared" if os.name == "posix" else "Q:/"
 
 class BiomechPipeline:
     def __init__(self, stop_frame=None):
+        self.cycles_computed = False
+        self.model_dir = None
+        self.markers_rate = None
+        self.marker_names = None
+        self.idx_cluster = None
+        self.kalman_params = None
+        self.moving_window = None
+        self.rt_processing_list = None
+        self.live_filter_method = None
         self.fps = 120
         self.scapula_cluster = None
         self.kalman_instance = None
@@ -38,6 +46,7 @@ class BiomechPipeline:
         self.emg = None
         self.peaks = None
         self.vicon_to_depth_idx = None
+        self.trial_name = None
         self.f_ext = None
         self.emg_names = ["PectoralisMajorThorax_M",
                  "BIC",
@@ -47,6 +56,19 @@ class BiomechPipeline:
                  "DeltoideusClavicle_A",
                  'DeltoideusScapula_M',
                  'DeltoideusScapula_P']
+        self.results_dict = {}
+        self.compute_so = None
+        self.compute_jrf = None
+        self.compute_id = None
+        self.compute_ik = None
+        self.print_optimization_status = None
+        self.filter_function = None
+        self.emg_track_idx = None
+        self.muscle_map_idx = None
+        self.frame_count = 0
+        self.current_frame = 0
+        self.dlc_frame_count = 0
+        self.current_frame = 0
 
     def set_stop_frame(self, stop_frame, frame_idx, key, live_filter):
         self.frame_idx = frame_idx
@@ -65,8 +87,8 @@ class BiomechPipeline:
         self.range_frame = range_frame
 
     def init_scapula_cluster(self, participant, measurements_dir_path=None, calibration_matrix_dir=None, config="with_depth"):
-        measurements_dir_path = "../../data_collection_mesurement" if measurements_dir_path is None else measurements_dir_path
-        calibration_matrix_dir = "../../../scapula_cluster/calibration_matrix" if calibration_matrix_dir is None else calibration_matrix_dir
+        measurements_dir_path = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement" if measurements_dir_path is None else measurements_dir_path
+        calibration_matrix_dir = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix" if calibration_matrix_dir is None else calibration_matrix_dir
         measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{participant}.json"))
         measurements = measurement_data[config]["measure"]
         calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[config][
@@ -88,7 +110,7 @@ class BiomechPipeline:
             else:
                 raise ValueError("Impossible to know how many markers there are.")
         next_frame = np.zeros((3, self.n_markers, 1))
-        self.kalman_instance = [None] * self.n_markers if self.kalman_instance is None else self.kalman_instance
+        self.kalman_instance = [] * self.n_markers if self.kalman_instance is None else self.kalman_instance
         for k in range(self.n_markers):
             if self.kalman_instance[k] is None and markers_data is not None:
                 measurement_noise_factor = self.kalman_params[:int(markers_data.shape[1])][k]
@@ -129,12 +151,12 @@ class BiomechPipeline:
                                                                                            )
         return markers
 
-    def get_filter_function(self, live_filter_method, **kwargs):
-        if live_filter_method == FilteringMethod.NONE:
+    def get_filter_function(self, **kwargs):
+        if self.live_filter_method == FilteringMethod.NONE:
             self.moving_window = 0
             return lambda x: x
 
-        elif live_filter_method == FilteringMethod.MovingAverage:
+        elif self.live_filter_method == FilteringMethod.MovingAverage:
             self.moving_window = 14
             self.rt_processing_list = [RealTimeProcessing(120, self.moving_window),
                                RealTimeProcessing(120, self.moving_window),
@@ -142,7 +164,7 @@ class BiomechPipeline:
 
             return lambda x: self._filter_markers(x)
 
-        elif live_filter_method == FilteringMethod.Kalman:
+        elif self.live_filter_method == FilteringMethod.Kalman:
             self.moving_window = 0
             measurement_noise = [2] * 17
             proc_noise = [1] * 17
@@ -156,8 +178,8 @@ class BiomechPipeline:
             raise ValueError("Invalid filtering method")
 
     def get_filtered_markers(self, markers, live_filter_method):
-        if live_filter_method == FilteringMethod.NONE and "dlc" not in self.key:
-            return markers
+        if live_filter_method == FilteringMethod.NONE:
+            return markers[..., self.frame_count:self.frame_count + 1]
         if "depth" in self.key:
             return self.filter_function(markers[..., self.frame_count:self.frame_count + 1])
         elif "dlc" in self.key:
@@ -176,102 +198,82 @@ class BiomechPipeline:
             markers_tmp = reorder_markers_from_names(markers_tmp[:, :-3, None], model_names,
                                                          self.marker_names[:-3])
             markers_tmp = markers_tmp[:, :, 0]
+            return markers_tmp
 
     def process_all_frames(self, markers: np.ndarray, model_path: str, live_filter_method: FilteringMethod = FilteringMethod.NONE,
                            compute_id: bool=True, compute_so: bool=True, compute_jrf:bool =False,
                            print_optimization_status: bool =False, compute_ik: bool =True,
                            marker_names:list =None):
-        self.comute_so = compute_so
+        self.compute_so = compute_so
         self.compute_jrf = compute_jrf
         self.compute_id = compute_id
         self.compute_ik = compute_ik
         self.print_optimization_status = print_optimization_status
         self.msk_function.clean_all_buffers()
         self.msk_function.model = biorbd.Model(model_path)
+        self.live_filter_method = live_filter_method
+        self.marker_names = marker_names
         final_dic = {}
-        self.filter_function = self.get_filter_function(live_filter_method)
+        self.filter_function = self.get_filter_function()
         self.emg_track_idx = get_tracking_idx(self.msk_function.model, self.emg_names)
         self.muscle_map_idx = get_map_activation_idx(self.msk_function.model, self.emg_names)
-
-        electro_delay = 0
-        count = 0
-        count_dlc = 0
-        idx_cluster = 0
-        dlc_markers = None
-        camera_converter = None
         self.frame_count = 0
         self.current_frame = 0
         self.dlc_frame_count = 0
         for i in self.range_frame:
             self.current_frame = i
             tic = time.time()
-            reorder_names = marker_names
-            markers_tmp = self.get_filtered_markers(markers[:, :, i], live_filter_method)
-            dic_to_save = self.process_next_frame(markers_tmp,
-                                             kalman_freq=kalman_freq,compute_id=compute_id, compute_ik=compute_ik,
-                                             compute_so=compute_so, compute_jrf=compute_jrf, file=file,
-                                             print_optimization_status=print_optimization_status,
-                                             filter_depth=filter_depth,
-                                             tracking_idx=track_idx,
-                                             map_emg_idx=map_idx,
-                                             )
-            tim_ti_get_frame = time.time() - tic
-            dic_to_save["time"]["time_to_get_frame"] = tim_ti_get_frame
-            dic_to_save["tracked_markers"] = markers_tmp[:, :, None]
+            markers_tmp = self.get_filtered_markers(markers, live_filter_method)
+            dic_to_save = self.process_next_frame(markers_tmp)
+            tim_to_get_frame = time.time() - tic
+            dic_to_save["time"]["time_to_get_frame"] = tim_to_get_frame
+            dic_to_save["markers"] = markers_tmp
             if dic_to_save is not None:
                 final_dic = dic_merger(final_dic, dic_to_save)
-            count += 1
             self.frame_count += 1
-            if count == stop_frame:
-                break
-        if "dlc" in source:
-            final_dic["marker_names"] = reorder_names
-        else:
-            final_dic["marker_names"] = marker_names
-        final_dic["center_of_rot"] = compute_cor(final_dic["q_raw"], msk_function.model)
-        return final_dic
+        final_dic["marker_names"] = self.marker_names
+        final_dic["center_of_rot"] = compute_cor(final_dic["q"], self.msk_function.model)
+        if self.key == "minimal":
+            import bioviz
+            b = bioviz.Viz("/mnt/shared/Projet_hand_bike_markerless/RGBD/P9/output_models/gear_5_model_scaled_minimal_vicon_new_seth.bioMod")
+            b.load_movement(final_dic["q"])
+            b.load_experimental_markers(final_dic["markers"][:, :, :])
+            b.exec()
+        self.results_dict[self.key] = final_dic
+        return self.results_dict[self.key]
 
-    def process_next_frame(self, markers, msk_function, frame_idx, source, external_loads=None,
-                           scaling_factor=None, emg=None, kalman_freq=120, emg_names=None, f_ext=None,
-                           compute_so=False, compute_id=False, compute_jrf=False, compute_ik=True, file=None,
-                           print_optimization_status=False, filter_depth=False, markers_process=None, n_window=14,
-                           tracking_idx=None, map_emg_idx=None, calibration_matrix=None,
-                           measurements=None, new_cluster=None, viz=None, all_kalman=None, kalman_params=None,
-                           rt_matrix=None) -> dict:
+    def process_next_frame(self, markers) -> dict:
         times = {}
         dic_to_save = {"q": None, "q_dot": None, "q_ddot": None,
-                       "q_raw": None,
                        "tau": None,
                        "mus_act": None,
                        "emg_proc": None,
                        "res_tau": None,
                        "jrf": None,
                        "time": None,
-                       "tracked_markers": None}
-
-        # if markers[0, 0].mean() != 0:
-        if compute_ik:
-            times, dic_to_save = compute_ik(msk_function,
-                                             markers,
-                                             frame_idx,
-                                             kalman_freq=kalman_freq, times=times, dic_to_save=dic_to_save,
-                                             file_path=file, n_window=n_window)
-            if compute_id:
-                if not compute_ik:
+                       "markers": None}
+        if self.compute_ik and self.frame_count >= self.moving_window:
+            init_ik = True if self.frame_count == self.moving_window else False
+            times, dic_to_save = run_ik(self.msk_function,
+                                             markers, times=times, dic_to_save=dic_to_save, init_ik=init_ik,
+                                        kalman_freq=self.markers_rate, model_prefix=self.trial_name)
+            if self.compute_id:
+                if not self.compute_ik:
                     raise ValueError("Inverse kinematics must be computed to compute inverse dynamics")
-                times, dic_to_save = compute_id(msk_function, f_ext, external_loads, times, dic_to_save)
+                times, dic_to_save = run_id(self.msk_function, self.f_ext, self.external_loads, times, dic_to_save)
 
-            if compute_so:
-                if not compute_id:
+            if self.compute_so:
+                if not self.compute_id:
                     raise ValueError("Inverse dynamics must be computed to compute static optimization")
-                times, dic_to_save = compute_so(msk_function, emg, times, dic_to_save, scaling_factor,
-                                                 print_optimization_status=print_optimization_status,
-                                                 emg_names=emg_names, track_idx=tracking_idx, map_emg_idx=map_emg_idx)
+                times, dic_to_save = run_so(self.msk_function, self.emg, times, dic_to_save, self.scaling_factor,
+                                                 print_optimization_status=self.print_optimization_status,
+                                                 emg_names=self.emg_names, track_idx=self.emg_track_idx,
+                                            map_emg_idx=self.muscle_map_idx)
 
-            if compute_jrf:
-                if not compute_so:
+            if self.compute_jrf:
+                if not self.compute_so:
                     raise ValueError("Static optimization must be computed to compute joint reaction forces")
-                times, dic_to_save = compute_jrf(msk_function, times, dic_to_save, external_loads)
+                times, dic_to_save = run_jrf(self.msk_function, times, dic_to_save, self.external_loads)
 
             times["tot"] = sum(times.values())
             dic_to_save["time"] = times
@@ -279,348 +281,108 @@ class BiomechPipeline:
         else:
             return None
 
+    def _handle_dlc_before_saving(self, interpolate_dlc=True):
+        for key in self.results_dict.keys():
+            data_dic_tmp = self.results_dict[key]
+            if "dlc" in key:
+                tmp1 = data_dic_tmp["markers"][:, 7, :].copy()
+                tmp2 = data_dic_tmp["markers"][:, 6, :].copy()
+                data_dic_tmp["markers"][:, 6, :] = tmp1
+                data_dic_tmp["markers"][:, 7, :] = tmp2
+                data_dic_tmp["marker_names"][6], data_dic_tmp["marker_names"][7] = \
+                data_dic_tmp["marker_names"][7], data_dic_tmp["marker_names"][6]
+                dlc_mark_tmp = data_dic_tmp["markers"][:, :, :].copy()
+                dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("ribs"), axis=1)
+                dlc_mark, idx = refine_synchro(self.results_dict["minimal_vicon"]["markers"][:, :, :],
+                                               dlc_mark_tmp, plot_fig=False)
 
-def main(model_dir, participants, processed_data_path, save_data=False, plot=True, results_from_file=False, stop_frame=None,
-         source=(), model_source=(), source_to_keep=(), live_filter=False, interpolate_dlc=True, in_pixel=False):
+                for key_2 in data_dic_tmp.keys():
+                    data_dic_tmp_2 = data_dic_tmp[key_2]
+                    if isinstance(data_dic_tmp_2, np.ndarray):
+                        data_dic_tmp_2 = data_dic_tmp_2[..., :-idx] if idx != 0 else data_dic_tmp_2[..., :]
+                    if interpolate_dlc and self.live_filter_method != 0:
+                        data_dic_tmp_2 = fill_and_interpolate(
+                            data_dic_tmp_2,
+                            fill=False,
+                            shape=self.results_dict["depth"]["q"].shape[1])
+                    data_dic_tmp[key_2] = data_dic_tmp_2
+                self.results_dict[key] = data_dic_tmp
 
+    def save(self, output_file, interpolate_dlc=False):
+        if self.live_filter_method.value != 0:
+            self._handle_dlc_before_saving(interpolate_dlc=interpolate_dlc)
+        self.results_dict = process_cycles(self.results_dict, self.peaks, n_peaks=None)
+        self.cycles_computed=True
+        self.results_dict["emg"] = self.emg
+        self.results_dict["f_ext"] = self.f_ext
+        self.results_dict["peaks"] = self.peaks
+        self.results_dict["rt_matrix"] = self.rt_matrix
+        self.results_dict["vicon_to_depth"] = self.vicon_to_depth_idx
+        save(self.results_dict, output_file, safe=False)
+        print(f"The file ({output_file}) has been saved.")
 
-    # emg_names = ["PECM",
-    #              "bic",
-    #              "tri",
-    #              "LAT",
-    #              'TRP1',
-    #              "DELT1",
-    #              'DELT2',
-    #              'DELT3']
-    processed_source = []
-    models = ["normal_500_down_b1"]
-    filtered = ["filtered"]
+    def _compute_mean_cycle(self, plot_by_cycle=False, n_cycle=None):
+        if not self.cycles_computed:
+            if self.live_filter_method.value != 0:
+                self._handle_dlc_before_saving(interpolate_dlc=True)
+            self.results_dict = process_cycles(self.results_dict, self.peaks, n_peaks=None)
+        for key in self.results_dict.keys():
+            dic_tmp = {}
+            for key_2 in self.results_dict[key].keys():
+                dic_tmp[key_2] = {}
+                if isinstance(self.results_dict[key][key_2], np.ndarray):
+                    if plot_by_cycle:
+                        if n_cycle:
+                            dic_tmp[key_2]["mean"] = np.mean(self.results_dict[key][key_2][:n_cycle, ...], axis=0)
+                            dic_tmp[key_2]["std"] = np.std(self.results_dict[key][key_2][:n_cycle, ...], axis=0)
+                        else:
+                            dic_tmp[key_2]["mean"] = np.mean(self.results_dict[key][key_2][:, ...], axis=0)
+                            dic_tmp[key_2]["std"] = np.std(self.results_dict[key][key_2][:, ...], axis=0)
+                    else:
+                        dic_tmp[key_2]["mean"] = self.results_dict[key][key_2]
+                        dic_tmp[key_2]["std"] = self.results_dict[key][key_2]
+                    # dic_tmp[key] = result[key][0, ...]
+                else:
+                    dic_tmp[key_2] = self.results_dict[key][key_2]
+            self.results_dict[key] = dic_tmp
 
-    for part in participants:
-        all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if "gear" in file and "less" not in file and "more" not in file and "result" not in file]
-        for file in all_files:
-            path = f"{processed_data_path}{os.sep}{part}{os.sep}{file}"
-            labeled_data_path = f"{path}{os.sep}marker_pos_multi_proc_3_crops_pp.bio"
-            print(f"Processing participant {part}, trial : {file}")
-            source_init = ["depth", "vicon", "minimal_vicon"]
-            markers_from_source_tmp, names_from_source_tmp, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
-                prefix + "/Projet_hand_bike_markerless/process_data", part, f"{file.split('_')[0]}_{file.split('_')[1]}",
-                True
-            )
-            markers_from_source = [None for i in range(len(source))]
-            names_from_source = [None for i in range(len(source))]
-            for m, mark in enumerate(markers_from_source_tmp):
-                if source_init[m] in source:
-                    assert mark.shape[1] == len(names_from_source_tmp[m])
-                    markers_from_source[source.index(source_init[m])] = mark
-                    names_from_source[source.index(source_init[m])] = names_from_source_tmp[m]
-            frame_idx = None
-            ratio = ["1"]
-            model = models[0]
-            filt = filtered[0]
-            suffix = "_offline" if not live_filter else ""
-            file_name_to_save = prefix + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}_{model}{suffix}.bio"
-            all_results = {}
-            dlc_times = None
-            label_in_pixel = None
-            dlc_in_pixel = None
-            idx_start, idx_end = None, None
-            for r_idx, r in enumerate(ratio):
-                print("ratio :", r)
-                dlc_data_path = f"{path}{os.sep}marker_pos_multi_proc_3_crops_{model}_ribs_and_cluster_{r}_with_model_pp_full.bio"
-                if not os.path.exists(dlc_data_path):
+    def plot_results(self, plot_by_cycle=False, n_cycle=None):
+        self._compute_mean_cycle(plot_by_cycle=plot_by_cycle, n_cycle=n_cycle)
+        import matplotlib.pyplot as plt
+        nb_source = len(self.results_dict.keys())
+        colors = plt.cm.get_cmap('tab10', nb_source)
+        count_source = 0
+        count_key = 0
+        keys_to_plot = ["markers", "q", "q_dot", "q_ddot", "tau"]
+        for source in self.results_dict.keys():
+            plt.figure("legend")
+            plt.plot([], c=colors(count_source), label=source)
+            plt.legend()
+            for key in self.results_dict[source].keys():
+                if key not in keys_to_plot or isinstance(self.results_dict[source][key], list):
+                    continue
+                if key == "markers":
+                    plt.figure("markers")
+                    count = 0
+                    for i in range(13):
+                        plt.subplot(ceil(13/4), 4, i + 1)
+                        if self.results_dict[source]["marker_names"][i] == "ribs":
+                            count += 1
+                        for j in range(3):
+                            plt.plot(self.results_dict[source][key]["mean"][j, count, :], c=colors(count_source))
+                        count += 1
                     continue
 
-                if "dlc" in source:
-                    shape = markers_from_source_tmp[0].shape[2]
-                    marker_dlc_filtered, frame_idx, names, dlc_times, dlc_in_pixel, label_in_pixel, idx_start, idx_end = get_dlc_data(dlc_data_path,
-                        model, filt, part, file, path, labeled_data_path, rt, shape, ratio= r + "_alone", filter=not live_filter, in_pixel=in_pixel)
-                    #marker_dlc_filtered[:, 2, :] = np.nan
-                    markers_from_source[source.index("dlc")] = marker_dlc_filtered
-                    names_from_source[source.index("dlc")] = names
-
-                if not results_from_file:
-                    existing_keys = []
-                    data = None
-                    if os.path.exists(file_name_to_save):
-                        try:
-                            data = load(file_name_to_save)
-                            existing_keys = list(data.keys())
-                        except:
-                            os.remove(file_name_to_save)
-                    for s in range(len(markers_from_source)):
-                        if r_idx > 0 and "dlc" not in source[s]:
-                            continue
-                        src_tmp = f"dlc_{r}" if source[s] == "dlc" else source[s]
-                        if source[s] in source_to_keep and source[s] in existing_keys:
-                            all_results[source[s]] = data[source[s]]
-                            continue
-                        elif "dlc" not in source[s]:
-                            markers_from_source[s] = adjust_idx({"mark": markers_from_source[s]}, idx_start, idx_end)["mark"]
-                        # if source[s] == "dlc":
-                        #     model_path = f"{model_dir}/{part}/model_scaled_dlc_test_wu_fixed.bioMod"
-                        # else:
-                        model_path = f"{model_dir}/{part}/model_scaled_{model_source[s]}_new_seth.bioMod"
-
-                        if "vicon" in source[s] or "depth" in source[s]:
-                            reorder_marker_from_source, reordered_names = reorder_markers(
-                                markers_from_source[s][:, :-3, :], biorbd.Model(model_path), names_from_source[s][:-3])
-                        else:
-                            reorder_marker_from_source = markers_from_source[s]
-                            reordered_names = names
-                            # if part == "P15" and "gear_20" in file:
-                            #     reorder_marker_from_source = markers_from_source[s]
-
-
-                            #idx = names.index("xiph")
-                            #reorder_marker_from_source[:, idx, :] = np.repeat(reorder_marker_from_source[:, idx, 0], reorder_marker_from_source[:, idx, :].shape[1]).reshape(3, reorder_marker_from_source[:, idx, :].shape[1])
-                        # else:
-                        #     idx = reordered_names.index("DELT")
-                        #     reorder_marker_from_source_filtered = np.zeros((3, reorder_marker_from_source.shape[1], reorder_marker_from_source.shape[2]))
-                        #     for i in range(3):
-                        #         reorder_marker_from_source_filtered[i, :idx, :] = OfflineProcessing().butter_lowpass_filter(
-                        #             reorder_marker_from_source[i, :idx, :],
-                        #             4, 120, 2)
-                        #         reorder_marker_from_source_filtered[i, idx:, :] = OfflineProcessing().butter_lowpass_filter(
-                        #             reorder_marker_from_source[i, idx:, :],
-                        #             6, 120, 2)
-
-                        bio_model = biorbd.Model(model_path)
-                        msk_function = MskFunctions(model=bio_model, data_buffer_size=20, system_rate=120)
-                        if stop_frame is None:
-                            stop_frame = (frame_idx[-1] - frame_idx[0]) * 2
-                        if (frame_idx[-1] - frame_idx[0]) * 2 < stop_frame:
-                            stop_frame = (frame_idx[-1] - frame_idx[0]) * 2
-                        if stop_frame % 2 != 0:
-                            stop_frame -= 1
-                        stop_frame_tmp = int(stop_frame // 2) if live_filter and "dlc" in src_tmp else stop_frame
-                        if "dlc" not in source[s] or not live_filter:
-                            range_frame = range(stop_frame_tmp)
-                        else:
-                            range_frame = range(frame_idx[0], frame_idx[-1])
-                        result_biomech = process_all_frames(reorder_marker_from_source.copy(), msk_function,
-                                                            src_tmp,
-                                                            forces, (1000, 10), emg,
-                                                            f_ext,
-                                                            img_idx=frame_idx,
-                                                            compute_ik=True,
-                                                            compute_id=True, compute_so=False, compute_jrf=False,
-                                                            range_idx=range_frame,
-                                                            stop_frame=stop_frame_tmp,
-                                                            file=f"{processed_data_path}/{part}" + "/" + file,
-                                                            print_optimization_status=False, filter_depth=live_filter,
-                                                            emg_names=emg_names,
-                                                            measurements=None,
-                                                            marker_names=reordered_names,
-                                                            part=part,
-                                                            rt_matrix=rt,
-                                                            in_pixel=in_pixel
-                                                            )
-                        result_biomech["markers"] = markers_from_source[s]
-                        # if "depth" in source[s] or "vicon" in source[s]:
-                        #     result_biomech["tracked_markers"] = reorder_marker_from_source[..., :stop_frame]
-                        #     result_biomech["marker_names"] = reordered_names
-                        all_results[src_tmp] = result_biomech
-                        if src_tmp == "dlc_11":
-                            b = bioviz.Viz(loaded_model=msk_function.model, show_floor=False)
-                            b.load_movement(result_biomech["q_raw"])
-                            mark = result_biomech["tracked_markers"]
-                            b.load_experimental_markers(mark[:, :, :stop_frame])
-                            b.exec()
-                        print("Done for source ", src_tmp)
-                        if save_data:
-                            if "dlc" in src_tmp:
-                                all_results[src_tmp]["time"]["time_to_get_markers"] = dlc_times
-                                from data_processing.post_process_data import ProcessData
-                                from utils_old import refine_synchro
-                                tmp1 = all_results[src_tmp]["tracked_markers"][:, 7, :].copy()
-                                tmp2 = all_results[src_tmp]["tracked_markers"][:, 6, :].copy()
-                                all_results[src_tmp]["tracked_markers"][:, 6, :] = tmp1
-                                all_results[src_tmp]["tracked_markers"][:, 7, :] = tmp2
-                                all_results[src_tmp]["marker_names"][6], all_results[src_tmp]["marker_names"][7] = all_results[src_tmp]["marker_names"][7], all_results[src_tmp]["marker_names"][6]
-                                dlc_mark_tmp = all_results[src_tmp]["tracked_markers"][:, :, :].copy()
-                                dlc_mark_tmp = np.delete(dlc_mark_tmp,
-                                                         all_results[src_tmp]["marker_names"].index("ribs"), axis=1)
-                                dlc_mark, idx = refine_synchro(all_results["minimal_vicon"]["tracked_markers"][:, :, :],
-                                                               dlc_mark_tmp,
-                                                               plot_fig=plot)
-                                if interpolate_dlc and live_filter:
-                                    # idx = 0
-                                    from data_processing.post_process_data import ProcessData
-                                    for key in all_results[src_tmp].keys():
-                                        if isinstance(all_results[src_tmp][key], np.ndarray):
-                                            if idx != 0:
-                                                dlc_data = all_results[src_tmp][key][..., :-idx]
-                                            else:
-                                                dlc_data = all_results[src_tmp][key][..., :]
-                                            n_roll = 0
-                                            if n_roll > 0:
-                                                dlc_data = dlc_data[..., :-n_roll]
-                                                dlc_data = np.concatenate((dlc_data[..., 0:n_roll], dlc_data), axis=-1)
-                                            all_results[src_tmp][key] = ProcessData()._fill_and_interpolate(
-                                                dlc_data,
-                                                fill=False,
-                                                shape=all_results["depth"]["q_raw"].shape[1])
-                                else:
-                                    for key in all_results[src_tmp].keys():
-                                        if isinstance(all_results[src_tmp][key], np.ndarray):
-                                            if idx != 0:
-                                                all_results[src_tmp][key] = all_results[src_tmp][key][..., :-idx]
-                                            else:
-                                                all_results[src_tmp][key] = all_results[src_tmp][key][..., :]
-
-            if plot:
-                # from utils import refine_synchro
-                # dlc_mark_tmp = all_results["dlc_1"]["tracked_markers"][:, :, :].copy()
-                # dlc_mark_tmp = np.roll(dlc_mark_tmp, 1, axis=2)
-                # dlc_mark_tmp[..., 0] = dlc_mark_tmp[..., 1]
-                # dlc_mark_tmp = np.delete(dlc_mark_tmp, all_results["dlc_1"]["marker_names"].index("ribs"), axis=1)
-                # dlc_mark, idx = refine_synchro(all_results[source[0]]["tracked_markers"][:, :, :],
-                #                                 dlc_mark_tmp,
-                #                                plot_fig=plot)
-                # if interpolate_dlc and live_filter:
-                #     from post_process_data import ProcessData
-                #     for key in all_results["dlc"].keys():
-                #         if isinstance(all_results["dlc"][key], np.ndarray):
-                #             all_results["dlc"][key] = ProcessData()._fill_and_interpolate(all_results["dlc"][key][..., :],
-                #                                                                           fill=False,
-                #                                                                           shape=all_results["minimal_vicon"]["q_raw"].shape[1])
-                import matplotlib.pyplot as plt
-                c = ["r", "g", "b", "k"]
-                # for s in range(len(source)):
-                # if source[s] != "vicon":
-                # if live_filter:
-                #     all_results["dlc_1"]["tracked_markers"] = all_results["dlc_1"]["tracked_markers"][..., :-idx]
-                #     all_results["dlc_1"]["q_raw"] = all_results["dlc_1"]["q_raw"][:, :-idx]
-
-                plt.figure("markers")
-
-                # all_results[source[1]]["tracked_markers"][:, 1, :] = np.repeat(all_results[source[1]]["tracked_markers"][:, 1, 0],  all_results[source[1]]["tracked_markers"].shape[2]).reshape(3, all_results[source[1]]["tracked_markers"].shape[2])
-                t = np.linspace(0, stop_frame, all_results["dlc_1"]["tracked_markers"].shape[2])
-                count = 0
-                for i in range(13):
-                    plt.subplot(4, 4, i + 1)
-                    if all_results["dlc_1"]["marker_names"][i] == "ribs":
-                        count += 1
-                    for j in range(3):
-                        plt.plot(all_results["depth"]["tracked_markers"][j, i, :stop_frame], c=c[0])
-                        plt.plot(t, all_results["dlc_1"]["tracked_markers"][j, count, :stop_frame], c=c[1])
-                        plt.plot(all_results["minimal_vicon"]["tracked_markers"][j, i, :stop_frame], c=c[3])
-                    plt.title(all_results[source[0]]["marker_names"][i] + all_results["dlc_1"]["marker_names"][count] + all_results["minimal_vicon"]["marker_names"][i])
-                    count += 1
-                plt.legend([source[0], "dlc_1", "minimal_vicon"])
-                factor = 1 # 57.3
-                plt.figure("q")
-                for i in range(all_results[source[0]]["q_raw"].shape[0]):
-                    plt.subplot(4, 4, i + 1)
-                    plt.plot(all_results[source[0]]["q"][i, :stop_frame] * 57.3, c=c[0])
-                    plt.plot( t, all_results["dlc_1"]["q"][i, :stop_frame] * 57.3, c=c[1])
-                    plt.plot(all_results["minimal_vicon"]["q"][i, :stop_frame] * 57.3, c=c[2])
-                    plt.plot(all_results["vicon"]["q"][i, :stop_frame] * 57.3, c=c[3])
-                plt.legend([source[0], "dlc_1", "minimal_vicon"])
-                plt.figure("qdot")
-                for i in range(all_results[source[0]]["q_raw"].shape[0]):
-                    plt.subplot(4, 4, i + 1)
-                    plt.plot(all_results[source[0]]["q_dot"][i, :stop_frame] * factor, c=c[0])
-                    plt.plot( t, all_results["dlc_1"]["q_dot"][i, :stop_frame] * factor, c=c[1])
-                    plt.plot(all_results["minimal_vicon"]["q_dot"][i, :stop_frame] * factor, c=c[2])
-                    plt.plot(all_results["vicon"]["q_dot"][i, :stop_frame] * factor, c=c[3])
-                plt.legend([source[0], "dlc_1", "minimal_vicon"])
-                plt.figure("qddot")
-                for i in range(all_results[source[0]]["q_raw"].shape[0]):
-                    plt.subplot(4, 4, i + 1)
-                    plt.plot(all_results[source[0]]["q_ddot"][i, :stop_frame] * factor, c=c[0])
-                    plt.plot( t, all_results["dlc_1"]["q_ddot"][i, :stop_frame] * factor, c=c[1])
-                    plt.plot(all_results["minimal_vicon"]["q_ddot"][i, :stop_frame] * factor, c=c[2])
-                    plt.plot(all_results["vicon"]["q_ddot"][i, :stop_frame] * factor, c=c[3])
-                plt.legend([source[0], "dlc_1", "minimal_vicon"])
-                plt.figure("tau")
-                for i in range(all_results[source[0]]["q_raw"].shape[0]):
-                    plt.subplot(4, 4, i + 1)
-                    plt.plot(all_results[source[0]]["tau"][i, :stop_frame], c=c[0])
-                    plt.plot( t, all_results["dlc_1"]["tau"][i, :stop_frame], c=c[1])
-                    plt.plot(all_results["minimal_vicon"]["tau"][i, :stop_frame], c=c[2])
-                    plt.plot(all_results["vicon"]["tau"][i, :stop_frame], c=c[3])
-                plt.legend([source[0], "dlc_1", "minimal_vicon"])
-                plt.show()
-            if save_data:
-                all_results = process_cycles(all_results, peaks, n_peaks=None)
-                all_results["image_idx"] = frame_idx
-                all_results["emg"] = emg
-                all_results["f_ext"] = f_ext
-                all_results["peaks"] = peaks
-                all_results["ref_in_pixel"] = label_in_pixel
-                all_results["dlc_in_pixel"] = dlc_in_pixel
-                all_results["rt_matrix"] = rt
-                all_results["vicon_to_depth"] = vicon_to_depth
-                save(all_results, file_name_to_save, safe=False)
-                print("Saved")
-
-
-def main_new(model_dir, participants, processed_data_path, source, filter_depth=False, save_data=True, stop_frame=None,
-             plot=False,
-             model_source=None, source_to_keep=None, live_filter_method=FilteringMethod.NONE):
-    source_to_keep = [] if source_to_keep is None else source_to_keep
-    biomech_pipeline = BiomechPipeline(stop_frame=stop_frame)
-    all_files, mapped_part = get_all_file(participants, processed_data_path)
-    for part, file in zip(mapped_part, all_files):
-        output_file = prefix + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}.bio"
-        markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frame_idx = get_data_from_sources(
-            part, file, source, model_dir, model_source, filter_depth, live_filter_method != 0, source_to_keep, output_file)
-        biomech_pipeline.set_variable("forces", forces)
-        biomech_pipeline.set_variable("f_ext", f_ext)
-        biomech_pipeline.set_variable("emg", emg)
-        biomech_pipeline.set_variable("vicon_to_depth_idx", vicon_to_depth)
-        biomech_pipeline.set_variable("peaks", peaks)
-        biomech_pipeline.set_variable("rt_matrix", rt)
-        biomech_pipeline.init_scapula_cluster()
-        for key in markers_dic.keys():
-            biomech_pipeline.set_stop_frame(stop_frame, dlc_frame_idx, key, live_filter_method != 0)
-
-            biomech_pipeline.process_all_frames(markers_dic[key][1], compute_ik=True,
-                                                compute_id=True, compute_so=False, live_filter_method=filter_method)
-
-            result_biomech = process_all_frames(
-                                                forces, (1000, 10), emg,
-                                                f_ext,
-                                                img_idx=frame_idx,
-                                                compute_ik=True,
-                                                compute_id=True, compute_so=False, compute_jrf=False,
-                                                range_idx=range_frame,
-                                                stop_frame=stop_frame_tmp,
-                                                file=f"{processed_data_path}/{part}" + "/" + file,
-                                                print_optimization_status=False, filter_depth=live_filter,
-                                                emg_names=emg_names,
-                                                measurements=None,
-                                                marker_names=reordered_names,
-                                                part=part,
-                                                rt_matrix=rt,
-                                                in_pixel=in_pixel
-                                                )
-            result_biomech["markers"] = markers_from_source[s]
-            # if "depth" in source[s] or "vicon" in source[s]:
-            #     result_biomech["tracked_markers"] = reorder_marker_from_source[..., :stop_frame]
-            #     result_biomech["marker_names"] = reordered_names
-            all_results[src_tmp] = result_biomech
-
-
-if __name__ == '__main__':
-
-    model_dir = prefix + "/Projet_hand_bike_markerless/RGBD"
-    participants = [f"P{i}" for i in range(10, 15)]
-    participants.pop(participants.index("P12"))
-    # participants.pop(participants.index("P15"))
-    # participants.pop(participants.index("P16"))
-    #participants.pop(participants.index("P14"))
-    source = ["depth", "minimal_vicon", "vicon",  "dlc"]
-    model_source = ["depth", "minimal_vicon", "vicon", "dlc_ribs"]
-    processed_data_path = prefix + "/Projet_hand_bike_markerless/RGBD"
-
-    main_new(model_dir, participants, processed_data_path, save_data=True, stop_frame=None,
-         plot=False, source=source,
-             model_source=model_source, live_filter_method=FilteringMethod.NONE, filter_depth=False)
-    main(model_dir, participants, processed_data_path, save_data=True, results_from_file=False, stop_frame=None,
-         plot=False, source=source, model_source=model_source, source_to_keep=[], live_filter=True,
-         interpolate_dlc=True, in_pixel=False)
-
+                plt.figure(key)
+                for i in range(self.results_dict[source][key]["mean"].shape[0]):
+                    plt.subplot(ceil(self.results_dict[source][key]["mean"].shape[0]/4), 4, i + 1)
+                    if plot_by_cycle:
+                        plt.plot(self.results_dict[source][key]["mean"][i, :n_cycle], c=colors(count_source))
+                        plt.fill_between(np.arange(n_cycle),
+                                         self.results_dict[source][key]["mean"][i, :n_cycle] - self.results_dict[source][key]["std"][i, :n_cycle],
+                                         self.results_dict[source][key]["mean"][i, :n_cycle] + self.results_dict[source][key]["std"][i, :n_cycle],
+                                         alpha=0.2, color=colors(count_source))
+                    else:
+                        plt.plot(self.results_dict[source][key]["mean"][i, :], c=colors(count_source))
+            count_source += 1
+        plt.show()

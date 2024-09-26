@@ -190,28 +190,7 @@ def load_data_from_dlc(labeled_data_path=None, dlc_data_path=None, part=None, fi
     return data_dlc, data_labeling, dict_list[1]["markers_names"], dict_list[1]["time_to_process"], idx_start, idx_end
 
 
-def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=300):
-    error_list = []
-    for i in range(nb_frame):
-        marker_to_refine_tmp = marker_to_refine[:, :, :-i] if i != 0 else marker_to_refine
-        marker_to_refine_tmp = _interpolate_data(marker_to_refine_tmp, marker_full.shape[2])
-        error_markers = compute_error_mark(
-            marker_full[:, ...], marker_to_refine_tmp[:, ...])
-        error_tmp = np.abs(np.mean(error_markers))
-        error_list.append(error_tmp)
 
-    idx = error_list.index(min(error_list))
-    marker_to_refine_tmp = marker_to_refine[:, :, :-idx] if idx != 0 else marker_to_refine[:, :, :]
-    marker_to_refine_tmp = _interpolate_data(marker_to_refine_tmp, marker_full.shape[2])
-    if plot_fig:
-        plt.figure("refine synchro")
-        for i in range(marker_to_refine_tmp.shape[1]):
-            plt.subplot(4, 4, i + 1)
-            for j in range(0, 3):
-                plt.plot(marker_to_refine_tmp[j, i, :], "b")
-                plt.plot(marker_full[j, i, :], 'r')
-    print("idx to refine synchro : ", idx, "error", min(error_list))
-    return marker_to_refine_tmp, idx
 
 
 def check_frames(data_labeling, data_dlc):

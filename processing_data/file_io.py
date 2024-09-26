@@ -1,5 +1,7 @@
 import os
 import numpy as np
+from numpy.ma.extras import notmasked_edges
+
 from biosiglive import load, OfflineProcessing
 from biosiglive.processing.msk_utils import ExternalLoads
 import biorbd
@@ -109,51 +111,47 @@ def get_dlc_data(dlc_data_path, markers_dic=None, source="dlc"):
     reordered_markers_dlc, idx = reorder_markers_from_names(data["markers_in_meters"],
                                                               ordered_markers_names,
                                                               list(data["markers_names"][:, 0]))
-    markers_dic[source] = [list(data["markers_names"][:, 0]), reordered_markers_dlc]
+    markers_dic[source] = [ordered_markers_names, reordered_markers_dlc]
     return markers_dic, data["frame_idx"]
 
 
-def filter_dlc_data(markers_dic, frame_idx, part, interpolation_shape, rt=None):
-    for key in markers_dic:
-        if "dlc" in key:
-            data_dlc = markers_dic[key][1]
-            dlc_names = markers_dic[key][0]
-            new_markers_dlc = np.zeros((3,
-                                        data_dlc.shape[1],
-                                        data_dlc.shape[2]
-                                        ))
-            if rt is not None:
-                markers_dlc_hom = np.ones((4, data_dlc.shape[1], data_dlc.shape[2]))
-                markers_dlc_hom[:3, ...] = data_dlc[:3, ...]
-                for k in range(new_markers_dlc.shape[2]):
-                    new_markers_dlc[:, :, k] = np.dot(np.array(rt), markers_dlc_hom[:, :, k])[:3, :]
-            new_markers_dlc = fill_and_interpolate(data=new_markers_dlc,
-                                                    idx=frame_idx,
-                                                    shape=interpolation_shape,
-                                                    fill=True)
-            measurements_dir_path = "data_collection_mesurement"
-            calibration_matrix_dir = "../scapula_cluster/calibration_matrix"
-            measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"
-                                              ))
-            measurements = measurement_data[f"with_depth"]["measure"]
-            calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[f"with_depth"][
-                "calibration_matrix_name"]
-            anato_from_cluster = convert_cluster_to_anato(measurements, calibration_matrix, new_markers_dlc[:, -3:, :])
-            first_idx = dlc_names.index("clavac")
-            new_markers_dlc = np.concatenate((new_markers_dlc[:, :first_idx + 1, :],
-                                              anato_from_cluster[:3, :, :] * 0.001,
-                                              new_markers_dlc[:, first_idx + 1:, :]), axis=1
-                                             )
-            new_markers_dlc_filtered = np.zeros((3, new_markers_dlc.shape[1], new_markers_dlc.shape[2]))
-            for i in range(3):
-                new_markers_dlc_filtered[i, :8, :] = OfflineProcessing().butter_lowpass_filter(
-                    new_markers_dlc[i, :8, :],
-                    2, 120, 2)
-                new_markers_dlc_filtered[i, 8:, :] = OfflineProcessing().butter_lowpass_filter(
-                    new_markers_dlc[i, 8:, :],
-                    10, 120, 2)
-            markers_dic[key][1] = new_markers_dlc_filtered
-    return markers_dic
+def filter_dlc_data(markers_list, frame_idx, part, interpolation_shape, rt=None):
+    data_dlc = markers_list[1]
+    dlc_names = markers_list[0]
+    new_markers_dlc = np.zeros((3, data_dlc.shape[1], data_dlc.shape[2] ))
+    if rt is not None:
+        markers_dlc_hom = np.ones((4, data_dlc.shape[1], data_dlc.shape[2]))
+        markers_dlc_hom[:3, ...] = data_dlc[:3, ...]
+        for k in range(new_markers_dlc.shape[2]):
+            new_markers_dlc[:, :, k] = np.dot(np.array(rt), markers_dlc_hom[:, :, k])[:3, :]
+    new_markers_dlc = fill_and_interpolate(data=new_markers_dlc,
+                                            idx=frame_idx,
+                                            shape=interpolation_shape,
+                                            fill=True)
+    config = "with_depth"
+    measurements_dir_path = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement"
+    calibration_matrix_dir = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix"
+    measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"))
+    measurements = measurement_data[config]["measure"]
+    calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[config]["calibration_matrix_name"]
+    anato_from_cluster = convert_cluster_to_anato(new_markers_dlc[:, -3:, :], measurements, calibration_matrix)
+    first_idx = dlc_names.index("clavac")
+    new_markers_dlc = np.concatenate((new_markers_dlc[:, :first_idx + 1, :],
+                                      anato_from_cluster[:3, :, :],
+                                      new_markers_dlc[:, first_idx + 1:, :]), axis=1
+                                     )
+    new_markers_names = markers_list[0][:first_idx + 1] + ['scapaa', 'scapia', 'scapts'] + markers_list[0][first_idx + 1:]
+    new_markers_dlc_filtered = np.zeros((3, new_markers_dlc.shape[1], new_markers_dlc.shape[2]))
+    for i in range(3):
+        new_markers_dlc_filtered[i, :8, :] = OfflineProcessing().butter_lowpass_filter(
+            new_markers_dlc[i, :8, :],
+            2, 120, 2)
+        new_markers_dlc_filtered[i, 8:, :] = OfflineProcessing().butter_lowpass_filter(
+            new_markers_dlc[i, 8:, :],
+            10, 120, 2)
+    markers_list[1] = new_markers_dlc_filtered
+    markers_list[0] = new_markers_names
+    return markers_list
 
 
 def refine_markers_dlc(markers_dic, frame_idx, labeled_data_path):
@@ -163,24 +161,31 @@ def refine_markers_dlc(markers_dic, frame_idx, labeled_data_path):
     reordered_markers_depth, idx = reorder_markers_from_names(data["markers_in_meters"],
                                                               ordered_depth_markers,
                                                               list(data["markers_names"][:, 0]))
+    frame_idx_dlc = frame_idx.copy()
+    framer_idx_depth = data["frame_idx"].copy()
     for key in markers_dic:
         if "dlc" in key:
             data_dlc, data_labeling, idx_start, idx_end, frame_idx = check_frames(markers_dic[key][1], reordered_markers_depth,
-                                                                       data["frame_idx"], frame_idx)
+                                                                       framer_idx_depth, frame_idx_dlc)
             markers_dic[key][1] = data_dlc
     return markers_dic, idx_start, idx_end, frame_idx
 
 
-def get_data_from_sources(participant, file_path, source_list, model_dir, model_source, filter_depth=False, live_filter=False,
+def get_data_from_sources(participant, trial_name, source_list, model_dir, model_source, filter_depth=False, live_filter=False,
                           source_to_keep=None, output_file=None):
     once_loaded = False
+    dlc_frames_idx = None
     is_dlc = False
     source_to_keep = [] if source_to_keep is None else source_to_keep
     markers_dic = {}
     previous_data = None
     existing_keys = []
     forces, f_ext, emg, vicon_to_depth, peaks, rt = None, None, None, None, None, None
-    labeled_data_path = f"{participant}{os.sep}marker_pos_multi_proc_3_crops_pp.bio"
+    root_dir = f"{prefix}{os.sep}Projet_hand_bike_markerless/RGBD/{participant}"
+    directory = \
+    [direc for direc in os.listdir(root_dir) if trial_name in direc and os.path.isdir(root_dir + os.sep + direc)][0]
+    labeled_data_path = f"{root_dir + os.sep + directory}{os.sep}marker_pos_multi_proc_3_crops_pp.bio"
+
     if source_to_keep is not None and os.path.exists(output_file):
         try:
             previous_data = load(output_file)
@@ -193,16 +198,17 @@ def get_data_from_sources(participant, file_path, source_list, model_dir, model_
             markers_dic[source] = previous_data[source]
             continue
         elif ("vicon" in source or "depth" in source) and not once_loaded:
-            print(f"Processing participant {participant}, trial : {file_path}")
-            markers_from_source_tmp, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
-                prefix + "/Projet_hand_bike_markerless/process_data", participant, f"{file_path.split('_')[0]}_{file_path.split('_')[1]}",
+            print(f"Processing participant {participant}, trial : {trial_name}")
+            markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
+                prefix + "/Projet_hand_bike_markerless/process_data", participant, f"{trial_name}",
                 filter_depth, markers_dic
             )
+            markers_dic = {key: markers_dic[key] for key in source_list if "dlc" not in key}
             once_loaded = True
         elif "dlc" in source:
             is_dlc = True
             ratio = "0_" + source.split("_")[-1] if source.split("_")[-1] != "1" else source.split("_")[-1]
-            dlc_data_path = f"{prefix}{os.sep}Projet_hand_bike_markerless/process_data/{participant}/marker_pos_multi_proc_3_crops_dlc_ribs_and_cluster_{ratio}_with_model_pp_full.bio"
+            dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_{ratio}_with_model_pp_full.bio"
             markers_dic, dlc_frames_idx = get_dlc_data(dlc_data_path, markers_dic, source)
 
     if os.path.isfile(labeled_data_path) and is_dlc:
@@ -216,10 +222,14 @@ def get_data_from_sources(participant, file_path, source_list, model_dir, model_
                     "mark"]
             if "dlc" in key and live_filter:
                 continue
+            if "dlc" in key and not live_filter:
+                markers_dic[key] = filter_dlc_data(markers_dic[key], dlc_frames_idx, participant,
+                                              markers_dic["depth"][1].shape[-1], rt)
             model_path = f"{model_dir}/{participant}/model_scaled_{model_source[count]}_new_seth.bioMod"
-
-            markers_dic[key][1], markers_dic[key][0] = reorder_markers_from_names(markers_dic[key][1][:, :-3, :],
-                                                                                  biorbd.Model(model_path),
+            model_markers_names = [mark.to_string() for mark in biorbd.Model(model_path).markerNames()]
+            markers_dic[key][1], _ = reorder_markers_from_names(markers_dic[key][1][:, :-3, :],
+                                                                                  model_markers_names,
                                                                                   markers_dic[key][0][:-3])
+            markers_dic[key][0] = model_markers_names
             count += 1
     return markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frames_idx
