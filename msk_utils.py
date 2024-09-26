@@ -104,7 +104,7 @@ def _comment_markers(data):
 
 def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, dic_to_save=None, file_path=None):
     tic_init = time.time()
-    if frame_idx == 14:
+    if frame_idx == 0:
         # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
         #                                                    InverseKinematicsMethods.BiorbdLeastSquare, )
         # import bioviz
@@ -195,7 +195,7 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, di
     msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
                                             method=InverseKinematicsMethods.BiorbdKalman,
                                             kalman_freq=kalman_freq,
-                                            initial_guess=initial_guess)
+                                            initial_guess=initial_guess, noise_factor=1e-5,  error_factor=1e-5)
     q = msk_function.kin_buffer[0].copy()
     time_ik = time.time() - tic_init
     times["ik"] = time_ik
@@ -323,6 +323,49 @@ def _convert_cluster_to_anato(new_cluster, data):
     anato_pos_ordered[:, 2, :] = anato_pos[:, 1, :]
     return anato_pos
 
+def compute_id(q_init, model, f_ext):
+    from biosiglive import OfflineProcessing
+    q_filtered = OfflineProcessing().butter_lowpass_filter(q_init,
+                                                           6, 120, 2)
+    # import matplotlib.pyplot as plt
+    # plt.plot(q_init[0, :])
+    # plt.plot(q_filtered[0, :])
+    # plt.show()
+    qdot_new = np.zeros_like(q_init)
+    qdot_new[:, 1:-1] = (q_filtered[:, 2:] - q_filtered[:, :-2]) / (2 / 120)
+    qdot_new[:, 0] = q_filtered[:, 1] - q_filtered[:, 0]
+    qdot_new[:, -1] = q_filtered[:, -1] - q_filtered[:, -2]
+
+    # for i in range(1, q_filtered.shape[1] - 2):
+    #     qdot_new[:, i] = (q_filtered[:, i + 1] - q_filtered[:, i - 1]) / (2 / 120)
+    qddot_new = np.zeros_like(qdot_new)
+    qddot_new[:, 1:-1] = (qdot_new[:, 2:] - qdot_new[:, :-2]) / (2 / 120)
+    qddot_new[:, 0] = qdot_new[:, 1] - qdot_new[:, 0]
+    qddot_new[:, -1] = qdot_new[:, -1] - qdot_new[:, -2]
+
+
+    # for i in range(1, qdot_new.shape[1] - 2):
+    #     qddot_new[:, i] = (qdot_new[:, i + 1] - qdot_new[:, i - 1]) / (2 / 120)
+    tau = np.zeros_like(q_init)
+    for i in range(q_init.shape[1]):
+        if f_ext is not None:
+            B = [0, 0, 0, 1]
+            all_jcs = model.allGlobalJCS(q_filtered[:, i])
+            RT = all_jcs[-1].to_array()
+            # A = RT @ A
+            B = RT @ B
+            vecteur_OB = B[:3]
+            f_ext[:3, i] = f_ext[:3, i] + np.cross(vecteur_OB, f_ext[3:6, i])
+            # force_global = change_ref_for_global(ind_1, q, model, force_locale)
+            # ddq = nlp.model.forward_dynamics(q, qdot, tau, force_global)
+            ext = model.externalForceSet()
+            ext.add("hand_left", f_ext[:, i])
+            tau[:, i] = model.InverseDynamics(q_filtered[:, i], qdot_new[:, i], qddot_new[:, i], ext).to_array()
+        else:
+            tau[:, i] = model.InverseDynamics(q_filtered[:, i], qdot_new[:, i], qddot_new[:, i]).to_array()
+        #tau[:, i] -= model.passiveJointTorque(q_filtered[:, i], qdot_new[:, i]).to_array()
+        #tau[3, i] += 15 * np.exp(-40*q_filtered[3, i] + 18) + 1
+    return q_filtered, qdot_new, qddot_new, tau
 
 def process_next_frame(markers, msk_function, frame_idx, source, external_loads=None,
                        scaling_factor=None, emg=None, kalman_freq=120, emg_names=None, f_ext=None,
