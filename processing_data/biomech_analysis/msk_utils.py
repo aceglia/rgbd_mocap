@@ -114,6 +114,7 @@ def _compute_new_bounds(data):
 def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None, file_path=None, init_ik=False, model_prefix=""):
     tic_init = time.time()
     model_path = msk_function.model.path().absolutePath().to_string()
+    markers = markers[..., None] if markers.ndim == 2 else markers
     if init_ik:
         model_path = msk_function.model.path().absolutePath().to_string()
         with open(model_path, "r") as file:
@@ -149,6 +150,7 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
         q = q[6:, :]
         msk_function.model = biorbd.Model(new_model_path)
         msk_function.clean_all_buffers()
+        msk_function.kalman = None
     else:
         q = msk_function.kin_buffer[0].copy()
     if "P11" in model_path:
@@ -156,6 +158,8 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
     if "P16" in model_path:
         q[5, :] = -0.1
         q[7, :] = 0.1
+    noise_factor = 1e-5 if "depth" in model_path else 1e-5
+    error_factor = 1e-3 if "depth" in model_path else 1e-3
     initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
     msk_function.compute_inverse_kinematics(markers,
                                             method=InverseKinematicsMethods.BiorbdKalman,
@@ -163,8 +167,8 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
                                             initial_guess=initial_guess,
                                             # noise_factor=1e-3,
                                             # error_factor=1e-7,
-                                            # noise_factor=1e-1,
-                                            # error_factor=1e-5,
+                                            noise_factor=noise_factor,
+                                            error_factor=error_factor,
                                             )
     q = msk_function.kin_buffer[0].copy()
     time_ik = time.time() - tic_init

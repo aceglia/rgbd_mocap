@@ -3,7 +3,7 @@ from casadi import interp1d
 import pandas as pd
 from scipy.interpolate import interp1d
 from biosiglive import OfflineProcessing
-from scapula_cluster.from_cluster_to_anato import ScapulaCluster
+from processing_data.scapula_cluster.from_cluster_to_anato import ScapulaCluster
 import os
 
 def convert_string(string):
@@ -53,7 +53,7 @@ def compute_error_mark(ref_mark, mark):
     return list(err_markers[:, 0])
 
 
-def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=300):
+def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=200):
     error_list = []
     for i in range(nb_frame):
         marker_to_refine_tmp = marker_to_refine[:, :, :-i] if i != 0 else marker_to_refine

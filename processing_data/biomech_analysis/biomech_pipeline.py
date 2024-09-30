@@ -13,7 +13,7 @@ import time
 from biosiglive import MskFunctions, save, RealTimeProcessing
 from biosiglive.file_io.save_and_load import dic_merger
 from processing_data.biomech_analysis.enums import FilteringMethod
-from scapula_cluster.from_cluster_to_anato import ScapulaCluster
+from processing_data.scapula_cluster.from_cluster_to_anato import ScapulaCluster
 from processing_data.data_processing_helper import convert_cluster_to_anato, reorder_markers_from_names, process_cycles, fill_and_interpolate, refine_synchro
 
 prefix = "/mnt/shared" if os.name == "posix" else "Q:/"
@@ -29,6 +29,9 @@ class BiomechPipeline:
         self.moving_window = None
         self.rt_processing_list = None
         self.live_filter_method = None
+        self.reordered_idx = None
+        self.proc_noise = None
+        self.measurement_noise = None
         self.fps = 120
         self.scapula_cluster = None
         self.kalman_instance = None
@@ -72,7 +75,7 @@ class BiomechPipeline:
 
     def set_stop_frame(self, stop_frame, frame_idx, key, live_filter):
         self.frame_idx = frame_idx
-        self.key=key
+        self.key = key
         if stop_frame is None:
             stop_frame = (frame_idx[-1] - frame_idx[0]) * 2
         if (frame_idx[-1] - frame_idx[0]) * 2 < stop_frame:
@@ -85,10 +88,11 @@ class BiomechPipeline:
         else:
             range_frame = range(frame_idx[0], frame_idx[-1])
         self.range_frame = range_frame
+        self.stop_frame = stop_frame_tmp
 
     def init_scapula_cluster(self, participant, measurements_dir_path=None, calibration_matrix_dir=None, config="with_depth"):
-        measurements_dir_path = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement" if measurements_dir_path is None else measurements_dir_path
-        calibration_matrix_dir = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix" if calibration_matrix_dir is None else calibration_matrix_dir
+        measurements_dir_path = "D:\Documents\Programmation\pose_estimation\data_collection_mesurement"
+        calibration_matrix_dir = "D:\Documents\Programmation\pose_estimation\calibration_matrix"
         measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{participant}.json"))
         measurements = measurement_data[config]["measure"]
         calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[config][
@@ -96,7 +100,7 @@ class BiomechPipeline:
         self.scapula_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
                                      measurements[4], measurements[5], calibration_matrix)
 
-    def _get_next_frame_from_kalman(self, markers_data=None, forward=0, rotate=False):
+    def _get_next_frame_from_kalman(self, markers_data=None, forward=0, rotate=False, compute_from_cluster=True):
         if rotate and (self.rt_matrix is not None and markers_data is not None):
             markers_dlc_hom = np.ones((4, markers_data.shape[1], 1))
             markers_dlc_hom[:3, :, 0] = markers_data[..., 0]
@@ -110,16 +114,16 @@ class BiomechPipeline:
             else:
                 raise ValueError("Impossible to know how many markers there are.")
         next_frame = np.zeros((3, self.n_markers, 1))
-        self.kalman_instance = [] * self.n_markers if self.kalman_instance is None else self.kalman_instance
+        self.kalman_instance = [None] * self.n_markers if self.kalman_instance is None else self.kalman_instance
         for k in range(self.n_markers):
             if self.kalman_instance[k] is None and markers_data is not None:
                 measurement_noise_factor = self.kalman_params[:int(markers_data.shape[1])][k]
                 process_noise_factor = self.kalman_params[int(markers_data.shape[1]):int(markers_data.shape[1] * 2)][k]
-                self.kalman_instance[k] = Kalman(markers_data[:, k, 0], n_measures=3, n_diff=2, fps=self.fps,
+                self.kalman_instance[k] = Kalman(markers_data[:, k, 0], n_measures=3, n_diff=2, fps=self.markers_rate,
                                             measurement_noise_factor=measurement_noise_factor,
                                             process_noise_factor=process_noise_factor,
-                                            error_cov_post_factor=None,
-                                            error_cov_pre_factor=None
+                                            error_cov_post_factor=0,
+                                            error_cov_pre_factor=0
                                             )
                 next_frame[:, k, 0] = self.kalman_instance[k].predict()
             elif self.kalman_instance[k] is not None:
@@ -130,11 +134,13 @@ class BiomechPipeline:
                     next_frame[:, k, 0] = self.kalman_instance[k].get_future_pose(dt=forward)
             else:
                 raise ValueError("Unexpected error.")
-        anato_from_cluster = convert_cluster_to_anato(self.scapula_cluster, next_frame[:, -3:, :] * 1000) * 0.001
-        next_frame = np.concatenate(
-            (next_frame[:, :self.idx_cluster + 1, :], anato_from_cluster[:3, ...],
-             next_frame[:, self.idx_cluster + 1:, :]),
-            axis=1)
+        if compute_from_cluster:
+            anato_from_cluster = convert_cluster_to_anato(next_frame[:, -3:, :],
+                                                          scapula_cluster=self.scapula_cluster)
+            next_frame = np.concatenate(
+                (next_frame[:, :self.idx_cluster + 1, :], anato_from_cluster[:3, ...],
+                 next_frame[:, self.idx_cluster + 1:, :]),
+                axis=1)
         return next_frame[..., 0]
 
     def set_variable(self, variable, value):
@@ -166,14 +172,8 @@ class BiomechPipeline:
 
         elif self.live_filter_method == FilteringMethod.Kalman:
             self.moving_window = 0
-            measurement_noise = [2] * 17
-            proc_noise = [1] * 17
-            measurement_noise[:8] = [5] * 8
-            proc_noise[:8] = [1e-1] * 8
-            measurement_noise[11:14] = [1] * 3
-            proc_noise[11:14] = [1] * 3
-            self.kalman_params = measurement_noise + proc_noise
-            return self._get_next_frame_from_kalman
+            self.kalman_params = self.measurement_noise + self.proc_noise
+            return lambda x: self._get_next_frame_from_kalman(x, **kwargs)
         else:
             raise ValueError("Invalid filtering method")
 
@@ -181,9 +181,26 @@ class BiomechPipeline:
         if live_filter_method == FilteringMethod.NONE:
             return markers[..., self.frame_count:self.frame_count + 1]
         if "depth" in self.key:
-            return self.filter_function(markers[..., self.frame_count:self.frame_count + 1])
+            if self.frame_count == 0:
+                self.idx_cluster = self.marker_names.index("clavac")
+                # self.marker_names = self.marker_names[:self.idx_cluster + 1] + ["scapaa", "scapts", "scapia"] + self.marker_names[self.idx_cluster + 4:]
+            markers_tmp = markers[..., self.frame_count:self.frame_count + 1]
+            markers_tmp = np.delete(markers_tmp, [self.idx_cluster + 1, self.idx_cluster + 2, self.idx_cluster + 3], axis=1)
+            markers_tmp = self.filter_function(markers_tmp)
+            if self.reordered_idx is not None:
+                markers_tmp = markers_tmp[:, self.reordered_idx, None]
+            else:
+                model_names = [self.msk_function.model.markerNames()[i].to_string() for i in
+                               range(self.msk_function.model.nbMarkers())]
+
+                markers_tmp, self.reordered_idx = reorder_markers_from_names(markers_tmp[:, :-3, None], model_names,
+                                                         self.marker_names[:-3])
+                self.marker_names = model_names
+
+            return markers_tmp[:, :, 0]
+
         elif "dlc" in self.key:
-            count_dlc = self.dlc_frame_count if live_filter_method == FilteringMethod.NONE else self.frame_count
+            count_dlc = self.dlc_frame_count if live_filter_method != FilteringMethod.NONE else self.frame_count
             if live_filter_method == 0 or (live_filter_method != 0 and self.current_frame in self.frame_idx):
                 markers_tmp = markers[..., count_dlc:count_dlc + 1]
                 self.dlc_frame_count += 1
@@ -193,17 +210,26 @@ class BiomechPipeline:
                 self.idx_cluster = self.marker_names.index("clavac")
                 self.marker_names = self.marker_names[:self.idx_cluster + 1] + ["scapaa", "scapia", "scapts"] + self.marker_names[self.idx_cluster + 1:]
 
-            markers_tmp = self.filter_function(markers_tmp, rotate=True)
-            model_names = [self.msk_function.model.markerNames()[i].to_string() for i in range(self.msk_function.model.nbMarkers())]
-            markers_tmp = reorder_markers_from_names(markers_tmp[:, :-3, None], model_names,
-                                                         self.marker_names[:-3])
+            markers_tmp = self.filter_function(markers_tmp)
+            if self.reordered_idx is not None:
+                markers_tmp = markers_tmp[:, self.reordered_idx, None]
+            else:
+                model_names = [self.msk_function.model.markerNames()[i].to_string() for i in
+                               range(self.msk_function.model.nbMarkers())]
+
+                markers_tmp, self.reordered_idx = reorder_markers_from_names(markers_tmp[:, :-3, None], model_names,
+                                                             self.marker_names[:-3])
+                self.marker_names = model_names
             markers_tmp = markers_tmp[:, :, 0]
             return markers_tmp
 
     def process_all_frames(self, markers: np.ndarray, model_path: str, live_filter_method: FilteringMethod = FilteringMethod.NONE,
                            compute_id: bool=True, compute_so: bool=True, compute_jrf:bool =False,
                            print_optimization_status: bool =False, compute_ik: bool =True,
-                           marker_names:list =None):
+                           marker_names: list =None):
+        self.frame_count = 0
+        self.current_frame = 0
+        self.dlc_frame_count = 0
         self.compute_so = compute_so
         self.compute_jrf = compute_jrf
         self.compute_id = compute_id
@@ -214,23 +240,24 @@ class BiomechPipeline:
         self.live_filter_method = live_filter_method
         self.marker_names = marker_names
         final_dic = {}
-        self.filter_function = self.get_filter_function()
+        self.filter_function = self.get_filter_function(rotate="dlc" in self.key, forward=0,
+                                                        compute_from_cluster=True) #"dlc" in self.key)
         self.emg_track_idx = get_tracking_idx(self.msk_function.model, self.emg_names)
         self.muscle_map_idx = get_map_activation_idx(self.msk_function.model, self.emg_names)
-        self.frame_count = 0
-        self.current_frame = 0
-        self.dlc_frame_count = 0
         for i in self.range_frame:
             self.current_frame = i
             tic = time.time()
             markers_tmp = self.get_filtered_markers(markers, live_filter_method)
+            print("time to get filtered markers: ", time.time() - tic)
             dic_to_save = self.process_next_frame(markers_tmp)
             tim_to_get_frame = time.time() - tic
             dic_to_save["time"]["time_to_get_frame"] = tim_to_get_frame
-            dic_to_save["markers"] = markers_tmp
+            dic_to_save["markers"] = markers_tmp[:, :, None] if markers_tmp.ndim == 2 else markers_tmp
             if dic_to_save is not None:
                 final_dic = dic_merger(final_dic, dic_to_save)
             self.frame_count += 1
+            if self.stop_frame is not None and self.frame_count >= self.stop_frame:
+                break
         final_dic["marker_names"] = self.marker_names
         final_dic["center_of_rot"] = compute_cor(final_dic["q"], self.msk_function.model)
         if self.key == "minimal":
@@ -260,7 +287,8 @@ class BiomechPipeline:
             if self.compute_id:
                 if not self.compute_ik:
                     raise ValueError("Inverse kinematics must be computed to compute inverse dynamics")
-                times, dic_to_save = run_id(self.msk_function, self.f_ext, self.external_loads, times, dic_to_save)
+                times, dic_to_save = run_id(self.msk_function, self.f_ext[..., self.frame_count],
+                                            self.external_loads, times, dic_to_save)
 
             if self.compute_so:
                 if not self.compute_id:
@@ -295,16 +323,15 @@ class BiomechPipeline:
                 dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("ribs"), axis=1)
                 dlc_mark, idx = refine_synchro(self.results_dict["minimal_vicon"]["markers"][:, :, :],
                                                dlc_mark_tmp, plot_fig=False)
-
                 for key_2 in data_dic_tmp.keys():
                     data_dic_tmp_2 = data_dic_tmp[key_2]
                     if isinstance(data_dic_tmp_2, np.ndarray):
                         data_dic_tmp_2 = data_dic_tmp_2[..., :-idx] if idx != 0 else data_dic_tmp_2[..., :]
-                    if interpolate_dlc and self.live_filter_method != 0:
-                        data_dic_tmp_2 = fill_and_interpolate(
-                            data_dic_tmp_2,
-                            fill=False,
-                            shape=self.results_dict["depth"]["q"].shape[1])
+                        if interpolate_dlc and self.live_filter_method != 0:
+                            data_dic_tmp_2 = fill_and_interpolate(
+                                data_dic_tmp_2,
+                                fill=False,
+                                shape=self.results_dict["depth"]["q"].shape[1])
                     data_dic_tmp[key_2] = data_dic_tmp_2
                 self.results_dict[key] = data_dic_tmp
 
@@ -312,7 +339,7 @@ class BiomechPipeline:
         if self.live_filter_method.value != 0:
             self._handle_dlc_before_saving(interpolate_dlc=interpolate_dlc)
         self.results_dict = process_cycles(self.results_dict, self.peaks, n_peaks=None)
-        self.cycles_computed=True
+        self.cycles_computed = True
         self.results_dict["emg"] = self.emg
         self.results_dict["f_ext"] = self.f_ext
         self.results_dict["peaks"] = self.peaks
@@ -355,6 +382,8 @@ class BiomechPipeline:
         count_key = 0
         keys_to_plot = ["markers", "q", "q_dot", "q_ddot", "tau"]
         for source in self.results_dict.keys():
+            # if "dlc" in source:
+            #     continue
             plt.figure("legend")
             plt.plot([], c=colors(count_source), label=source)
             plt.legend()
@@ -362,6 +391,8 @@ class BiomechPipeline:
                 if key not in keys_to_plot or isinstance(self.results_dict[source][key], list):
                     continue
                 if key == "markers":
+                    if source == "vicon":
+                        continue
                     plt.figure("markers")
                     count = 0
                     for i in range(13):

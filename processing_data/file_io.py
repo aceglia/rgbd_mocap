@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from numpy.ma.extras import notmasked_edges
 
 from biosiglive import load, OfflineProcessing
 from biosiglive.processing.msk_utils import ExternalLoads
@@ -16,7 +15,7 @@ from processing_data.data_processing_helper import (
 )
 import json
 
-prefix = "/mnt/shared" if os.name == "posix" else "Q:/"
+prefix = "/mnt/shared" if os.name == "posix" else "Q:"
 
 
 def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
@@ -129,8 +128,8 @@ def filter_dlc_data(markers_list, frame_idx, part, interpolation_shape, rt=None)
                                             shape=interpolation_shape,
                                             fill=True)
     config = "with_depth"
-    measurements_dir_path = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement"
-    calibration_matrix_dir = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix"
+    measurements_dir_path = "D:\Documents\Programmation\pose_estimation\data_collection_mesurement"
+    calibration_matrix_dir = "D:\Documents\Programmation\pose_estimation\calibration_matrix"
     measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"))
     measurements = measurement_data[config]["measure"]
     calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[config]["calibration_matrix_name"]
@@ -171,7 +170,7 @@ def refine_markers_dlc(markers_dic, frame_idx, labeled_data_path):
     return markers_dic, idx_start, idx_end, frame_idx
 
 
-def get_data_from_sources(participant, trial_name, source_list, model_dir, model_source, filter_depth=False, live_filter=False,
+def get_data_from_sources(participant, trial_name, source_list, model_dir, model_source, live_filter: list = None,
                           source_to_keep=None, output_file=None):
     once_loaded = False
     dlc_frames_idx = None
@@ -183,7 +182,10 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
     forces, f_ext, emg, vicon_to_depth, peaks, rt = None, None, None, None, None, None
     root_dir = f"{prefix}{os.sep}Projet_hand_bike_markerless/RGBD/{participant}"
     directory = \
-    [direc for direc in os.listdir(root_dir) if trial_name in direc and os.path.isdir(root_dir + os.sep + direc)][0]
+    [direc for direc in os.listdir(root_dir) if trial_name in direc and os.path.isdir(root_dir + os.sep + direc)]
+    if len(directory) == 0:
+        raise ValueError(f"No directory found for participant {participant} and trial {trial_name}")
+    directory = directory[0]
     labeled_data_path = f"{root_dir + os.sep + directory}{os.sep}marker_pos_multi_proc_3_crops_pp.bio"
 
     if source_to_keep is not None and os.path.exists(output_file):
@@ -201,7 +203,7 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
             print(f"Processing participant {participant}, trial : {trial_name}")
             markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
                 prefix + "/Projet_hand_bike_markerless/process_data", participant, f"{trial_name}",
-                filter_depth, markers_dic
+                live_filter[source_list.index("depth")].value == 0, markers_dic
             )
             markers_dic = {key: markers_dic[key] for key in source_list if "dlc" not in key}
             once_loaded = True
@@ -213,23 +215,31 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
 
     if os.path.isfile(labeled_data_path) and is_dlc:
         markers_dic, idx_start, idx_end, dlc_frames_idx = refine_markers_dlc(markers_dic, dlc_frames_idx, labeled_data_path)
-        count = 0
-        for key in markers_dic:
-            if key in source_to_keep and key in existing_keys:
-                continue
-            if "dlc" not in key:
-                markers_dic[key][1] = adjust_idx({"mark": markers_dic[key][1]}, idx_start, idx_end)[
-                    "mark"]
-            if "dlc" in key and live_filter:
-                continue
-            if "dlc" in key and not live_filter:
-                markers_dic[key] = filter_dlc_data(markers_dic[key], dlc_frames_idx, participant,
-                                              markers_dic["depth"][1].shape[-1], rt)
-            model_path = f"{model_dir}/{participant}/model_scaled_{model_source[count]}_new_seth.bioMod"
-            model_markers_names = [mark.to_string() for mark in biorbd.Model(model_path).markerNames()]
-            markers_dic[key][1], _ = reorder_markers_from_names(markers_dic[key][1][:, :-3, :],
-                                                                                  model_markers_names,
-                                                                                  markers_dic[key][0][:-3])
-            markers_dic[key][0] = model_markers_names
+    count = 0
+    for key in markers_dic:
+        if key in source_to_keep and key in existing_keys:
             count += 1
+            continue
+        if "dlc" not in key:
+            markers_dic[key][1] = adjust_idx({"mark": markers_dic[key][1]}, idx_start, idx_end)[
+                "mark"]
+        if live_filter[source_list.index(key)].value != 0:
+            count += 1
+            continue
+        if "dlc" in key and not live_filter[source_list.index(key)].value == 0:
+            markers_dic[key] = filter_dlc_data(markers_dic[key], dlc_frames_idx, participant,
+                                          markers_dic["depth"][1].shape[-1], rt
+
+                                               )
+        model_path = f"{model_dir}/{participant}/model_scaled_{model_source[count]}_new_seth.bioMod"
+        model_markers_names = [mark.to_string() for mark in biorbd.Model(model_path).markerNames()]
+        markers_dic[key][1], _ = reorder_markers_from_names(markers_dic[key][1][:, :-3, :],
+                                                                              model_markers_names,
+                                                                              markers_dic[key][0][:-3])
+        markers_dic[key][0] = model_markers_names
+        count += 1
     return markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frames_idx
+
+
+if __name__ == '__main__':
+    print("Testing file_io.py")
