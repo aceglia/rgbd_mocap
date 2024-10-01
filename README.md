@@ -54,3 +54,13 @@ You can also use a 3D rigid body model but you will have to define the bodies an
 
 ## Markerless Mocap 
 Coming soon...
+
+## Biomechanical analysis
+The processing_data module provide several tools to analyze the motion capture data. 
+It include tools to compute the joint angles, velocity, acceleration, and center of mass. 
+It also provide tools to compute the joint torques and muscle forces (through static optimization). 
+Please check out the example "run_biomechanical_analysis.py" for examples of how to use the tools.
+
+## Issues
+Please report any issues or bugs you find on the GitHub issue tracker.
+If you have any questions or need help, please contact us at amedeo.ceglia@umontreal.ca.

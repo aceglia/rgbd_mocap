@@ -39,7 +39,7 @@ class BiomechPipeline:
         self.processed_markers = None
         self.stop_frame = stop_frame
         self.range_frame = None
-        self.msk_function = MskFunctions(model=None, data_buffer_size=20, system_rate=120)
+        self.msk_function = None
         self.forces = None
         self.frame_idx = None
         self.key = None
@@ -235,8 +235,7 @@ class BiomechPipeline:
         self.compute_id = compute_id
         self.compute_ik = compute_ik
         self.print_optimization_status = print_optimization_status
-        self.msk_function.clean_all_buffers()
-        self.msk_function.model = biorbd.Model(model_path)
+        self.msk_function = MskFunctions(model=model_path, data_buffer_size=20, system_rate=self.markers_rate)
         self.live_filter_method = live_filter_method
         self.marker_names = marker_names
         final_dic = {}
@@ -281,6 +280,7 @@ class BiomechPipeline:
                        "markers": None}
         if self.compute_ik and self.frame_count >= self.moving_window:
             init_ik = True if self.frame_count == self.moving_window else False
+
             times, dic_to_save = run_ik(self.msk_function,
                                              markers, times=times, dic_to_save=dic_to_save, init_ik=init_ik,
                                         kalman_freq=self.markers_rate, model_prefix=self.trial_name)
