@@ -80,8 +80,8 @@ if __name__ == '__main__':
                             "/mnt/shared/Projet_hand_bike_markerless/process_data",
                             file_name="normal_times_three_filtered_all_dofs", recompute_cycles=False)
 
-    keys = ["tracked_markers", "q_raw", "q_dot"]  # "q_ddot", "tau", "mus_act", "mus_force"]
-    factors = [1000, 180 / np.pi, 180 / np.pi]  #, 180 / np.pi, 1, 100, 1]
+    keys = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_act", "mus_force"]
+    factors = [1000, 180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 100, 1]
     units = ["°", "°/s", "°/s²", "N.m", "%", "N"]
     source = ["vicon", "vicon", "depth"]
     to_compare_source = ["depth", "dlc", "dlc"]

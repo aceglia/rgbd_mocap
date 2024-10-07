@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 import biorbd
 import numpy as np
+from proxsuite.proxsuite_pywrap_avx2.proxqp.dense import model
 
 from rgbd_mocap.GUI.Utils.file_dialog import kwargs
 from utils_old import _convert_string
@@ -116,13 +117,27 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
     model_path = msk_function.model.path().absolutePath().to_string()
     markers = markers[..., None] if markers.ndim == 2 else markers
     if init_ik:
+        print("Initializing IK")
+        part = model_path.split("/")[-2]
+        # new_model_path = f"/mnt/shared/Projet_hand_bike_markerless/process_data/{part}/models_old/{model_prefix}_processed_3_{Path(model_path).stem[:-len('new_seth')]}seth.bioMod"
+        # msk_function.model = biorbd.Model(new_model_path)
+        # print(new_model_path)
+        # # q=None
+        #q, q_dot, _ = msk_function.compute_inverse_kinematics(markers, InverseKinematicsMethods.BiorbdLeastSquare)
+        # if "minimal_viconlkdv" in model_path:
+        #     import bioviz
+        #     b = bioviz.Viz(model_path=new_model_path)
+        #     b.load_movement(np.repeat(q, 5, axis=1))
+        #     b.load_experimental_markers(np.repeat(markers, 5, axis=2))
+        #     b.exec()
         model_path = msk_function.model.path().absolutePath().to_string()
         with open(model_path, "r") as file:
             data = file.read()
-        rt = f"1.57 -1.57 0 xyz 0 0 0"
+        # rt = f"1.57 -1.57 0 xyz 0 0 0"
         init_idx = data.find("SEGMENT DEFINITION")
         end_idx = data.find("translations xyz // thorax") + len("translations xyz // thorax") + 1
-        data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT {rt}\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-1 1\n\t\t-1 1\n\t\t-1 1\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n"
+        # data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT {rt}\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-1 1\n\t\t-1 1\n\t\t-1 1\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n"
+        data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n"
         data = data[:init_idx] + data_to_insert + data[end_idx:]
         new_model_path = compute_new_model_path(model_path, model_prefix=model_prefix)
         with open(new_model_path, "w") as file:
@@ -150,41 +165,54 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
         q = q[6:, :]
         msk_function.model = biorbd.Model(new_model_path)
         msk_function.clean_all_buffers()
-        msk_function.kalman = None
+        # msk_function.kalman = None
+    # else:
+    #     q = msk_function.kin_buffer[0].copy()
+    # if "P11" in model_path:
+    #     q[-1, :] = 0.7
+    # if "P16" in model_path:
+    #     q[5, :] = -0.1
+    #     q[7, :] = 0.1
+    #     q = msk_function.kin_buffer[0].copy()
+    #     msk_function.clean_all_buffers()
     else:
         q = msk_function.kin_buffer[0].copy()
+        # if "P9" in model_path:
+        #     q[4, :] = 0.1
     if "P11" in model_path:
         q[-1, :] = 0.7
     if "P16" in model_path:
         q[5, :] = -0.1
         q[7, :] = 0.1
     noise_factor = 1e-5 if "depth" in model_path else 1e-5
-    error_factor = 1e-3 if "depth" in model_path else 1e-3
-    initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]]
+    error_factor = 1e-7 if "depth" in model_path else 1e-7
+    initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]] if q is not None else None
     msk_function.compute_inverse_kinematics(markers,
                                             method=InverseKinematicsMethods.BiorbdKalman,
                                             kalman_freq=kalman_freq,
                                             initial_guess=initial_guess,
                                             # noise_factor=1e-3,
                                             # error_factor=1e-7,
-                                            noise_factor=noise_factor,
-                                            error_factor=error_factor,
+                                            #noise_factor=noise_factor,
+                                            #error_factor=error_factor,
                                             )
     q = msk_function.kin_buffer[0].copy()
     time_ik = time.time() - tic_init
     times["ik"] = time_ik
     dic_to_save["q"] = q[:, -1:]
     dic_to_save["q_dot"] = msk_function.kin_buffer[1][:, -1:]
-    return times, dic_to_save
+    return times, dic_to_save, msk_function
 
 
 def compute_new_model_path(model_path, model_prefix=""):
     parent = str(Path(model_path).parent)
-    new_model_path = parent + "/output_models/" + model_prefix + "_" + Path(model_path).stem + ".bioMod"
+    new_model_path = parent + "/output_models/" + model_prefix + "_" + Path(model_path).stem + "_test.bioMod"
     if not os.path.isdir(parent + "/output_models"):
         os.mkdir(parent + "/output_models")
     if not os.path.isdir(parent + "/output_models/" + "Geometry"):
         shutil.copytree(str(Path(model_path).parent) + "/Geometry", parent + "/output_models/" + "Geometry")
+    if not os.path.isdir(parent + "/output_models/" + "Geometry_left"):
+        shutil.copytree(str(Path(model_path).parent) + "/Geometry_left", parent + "/output_models/" + "Geometry_left")
     return new_model_path
 
 

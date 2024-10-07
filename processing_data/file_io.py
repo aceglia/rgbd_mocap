@@ -11,7 +11,8 @@ from processing_data.data_processing_helper import (
     check_frames,
     fill_and_interpolate,
     convert_cluster_to_anato,
-    adjust_idx
+    adjust_idx,
+    process_cycles
 )
 import json
 
@@ -20,8 +21,8 @@ prefix = "/mnt/shared" if os.name == "posix" else "Q:"
 
 def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     markers_dic = {} if markers_dic is None else markers_dic
-    data = load(f"{data_path}/{part}/{file}_processed_3_crops_rt.bio")
-    rt = data["rt_matrix"]
+    data = load(f"{data_path}/{part}/{file}_processed_3_crops.bio")
+    rt = None if "rt_matrix" not in data.keys() else data["rt_matrix"]
     markers_depth = data["markers_depth_interpolated"]
     markers_vicon = data["truncated_markers_vicon"]
     names_from_source = [data["depth_markers_names"], data["vicon_markers_names"]]
@@ -64,7 +65,7 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
         name="hand_pedal",
         load=np.zeros((6, 1)),
     )
-    if part in ["P10", "P11", "P12", "P13", "P14"]:
+    if part in ["P10", "P12", "P13", "P14"]:
         f_ext = np.array([sensix_data["LMY"],
                           sensix_data["LMX"],
                           sensix_data["LMZ"],
@@ -203,7 +204,7 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
             print(f"Processing participant {participant}, trial : {trial_name}")
             markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
                 prefix + "/Projet_hand_bike_markerless/process_data", participant, f"{trial_name}",
-                live_filter[source_list.index("depth")].value == 0, markers_dic
+                live_filter[source_list.index("depth")].value == 4, markers_dic
             )
             markers_dic = {key: markers_dic[key] for key in source_list if "dlc" not in key}
             once_loaded = True
@@ -220,25 +221,62 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
         if key in source_to_keep and key in existing_keys:
             count += 1
             continue
-        if "dlc" not in key:
+        if "dlc" not in key and is_dlc:
             markers_dic[key][1] = adjust_idx({"mark": markers_dic[key][1]}, idx_start, idx_end)[
                 "mark"]
         if live_filter[source_list.index(key)].value != 0:
             count += 1
             continue
-        if "dlc" in key and not live_filter[source_list.index(key)].value == 0:
+        if "dlc" in key and live_filter[source_list.index(key)].value == 4:
             markers_dic[key] = filter_dlc_data(markers_dic[key], dlc_frames_idx, participant,
                                           markers_dic["depth"][1].shape[-1], rt
 
                                                )
-        model_path = f"{model_dir}/{participant}/model_scaled_{model_source[count]}_new_seth.bioMod"
-        model_markers_names = [mark.to_string() for mark in biorbd.Model(model_path).markerNames()]
-        markers_dic[key][1], _ = reorder_markers_from_names(markers_dic[key][1][:, :-3, :],
-                                                                              model_markers_names,
-                                                                              markers_dic[key][0][:-3])
-        markers_dic[key][0] = model_markers_names
+        # model_path = f"{model_dir}/{participant}/model_scaled_{model_source[count]}_new_seth.bioMod"
+        # model_markers_names = [mark.to_string() for mark in biorbd.Model(model_path).markerNames()]
+        # markers_dic[key][1], _ = reorder_markers_from_names(markers_dic[key][1][:, :-3, :],
+        #                                                                       model_markers_names,
+        #                                                                       markers_dic[key][0][:-3])
+        # markers_dic[key][0] = model_markers_names
         count += 1
     return markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frames_idx
+
+
+def load_results(participants, processed_data_path, trials=None, file_name="", to_exclude=(), recompute_cycles=True,
+                 trials_to_exclude=()):
+    if trials is None:
+        trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    all_data = {}
+    for p, part in enumerate(participants):
+        all_data[part] = {}
+        all_files = os.listdir(f"{processed_data_path}/{part}")
+        all_files = [file for file in all_files if "gear" in file
+                     # and "result_offline" in file
+                     and file_name in file
+                     and "ik" not in file
+                     # and "3_crops" in file and "3_crops_3_crops" not in file
+                     ]
+        for exc in to_exclude:
+            all_files = [file for file in all_files if exc not in file]
+        trials_tmp = []
+
+        for file in all_files:
+            for trial in trials[p]:
+                pass_trial = False
+                for trial_to_excl in trials_to_exclude:
+                    if part in trial_to_excl[0] and trial_to_excl[1] in trial:
+                        pass_trial = True
+                        continue
+                if trial not in file or pass_trial:
+                    continue
+                print(f"Processing participant {part}, trial : {file}")
+                all_data[part][file] = load(f"{processed_data_path}/{part}/{file}")
+                if recompute_cycles:
+                    peaks = find_peaks(all_data[part][file]["minimal_vicon"]["markers"][2, -4, :])[0]
+                    all_data[part][file] = process_cycles(all_data[part][file], peaks)
+                trials_tmp.append(trial)
+        trials[p] = trials_tmp
+    return all_data, trials
 
 
 if __name__ == '__main__':

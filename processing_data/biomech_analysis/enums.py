@@ -8,3 +8,4 @@ class FilteringMethod(enum.Enum):
     NONE = 0
     Kalman = 1
     MovingAverage = 3
+    OffLine = 4

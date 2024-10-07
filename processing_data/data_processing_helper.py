@@ -4,10 +4,154 @@ import pandas as pd
 from scipy.interpolate import interp1d
 from biosiglive import OfflineProcessing
 from processing_data.scapula_cluster.from_cluster_to_anato import ScapulaCluster
+import matplotlib.pyplot as plt
+import scipy.stats as st
+import seaborn as sns
 import os
 
 def convert_string(string):
     return string.lower().replace("_", "")
+
+
+def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None,
+                          markers=None, ax=None, threeshold=np.inf, no_y_label=False):
+    def _remove_nan(data1, data2):
+        mean = data1
+        diff = data2
+        nan_index = np.argwhere(np.isnan(mean))
+        mean = np.delete(mean, nan_index, axis=0)
+        diff = np.delete(diff, nan_index, axis=0)
+        return mean, diff
+    # mean = (data1 + data2) / 2
+    # diff = data1 - data2
+    mean_to_plot = data1
+    diff_to_plot = data2
+    mean, diff = _remove_nan(data1, data2)
+    # Average difference (aka the bias)
+    bias = np.mean(diff)
+    # Sample standard deviation
+    s = np.std(diff, ddof=1)  # Use ddof=1 to get the sample standard deviation
+    print(f'For the differences, μ = {bias:.4f} {units} and s = {s:.4f} {units} ')
+
+    # Limits of agreement (LOAs)
+    upper_loa = bias + 1.96 * s
+    lower_loa = bias - 1.96 * s
+    print(f'The limits of agreement are {upper_loa:.2f} {units} and {lower_loa:.2f} {units} ')
+
+    # Confidence level
+    C = 0.95  # 95%
+    # Significance level, α
+    alpha = 1 - C
+    # Number of tails
+    tails = 2
+    # Quantile (the cumulative probability)
+    q = 1 - (alpha / tails)
+    # Critical z-score, calculated using the percent-point function (aka the
+    # quantile function) of the normal distribution
+    z_star = st.norm.ppf(q)
+    print(f'95% of normally distributed data lies within {z_star}σ of the mean')
+    # Limits of agreement (LOAs)
+    loas = (bias - z_star * s, bias + z_star * s)
+
+    print(f'The limits of agreement are {loas} {units} ')
+    # Limits of agreement (LOAs)
+    loas = st.norm.interval(C, bias, s)
+    print(np.round(loas, 2))
+    # Sample size
+    n = data1.shape[0]
+    # Degrees of freedom
+    dof = n - 1
+    # Standard error of the bias
+    se_bias = s / np.sqrt(n)
+    # Standard error of the LOAs
+    se_loas = np.sqrt(3 * s ** 2 / n)
+
+    # Confidence interval for the bias
+    ci_bias = st.t.interval(C, dof, bias, se_bias)
+    # Confidence interval for the lower LOA
+    ci_lower_loa = st.t.interval(C, dof, loas[0], se_loas)
+    # Confidence interval for the upper LOA
+    ci_upper_loa = st.t.interval(C, dof, loas[1], se_loas)
+
+    print(
+        f' Lower LOA = {np.round(lower_loa, 2)}, 95% CI {np.round(ci_lower_loa, 2)}\n',
+        f'Bias = {np.round(bias, 2)}, 95% CI {np.round(ci_bias, 2)}\n',
+        f'Upper LOA = {np.round(upper_loa, 2)}, 95% CI {np.round(ci_upper_loa, 2)}'
+    )
+    if ax is None:
+        plt.figure(title)
+    ax = plt.axes() if ax is None else ax
+    markers = markers if markers is not None else 'o'
+    if color is not None:
+        for i in range(len(color)):
+            mean_tmp = mean_to_plot[i * len(color[i]):(i + 1) * len(color[i])]
+            diff_tmp = diff_to_plot[i * len(color[i]):(i + 1) * len(color[i])]
+            for j in range(len(mean_tmp)):
+                if np.abs(diff_tmp[j]) > threeshold:
+                    continue
+                ax.scatter(mean_tmp[j], diff_tmp[j], c=color[i][j], s=100, alpha=0.6, marker=markers)
+
+    # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
+    # Plot the zero line
+    ax.axhline(y=0, c='k', lw=0.5)
+    # Plot the bias and the limits of agreement
+    ax.axhline(y=loas[1], c='grey', ls='--')
+    ax.axhline(y=bias, c='grey', ls='--')
+    ax.axhline(y=loas[0], c='grey', ls='--')
+
+    # Labels
+    font = 18
+    ax.set_title(title, fontsize=font + 2)
+    # ax.set_ylabel(f'Difference ({units} )', fontsize=font)
+    if x_axis is not None:
+        ax.set_xlabel(x_axis, fontsize=font)
+    else:
+        ax.set_xlabel(f'Mean ({units})', fontsize=font)
+    ax.tick_params(axis='y', labelsize=font)
+    ax.tick_params(axis='x', labelsize=font)
+    if not no_y_label:
+        ax.set_ylabel(f'Difference ({units})', fontsize=font)
+    else:
+        ax.set_ylabel("", fontsize=font)
+    # ax.xticks(fontsize=font)
+    # ax.yticks(fontsize=font)
+    # Get axis limits
+    left, right = ax.get_xlim()
+    bottom, top = ax.get_ylim()
+    # Set y-axis limits
+    # max_y = max(abs(bottom), abs(top))
+    max_y = top
+    min_y = abs(bottom)
+
+    ax.set_ylim(-min_y, max_y)
+    # Set x-axis limits
+    domain = right - left
+    ax.set_xlim(left, left + domain)
+    # Annotations
+    ax.annotate('+LOA', (right, upper_loa), (0, 7), textcoords='offset pixels', fontsize=font)
+    ax.annotate(f'{upper_loa:+4.2f}', (right, upper_loa), (0, -25), textcoords='offset pixels', fontsize=font)
+    ax.annotate('Bias', (right, bias), (0, 7), textcoords='offset pixels', fontsize=font)
+    ax.annotate(f'{bias:+4.2f}', (right, bias), (0, -25), textcoords='offset pixels', fontsize=font)
+    ax.annotate('-LOA', (right, lower_loa), (0, 7), textcoords='offset pixels', fontsize=font)
+    ax.annotate(f'{lower_loa:+4.2f}', (right, lower_loa), (0, -25), textcoords='offset pixels', fontsize=font)
+
+    # Confidence intervals
+    ax.plot([left] * 2, list(ci_upper_loa), c='grey', ls='--', alpha=0.5)
+    ax.plot([left] * 2, list(ci_bias), c='grey', ls='--', alpha=0.5)
+    ax.plot([left] * 2, list(ci_lower_loa), c='grey', ls='--', alpha=0.5)
+    # Confidence intervals' caps
+    x_range = [left - domain * 0.025, left + domain * 0.025]
+    ax.plot(x_range, [ci_upper_loa[1]] * 2, c='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_upper_loa[0]] * 2, c='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_bias[1]] * 2, c='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_bias[0]] * 2, c='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_lower_loa[1]] * 2, c='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_lower_loa[0]] * 2, c='grey', ls='--', alpha=0.5)
+
+    if show:
+        plt.show()
+
+    return bias, lower_loa, upper_loa
 
 def process_cycles(all_results, peaks, n_peaks=None, interpolation_size=120, key_to_get_size="q"):
     for key in all_results.keys():

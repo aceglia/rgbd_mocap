@@ -267,7 +267,7 @@ def load_all_data(participants, processed_data_path, trials=None):
         all_data[part] = {}
         all_files = os.listdir(f"{processed_data_path}/{part}")
         all_files = [file for file in all_files if
-                     "gear" in file and "result_biomech" not in file and "processed" in file
+                     "gear" in file and "result_biomech" not in file and "processed" in file and "rt" in file
                      and "3_crops" in file]
         trials_tmp = []
         for file in all_files:

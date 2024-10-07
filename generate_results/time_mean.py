@@ -8,6 +8,7 @@ if __name__ == '__main__':
     #trials[-1] = ["gear_10"]
     all_data, _ = load_results(participants,
                             "/mnt/shared/Projet_hand_bike_markerless/process_data",
+                               file_name="kalman_proc", recompute_cycles=False
                             )
     init_data, _ = load_all_data(participants,
                               "/mnt/shared/Projet_hand_bike_markerless/process_data",
