@@ -340,9 +340,12 @@ class BiomechPipeline:
             init_ik = True if self.frame_count == self.moving_window else False
             if self.key =="vicon":
                 pass
+            initial_guess = None
+            if self.key == "minimal_vicon":
+                initial_guess = self.results_dict["depth"]["q"][:, self.current_frame]
             times, dic_to_save, self.msk_function = run_ik(self.msk_function,
                                              markers, times=times, dic_to_save=dic_to_save, init_ik=init_ik,
-                                        kalman_freq=self.markers_rate, model_prefix=self.trial_name)
+                                        kalman_freq=self.markers_rate, model_prefix=self.trial_name, initial_guess=initial_guess)
             if self.compute_id:
                 if not self.compute_ik:
                     raise ValueError("Inverse kinematics must be computed to compute inverse dynamics")

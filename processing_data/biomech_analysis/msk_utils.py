@@ -112,7 +112,7 @@ def _compute_new_bounds(data):
             count += 1
     return data_tmp
 
-def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None, file_path=None, init_ik=False, model_prefix=""):
+def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None, file_path=None, init_ik=False, model_prefix="", initial_guess=None):
     tic_init = time.time()
     model_path = msk_function.model.path().absolutePath().to_string()
     markers = markers[..., None] if markers.ndim == 2 else markers
@@ -175,8 +175,10 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
     #     q[7, :] = 0.1
     #     q = msk_function.kin_buffer[0].copy()
     #     msk_function.clean_all_buffers()
+        q = q[:, -1] if initial_guess is None else initial_guess
     else:
         q = msk_function.kin_buffer[0].copy()
+        q = q[:, -1]
         # if "P9" in model_path:
         #     q[4, :] = 0.1
     if "P11" in model_path:
@@ -184,9 +186,10 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
     if "P16" in model_path:
         q[5, :] = -0.1
         q[7, :] = 0.1
-    noise_factor = 1e-10#if "depth" in model_path else 1e-5
-    error_factor = 1e-5 #if "depth" in model_path else 1e-6
-    initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]] if q is not None else None
+    noise_factor = 1e-8 #if "depth" in model_path else 1e-5
+    error_factor = 1e-3 #if "depth" in model_path else 1e-6
+    initial_guess = [q, np.zeros_like(q), np.zeros_like(q)] if q is not None else None
+    # initial_guess = initial_guess_tmp if initial_guess is None else initial_guess
     msk_function.compute_inverse_kinematics(markers,
                                             method=InverseKinematicsMethods.BiorbdKalman,
                                             kalman_freq=kalman_freq,

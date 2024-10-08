@@ -52,7 +52,7 @@ def main(model_dir, participants, processed_data_path, source, save_data=True, s
     markers_rate = 120
     for part, file in zip(mapped_part, all_files):
         trial_short = file.split(os.sep)[-1].split('_')[0] + "_" + file.split(os.sep)[-1].split('_')[1]
-        output_file = prefix + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_ma_proc.bio"
+        output_file = prefix + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_ekf_alone.bio"
         markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frame_idx = get_data_from_sources(
             part, trial_short, source, model_dir, model_source,
             live_filter_method, source_to_keep,
@@ -97,13 +97,13 @@ if __name__ == '__main__':
     source = ["depth",  "vicon", "minimal_vicon",
         # , "dlc_0_8", "dlc_0_9", "dlc_1"
               ]
-    model_source = ["depth", "vicon" , "depth"
+    model_source = ["depth", "vicon" , "minimal_vicon"
         # , "dlc_ribs", "dlc_ribs", "dlc_ribs"
                     ]
-    filter_method = [FilteringMethod.MovingAverage, FilteringMethod.MovingAverage, FilteringMethod.MovingAverage, FilteringMethod.Kalman,
+    filter_method = [FilteringMethod.NONE, FilteringMethod.NONE, FilteringMethod.NONE, FilteringMethod.Kalman,
                      FilteringMethod.Kalman, FilteringMethod.Kalman]
     model_dir = prefix + "/Projet_hand_bike_markerless/RGBD"
     processed_data_path = prefix + "/Projet_hand_bike_markerless/RGBD"
     main(model_dir, participants, processed_data_path, save_data=True, stop_frame=5000,
-        plot=False, source=source, model_source=model_source, live_filter_method=filter_method,
+        plot=True, source=source, model_source=model_source, live_filter_method=filter_method,
          interpolate_dlc=True)
