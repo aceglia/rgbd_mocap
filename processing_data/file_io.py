@@ -254,6 +254,7 @@ def load_results(participants, processed_data_path, trials=None, file_name="", t
                      # and "result_offline" in file
                      and file_name in file
                      and "ik" not in file
+                     and "rt" not in file
                      # and "3_crops" in file and "3_crops_3_crops" not in file
                      ]
         for exc in to_exclude:

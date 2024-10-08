@@ -15,15 +15,15 @@ def init_kalman_filter_parameters(biomech_pipeline, source):
         measurement_noise[11:14] = [1] * 3
         proc_noise[11:14] = [1] * 3
     if "minimal_vicon" in source or "depth" in source:
-        measurement_noise = [5] * 16
-        proc_noise = [1e-2] * 16
-        measurement_noise[7:] = [1] * 11
-        proc_noise[7:] = [1] * 11
+        measurement_noise = [2] * 20
+        proc_noise = [1e-1] * 20
+        measurement_noise[7:] = [2] * len(measurement_noise[7:])
+        proc_noise[7:] = [1] * len(measurement_noise[7:])
     if "vicon" in source:
         measurement_noise = [5] * 20
-        proc_noise = [1e-2]  * 20
-        measurement_noise[7:] = [1] * 13
-        proc_noise[7:] = [1] * 13
+        proc_noise = [1e-1]  * 20
+        measurement_noise[7:] = [1] * len(measurement_noise[7:])
+        proc_noise[7:] = [1] * len(measurement_noise[7:])
     biomech_pipeline.set_variable("measurement_noise", measurement_noise)
     biomech_pipeline.set_variable("proc_noise", proc_noise)
     return measurement_noise, proc_noise
@@ -97,13 +97,13 @@ if __name__ == '__main__':
     source = ["depth",  "vicon", "minimal_vicon",
         # , "dlc_0_8", "dlc_0_9", "dlc_1"
               ]
-    model_source = ["depth", "vicon" , "minimal_vicon"
+    model_source = ["depth", "vicon" , "depth"
         # , "dlc_ribs", "dlc_ribs", "dlc_ribs"
                     ]
     filter_method = [FilteringMethod.MovingAverage, FilteringMethod.MovingAverage, FilteringMethod.MovingAverage, FilteringMethod.Kalman,
                      FilteringMethod.Kalman, FilteringMethod.Kalman]
     model_dir = prefix + "/Projet_hand_bike_markerless/RGBD"
     processed_data_path = prefix + "/Projet_hand_bike_markerless/RGBD"
-    main(model_dir, participants, processed_data_path, save_data=True, stop_frame=None,
-        plot=True, source=source, model_source=model_source, live_filter_method=filter_method,
+    main(model_dir, participants, processed_data_path, save_data=True, stop_frame=5000,
+        plot=False, source=source, model_source=model_source, live_filter_method=filter_method,
          interpolate_dlc=True)

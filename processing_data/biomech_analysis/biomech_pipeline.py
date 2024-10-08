@@ -130,11 +130,11 @@ class BiomechPipeline:
         self.kalman_instance = [None] * self.n_markers if self.kalman_instance is None else self.kalman_instance
         for k in range(self.n_markers):
             if self.kalman_instance[k] is None and markers_data is not None:
-                measurement_noise_factor = self.kalman_params[:int(markers_data.shape[1])][k]
-                process_noise_factor = self.kalman_params[int(markers_data.shape[1]):int(markers_data.shape[1] * 2)][k]
+                # measurement_noise_factor = self.kalman_params[:int(markers_data.shape[1])][k]
+                # process_noise_factor = self.kalman_params[int(markers_data.shape[1]):int(markers_data.shape[1] * 2)][k]
                 self.kalman_instance[k] = Kalman(markers_data[:, k, 0], n_measures=3, n_diff=2, fps=self.markers_rate,
-                                            measurement_noise_factor=measurement_noise_factor,
-                                            process_noise_factor=process_noise_factor,
+                                            measurement_noise_factor=self.measurement_noise[k],
+                                            process_noise_factor=self.proc_noise[k],
                                             error_cov_post_factor=0,
                                             error_cov_pre_factor=0
                                             )
@@ -154,13 +154,13 @@ class BiomechPipeline:
                 (next_frame[:, :self.idx_cluster + 1, :], anato_from_cluster[:3, ...],
                  next_frame[:, self.idx_cluster + 1:, :]),
                 axis=1)
-        return next_frame[..., 0]
+        return next_frame[..., :]
 
     def set_variable(self, variable, value):
         setattr(self, variable, value)
 
-    def _filter_markers(self, markers):
-        self.processed_markers = np.zeros_like(markers)
+    def _filter_markers(self, markers, compute_from_cluster=True, **kwargs):
+        self.processed_markers = markers.copy()
             # if self.processed_markers is None else self.processed_markers
         # if self.processed_markers.shape != markers.shape:
         #     self.processed_markers = np.zeros_like(markers)
@@ -172,7 +172,17 @@ class BiomechPipeline:
                                                                                         moving_average=True,
                                                                                            moving_average_window=self.moving_window,
                                                                                            )[:, -1:]
-        return self.processed_markers
+        markers_tmp = self.processed_markers
+        if compute_from_cluster:
+            if self.current_frame <= self.moving_window:
+                markers_tmp = markers.copy()
+            anato_from_cluster = convert_cluster_to_anato(markers_tmp[:, -3:, :],
+                                                          scapula_cluster=self.scapula_cluster)
+            markers_tmp = np.concatenate(
+                (markers_tmp[:, :self.idx_cluster + 1, :], anato_from_cluster[:3, ...],
+                 markers_tmp[:, self.idx_cluster + 1:, :]),
+                axis=1)
+        return markers_tmp
 
     def get_filter_function(self, **kwargs):
         if self.live_filter_method == FilteringMethod.NONE:
@@ -184,16 +194,17 @@ class BiomechPipeline:
             self.rt_processing_list = [RealTimeProcessing(120, self.moving_window),
                                RealTimeProcessing(120, self.moving_window),
                                RealTimeProcessing(120, self.moving_window)]
-            return lambda x: self._filter_markers(x)
+            return self._filter_markers
 
         elif self.live_filter_method == FilteringMethod.Kalman:
             self.moving_window = 0
             self.kalman_params = self.measurement_noise + self.proc_noise
-            return lambda x: self._get_next_frame_from_kalman(x, **kwargs)
+            # return lambda x: self._get_next_frame_from_kalman(x, **kwargs)
+            return self._get_next_frame_from_kalman
         else:
             raise ValueError("Invalid filtering method")
 
-    def get_filtered_markers(self, markers, live_filter_method, compute_from_cluster=True):
+    def get_filtered_markers(self, markers, live_filter_method, compute_from_cluster=True, **kwargs):
         if live_filter_method == FilteringMethod.NONE:
             markers_tmp = markers[..., self.frame_count:self.frame_count + 1]
             if self.reordered_idx is not None and self.frame_count != 0:
@@ -210,19 +221,21 @@ class BiomechPipeline:
                 # self.marker_names = self.marker_names[:self.idx_cluster + 1] + ["scapaa", "scapts", "scapia"] + self.marker_names[self.idx_cluster + 4:]
             markers_tmp = markers[..., self.frame_count:self.frame_count + 1]
             if compute_from_cluster:
-                if self.frame_count == self.moving_window:
+                if self.frame_count == 0:
                     self.idx_cluster = self.marker_names.index("clavac")
                 markers_tmp = np.delete(markers_tmp, [self.idx_cluster + 1, self.idx_cluster + 2, self.idx_cluster + 3], axis=1)
+
+            markers_tmp = self.filter_function(markers_tmp[...], compute_from_cluster=compute_from_cluster,
+                                               **kwargs)
             if self.reordered_idx is not None and self.frame_count != 0:
-                markers_tmp = markers_tmp[:, self.reordered_idx, None]
+                markers_tmp = markers_tmp[:, self.reordered_idx, :]
             else:
                 model_names = [self.msk_function.model.markerNames()[i].to_string() for i in
                                range(self.msk_function.model.nbMarkers())]
-
-                markers_tmp, self.reordered_idx = reorder_markers_from_names(markers_tmp[:, :-3, None], model_names,
+                markers_tmp, self.reordered_idx = reorder_markers_from_names(markers_tmp[:, :-3, :], model_names,
                                                          self.marker_names[:-3])
                 self.marker_names = model_names
-            markers_tmp = self.filter_function(markers_tmp[..., 0])
+
 
             return markers_tmp[...]
 
@@ -238,7 +251,7 @@ class BiomechPipeline:
                     self.idx_cluster = self.marker_names.index("clavac")
                 self.marker_names = self.marker_names[:self.idx_cluster + 1] + ["scapaa", "scapia", "scapts"] + self.marker_names[self.idx_cluster + 1:]
 
-            markers_tmp = self.filter_function(markers_tmp)
+            markers_tmp = self.filter_function(markers_tmp, **kwargs)
             if self.reordered_idx is not None and self.frame_count != 0:
                 markers_tmp = markers_tmp[:, self.reordered_idx, None]
             else:
@@ -267,7 +280,7 @@ class BiomechPipeline:
         self.live_filter_method = live_filter_method
         self.marker_names = marker_names
         final_dic = {}
-        compute_from_cluster = True if "dlc" in self.key else False
+        compute_from_cluster = False #if "dlc" in self.key else False
         self.filter_function = self.get_filter_function(rotate="dlc" in self.key, forward=0,
                                                         compute_from_cluster=compute_from_cluster) #"dlc" in self.key)
         self.emg_track_idx = get_tracking_idx(self.msk_function.model, self.emg_names)
@@ -277,7 +290,8 @@ class BiomechPipeline:
             tic = time.time()
             markers_tmp = self.get_filtered_markers(markers,
                                                     live_filter_method,
-                                                    compute_from_cluster=compute_from_cluster
+                                                    rotate="dlc" in self.key, forward=0,
+                                                    compute_from_cluster=compute_from_cluster,
                                                     )
             if not self.frame_count >= self.moving_window:
                 print("Waiting for enough frames to compute inverse kinematics. Still needs: ",

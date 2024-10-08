@@ -62,7 +62,7 @@ def get_end_frame(part, file):
 
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11", "P12", "P13", "P14"]
+    participants = ["P9", "P10", "P11",]# "P12", "P13", "P14"]
     # trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     # trials[-1] = ["gear_10"]
     colors = plt.cm.tab10(np.linspace(0, 1, len(participants)))
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     # plt.show()
     all_data, trials = load_results(participants,
                                     "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                                    file_name="ma_proc", recompute_cycles=False)
+                                    file_name="test_old", recompute_cycles=False)
 
     keys = ["q", "q_dot", "q_ddot", "tau"]
     factors = [180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 100, 1]
@@ -126,18 +126,18 @@ if __name__ == '__main__':
                     nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
                     sum_minimal = np.delete(sum_minimal, nan_idx, axis=1)
                     dif_minimal = np.delete(dif_minimal, nan_idx, axis=1)
-                    #if key == "q":
-                    #    for m in range(dif_minimal.shape[0]):
-                    #        dif_minimal_tmp = dif_minimal[m, :] * factors[k]
-                    #        dif_minimal_tmp_clipped = dif_minimal_tmp[np.abs(dif_minimal_tmp) < 40]
-                    #        sum_minimal_tmp = sum_minimal[m, :] * factors[k]
-                    #        sum_minimal_tmp_clipped = sum_minimal_tmp[np.abs(dif_minimal_tmp) < 40]
-                    #        print(part, file, sum_minimal_tmp_clipped.shape, dif_minimal_tmp_clipped.shape)
-                    #        means[j, m, f] = np.mean(sum_minimal_tmp_clipped)
-                    #        diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
-                    #else:
-                    means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
-                    diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
+                    if key == "q":
+                       for m in range(dif_minimal.shape[0]):
+                           dif_minimal_tmp = dif_minimal[m, :] * factors[k]
+                           dif_minimal_tmp_clipped = dif_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
+                           sum_minimal_tmp = sum_minimal[m, :] * factors[k]
+                           sum_minimal_tmp_clipped = sum_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
+                           print(part, file, sum_minimal_tmp_clipped.shape, dif_minimal_tmp_clipped.shape)
+                           means[j, m, f] = np.mean(sum_minimal_tmp_clipped)
+                           diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
+                    else:
+                        means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
+                        diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
 
             for j in range(n_comparison):
                 means_file[j, n_key * p: n_key * (p + 1)] = np.mean(means[j, :, :], axis=1)

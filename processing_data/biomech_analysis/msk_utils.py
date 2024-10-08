@@ -184,8 +184,8 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
     if "P16" in model_path:
         q[5, :] = -0.1
         q[7, :] = 0.1
-    noise_factor = 1e-5 if "depth" in model_path else 1e-5
-    error_factor = 1e-7 if "depth" in model_path else 1e-7
+    noise_factor = 1e-10#if "depth" in model_path else 1e-5
+    error_factor = 1e-5 #if "depth" in model_path else 1e-6
     initial_guess = [q[:, -1], np.zeros_like(q)[:, 0], np.zeros_like(q)[:, 0]] if q is not None else None
     msk_function.compute_inverse_kinematics(markers,
                                             method=InverseKinematicsMethods.BiorbdKalman,
@@ -193,8 +193,8 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
                                             initial_guess=initial_guess,
                                             # noise_factor=1e-3,
                                             # error_factor=1e-7,
-                                            #noise_factor=noise_factor,
-                                            #error_factor=error_factor,
+                                            noise_factor=noise_factor,
+                                            error_factor=error_factor,
                                             )
     q = msk_function.kin_buffer[0].copy()
     time_ik = time.time() - tic_init
