@@ -104,7 +104,7 @@ def _comment_markers(data):
 
 def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, dic_to_save=None, file_path=None):
     tic_init = time.time()
-    if frame_idx == 0:
+    if frame_idx == 14:
         # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
         #                                                    InverseKinematicsMethods.BiorbdLeastSquare, )
         # import bioviz
@@ -195,7 +195,9 @@ def _compute_ik(msk_function, markers, frame_idx, kalman_freq=60, times=None, di
     msk_function.compute_inverse_kinematics(markers[:, :, np.newaxis],
                                             method=InverseKinematicsMethods.BiorbdKalman,
                                             kalman_freq=kalman_freq,
-                                            initial_guess=initial_guess, noise_factor=1e-5,  error_factor=1e-5)
+                                            initial_guess=initial_guess
+                                            #, noise_factor=1e-5,  error_factor=1e-5
+                                            )
     q = msk_function.kin_buffer[0].copy()
     time_ik = time.time() - tic_init
     times["ik"] = time_ik
