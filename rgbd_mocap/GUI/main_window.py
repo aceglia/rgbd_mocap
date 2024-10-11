@@ -1,21 +1,13 @@
-import csv
 import json
-import os
-import re
 import sys
-
-import cv2
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-from Marker_Setter.marker_setter_tab import MarkerSetter
-from video_crop_widget import CropWidget
-from video_crop_window import CropWindow
-from Utils.video_player import VideoControl
-from Video_cropping.crop_video_tab import CropVideoTab
-from Video_cropping.crop_video import VideoCropper
-from Utils.popup import WarningPopUp, ErrorPopUp, MessagePopUp
-from Utils.file_dialog import SaveDialog, LoadDialog, LoadFolderDialog
+from .Marker_Setter.marker_setter_tab import MarkerSetter
+from .video_crop_widget import CropWidget
+from .video_crop_window import CropWindow
+from .Utils.popup import WarningPopUp, ErrorPopUp, MessagePopUp
+from .Utils.file_dialog import SaveDialog, LoadDialog
 
 
 class MainWindowMenuBar(QMenuBar):

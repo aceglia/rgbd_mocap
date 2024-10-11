@@ -90,7 +90,10 @@ def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exc
         trial_names = [trial_names for _ in participants]
     for part in participants:
         all_files = os.listdir(f"{data_dir}{os.sep}{part}")
-        all_files = [file for file in all_files if any(ext in file for ext in to_include) and not any(ext in file for ext in to_exclude)]
+        if len(to_include) != 0:
+            all_files = [file for file in all_files if any(ext in file for ext in to_include)]
+        if len(to_exclude) != 0:
+            all_files = [file for file in all_files if not any(ext in file for ext in to_exclude)]
         all_files = [f"{data_dir}{os.sep}{part}{os.sep}{file}" for file in all_files] # if "gear" in file and "less" not in file and "more" not in file and "result" not in file]
         final_files = all_files if not trial_names else []
         if trial_names:

@@ -1,23 +1,15 @@
-import csv
-import json
 import os
 import re
 import sys
-import time
 
 import cv2
-
-# import qtpy
-from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-# from Marker_Setter.model_setter_tab import MarkerSetter
-from Utils.video_player import VideoControl
-from Video_cropping.crop_video_tab import CropVideoTab
-from Video_cropping.crop_video import VideoCropper
-from Utils.popup import ErrorPopUp
-from Utils.warning_popup import WarningPopUp
-from Utils.file_dialog import SaveDialog, LoadDialog, LoadFolderDialog
+from .Utils.video_player import VideoControl
+from .Video_cropping.crop_video_tab import CropVideoTab
+from .Video_cropping.crop_video import VideoCropper
+from .Utils.popup import ErrorPopUp
+from .Utils.file_dialog import LoadDialog, LoadFolderDialog
 
 
 class CropWidget(QMainWindow):

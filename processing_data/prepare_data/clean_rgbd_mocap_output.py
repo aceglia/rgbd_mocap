@@ -77,14 +77,14 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
 
 
 if __name__ == '__main__':
-    file_name = f"marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_0_1_with_model.bio"
+    file_name = f"marker_pos_multi_proc_3_crops_normal_times_three_new.bio"
     # file_name = "marker_pos_multi_proc_3_crops_normal_filtered.bio"
     participants = [f"P{i}" for i in range(9, 17)]
     trials = ["gear_5", "gear_10", "gear_15", "gear_20"]
     data_files = f"{prefix}\Projet_hand_bike_markerless\RGBD"
-    files, parts = get_all_file(participants, data_files, trial_names=trials)
+    files, parts = get_all_file(participants, data_files, trial_names=trials, to_include="gear")
     for part, file in zip(parts, files):
-        path = f"{data_files}{os.sep}{part}{os.sep}{file}"
+        path = file
         path_to_camera_config_file = f"config_camera_files\config_camera_{part}.json"
         data_1_gap = None
         data_2_gap = None
@@ -120,13 +120,13 @@ if __name__ == '__main__':
         # #     final_end_idx = 5382
         # data = merge_files(data, data_1_gap, data_2_gap, final_end_idx=final_end_idx, participant=part, file=file)
         #
-        # markers = data["markers_in_meters"]
-        # x = data["frame_idx"]
-        # # plt.figure()
-        # # for j in range(markers.shape[1]):
-        # #     plt.subplot(4, 4, j + 1)
-        # #     for i in range(3):
-        # #         plt.plot(x, markers[i, j, :], "r")
-        # # plt.show()
+        markers = data["markers_in_meters"]
+        x = data["frame_idx"]
+        plt.figure()
+        for j in range(markers.shape[1]):
+            plt.subplot(4, 4, j + 1)
+            for i in range(3):
+                plt.plot(x, markers[i, j, :], "r")
+        plt.show()
         save(data, path + os.sep + file_name[:-4] + "_pp.bio", safe=False)
         print(f"file {file} processed")

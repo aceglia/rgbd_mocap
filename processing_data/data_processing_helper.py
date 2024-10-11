@@ -2,12 +2,9 @@ import numpy as np
 from casadi import interp1d
 import pandas as pd
 from scipy.interpolate import interp1d
-from biosiglive import OfflineProcessing
 from processing_data.scapula_cluster.from_cluster_to_anato import ScapulaCluster
 import matplotlib.pyplot as plt
 import scipy.stats as st
-import seaborn as sns
-import os
 
 def convert_string(string):
     return string.lower().replace("_", "")
