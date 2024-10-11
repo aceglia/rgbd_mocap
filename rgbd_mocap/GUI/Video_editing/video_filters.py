@@ -35,6 +35,7 @@ class VideoFilters:
             self.filter.clahe.setTilesGridSize(
                 (self.image_options["clahe_grid_size"], self.image_options["clahe_grid_size"])
             )
+            self.filter.use_threshold = self.image_options["use_threshold"]
 
     ##### Main functions ####################################
     def update(self):

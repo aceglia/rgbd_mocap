@@ -231,7 +231,7 @@ class Synchronizer:
                         2,
                         cv2.LINE_AA,
                     )
-                cv2.namedWindow("RealSense", cv2.WINDOW_AUTOSIZE)
+                cv2.namedWindow("RealSense", cv2.WINDOW_NORMAL)
                 cv2.imshow("RealSense", color_image)
                 if save_data:
                     tic_init = time.time()
@@ -346,7 +346,7 @@ class Synchronizer:
 
 
 if __name__ == "__main__":
-    sync = Synchronizer(from_rgbd=True, from_qualysis=False, use_trigger=True, with_motomed=False)
+    sync = Synchronizer(from_rgbd=True, from_qualysis=False, use_trigger=False, with_motomed=False)
     sync.fps = 60
     sync.file_name = "wheelchair"
     sync.participant = "P16"
