@@ -84,20 +84,23 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     markers = markers if markers is not None else 'o'
     if color is not None:
         for i in range(len(color)):
-            mean_tmp = mean_to_plot[i * len(color[i]):(i + 1) * len(color[i])]
-            diff_tmp = diff_to_plot[i * len(color[i]):(i + 1) * len(color[i])]
-            for j in range(len(mean_tmp)):
-                if np.abs(diff_tmp[j]) > threeshold:
-                    continue
-                ax.scatter(mean_tmp[j], diff_tmp[j], c=color[i][j], s=100, alpha=0.6, marker=markers)
+            mean_tmp = mean_to_plot[i * len(color[i]) * 4:(i + 1) * len(color[i])*4]
+            diff_tmp = diff_to_plot[i * len(color[i]) * 4:(i + 1) * len(color[i])*4]
+            ax.scatter(mean_tmp, diff_tmp, color=color[i][0], s=100, alpha=0.6, marker=markers)
+
+
+            #for j in range(len(mean_tmp)):
+            #    #if np.abs(diff_tmp[j]) > threeshold:
+            #    #    continue
+            #    ax.scatter(mean_tmp[j], diff_tmp[j], color=color[i][j], s=100, alpha=0.6, marker=markers)
 
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
-    ax.axhline(y=0, c='k', lw=0.5)
+    ax.axhline(y=0, color='k', lw=0.5)
     # Plot the bias and the limits of agreement
-    ax.axhline(y=loas[1], c='grey', ls='--')
-    ax.axhline(y=bias, c='grey', ls='--')
-    ax.axhline(y=loas[0], c='grey', ls='--')
+    ax.axhline(y=loas[1], color='grey', ls='--')
+    ax.axhline(y=bias, color='grey', ls='--')
+    ax.axhline(y=loas[0], color='grey', ls='--')
 
     # Labels
     font = 18
@@ -136,17 +139,17 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     ax.annotate(f'{lower_loa:+4.2f}', (right, lower_loa), (0, -25), textcoords='offset pixels', fontsize=font)
 
     # Confidence intervals
-    ax.plot([left] * 2, list(ci_upper_loa), c='grey', ls='--', alpha=0.5)
-    ax.plot([left] * 2, list(ci_bias), c='grey', ls='--', alpha=0.5)
-    ax.plot([left] * 2, list(ci_lower_loa), c='grey', ls='--', alpha=0.5)
+    ax.plot([left] * 2, list(ci_upper_loa), color='grey', ls='--', alpha=0.5)
+    ax.plot([left] * 2, list(ci_bias), color='grey', ls='--', alpha=0.5)
+    ax.plot([left] * 2, list(ci_lower_loa), color='grey', ls='--', alpha=0.5)
     # Confidence intervals' caps
     x_range = [left - domain * 0.025, left + domain * 0.025]
-    ax.plot(x_range, [ci_upper_loa[1]] * 2, c='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_upper_loa[0]] * 2, c='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_bias[1]] * 2, c='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_bias[0]] * 2, c='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_lower_loa[1]] * 2, c='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_lower_loa[0]] * 2, c='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_upper_loa[1]] * 2, color='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_upper_loa[0]] * 2, color='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_bias[1]] * 2, color='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_bias[0]] * 2, color='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_lower_loa[1]] * 2, color='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_lower_loa[0]] * 2, color='grey', ls='--', alpha=0.5)
 
     if show:
         plt.show()

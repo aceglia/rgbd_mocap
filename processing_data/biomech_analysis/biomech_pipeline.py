@@ -2,10 +2,7 @@ import os
 from math import ceil
 
 import numpy as np
-import biorbd
 import json
-
-from lxml.html.defs import frame_tags
 
 from processing_data.biomech_analysis.msk_utils import compute_cor, run_ik, run_so, run_jrf, run_id, get_map_activation_idx, get_tracking_idx
 from rgbd_mocap.tracking.kalman import Kalman
@@ -113,12 +110,15 @@ class BiomechPipeline:
         self.scapula_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
                                      measurements[4], measurements[5], calibration_matrix)
 
-    def _get_next_frame_from_kalman(self, markers_data=None, forward=0, rotate=False, compute_from_cluster=True):
+    def _get_next_frame_from_kalman(self, markers_data=None, forward=0, rotate=False, compute_from_cluster=True,
+                                    kalman_instance=None, return_kalman=False,
+                                    measurement_noise=None, proc_noise=None):
         if rotate and (self.rt_matrix is not None and markers_data is not None):
             markers_dlc_hom = np.ones((4, markers_data.shape[1], 1))
             markers_dlc_hom[:3, :, 0] = markers_data[..., 0]
             markers_data = np.dot(np.array(self.rt_matrix), markers_dlc_hom[:, :, 0])[:3, :, None]
         # next_frame = markers_data
+
         if self.n_markers is None:
             if self.kalman_instance is not None:
                 self.n_markers = len(self.kalman_instance)
@@ -126,25 +126,26 @@ class BiomechPipeline:
                 self.n_markers = markers_data.shape[1]
             else:
                 raise ValueError("Impossible to know how many markers there are.")
-        next_frame = np.zeros((3, self.n_markers, 1))
         self.kalman_instance = [None] * self.n_markers if self.kalman_instance is None else self.kalman_instance
-        for k in range(self.n_markers):
-            if self.kalman_instance[k] is None and markers_data is not None:
+        kalman_instance = kalman_instance if kalman_instance is not None else self.kalman_instance
+        next_frame = np.zeros((3, len(kalman_instance), 1))
+        for k in range(len(kalman_instance)):
+            if kalman_instance[k] is None and markers_data is not None:
                 # measurement_noise_factor = self.kalman_params[:int(markers_data.shape[1])][k]
                 # process_noise_factor = self.kalman_params[int(markers_data.shape[1]):int(markers_data.shape[1] * 2)][k]
-                self.kalman_instance[k] = Kalman(markers_data[:, k, 0], n_measures=3, n_diff=2, fps=self.markers_rate,
-                                            measurement_noise_factor=self.measurement_noise[k],
-                                            process_noise_factor=self.proc_noise[k],
+                kalman_instance[k] = Kalman(markers_data[:, k, 0], n_measures=3, n_diff=2, fps=self.markers_rate,
+                                            measurement_noise_factor=measurement_noise[k],
+                                            process_noise_factor=proc_noise[k],
                                             error_cov_post_factor=0,
                                             error_cov_pre_factor=0
                                             )
-                next_frame[:, k, 0] = self.kalman_instance[k].predict()
-            elif self.kalman_instance[k] is not None:
-                next_frame[:, k, 0] = self.kalman_instance[k].predict()
+                next_frame[:, k, 0] = kalman_instance[k].predict()
+            elif kalman_instance[k] is not None:
+                next_frame[:, k, 0] = kalman_instance[k].predict()
                 if markers_data is not None:
-                    next_frame[:, k, 0] = self.kalman_instance[k].correct(markers_data[:, k, 0])
+                    next_frame[:, k, 0] = kalman_instance[k].correct(markers_data[:, k, 0])
                 if forward != 0:
-                    next_frame[:, k, 0] = self.kalman_instance[k].get_future_pose(dt=forward)
+                    next_frame[:, k, 0] = kalman_instance[k].get_future_pose(dt=forward)
             else:
                 raise ValueError("Unexpected error.")
         if compute_from_cluster:
@@ -154,7 +155,9 @@ class BiomechPipeline:
                 (next_frame[:, :self.idx_cluster + 1, :], anato_from_cluster[:3, ...],
                  next_frame[:, self.idx_cluster + 1:, :]),
                 axis=1)
-        return next_frame[..., :]
+        if return_kalman:
+            return next_frame, kalman_instance
+        return next_frame
 
     def set_variable(self, variable, value):
         setattr(self, variable, value)
@@ -223,10 +226,19 @@ class BiomechPipeline:
             if compute_from_cluster:
                 if self.frame_count == 0:
                     self.idx_cluster = self.marker_names.index("clavac")
+                    self.kalman_cluster = [None] * 3
                 markers_tmp = np.delete(markers_tmp, [self.idx_cluster + 1, self.idx_cluster + 2, self.idx_cluster + 3], axis=1)
 
             markers_tmp = self.filter_function(markers_tmp[...], compute_from_cluster=compute_from_cluster,
                                                **kwargs)
+            if compute_from_cluster and self.key == "depth" and self.live_filter_method == FilteringMethod.Kalman:
+                measurement_noise = [1e3] * 3
+                proc_noise = [10] * 3
+                markers_tmp[:, self.idx_cluster + 1:self.idx_cluster+4, :], self.kalman_cluster = self._get_next_frame_from_kalman(
+                    markers_tmp[:, self.idx_cluster + 1:self.idx_cluster+4, :], forward=0, rotate=False,
+                    kalman_instance=self.kalman_cluster, return_kalman=True,
+                    measurement_noise=measurement_noise, proc_noise=proc_noise, compute_from_cluster=False)
+
             if self.reordered_idx is not None and self.frame_count != 0:
                 markers_tmp = markers_tmp[:, self.reordered_idx, :]
             else:
@@ -280,7 +292,7 @@ class BiomechPipeline:
         self.live_filter_method = live_filter_method
         self.marker_names = marker_names
         final_dic = {}
-        compute_from_cluster = False #if "dlc" in self.key else False
+        compute_from_cluster = True #if "dlc" in self.key else False
         self.filter_function = self.get_filter_function(rotate="dlc" in self.key, forward=0,
                                                         compute_from_cluster=compute_from_cluster) #"dlc" in self.key)
         self.emg_track_idx = get_tracking_idx(self.msk_function.model, self.emg_names)
@@ -292,6 +304,8 @@ class BiomechPipeline:
                                                     live_filter_method,
                                                     rotate="dlc" in self.key, forward=0,
                                                     compute_from_cluster=compute_from_cluster,
+                                                    measurement_noise=self.measurement_noise,
+                                                        proc_noise=self.proc_noise,
                                                     )
             if not self.frame_count >= self.moving_window:
                 print("Waiting for enough frames to compute inverse kinematics. Still needs: ",
@@ -319,7 +333,7 @@ class BiomechPipeline:
         final_dic["center_of_rot"] = compute_cor(final_dic["q"], self.msk_function.model)
         if self.key == "minimal":
             import bioviz
-            b = bioviz.Viz("/mnt/shared/Projet_hand_bike_markerless/RGBD/P9/output_models/gear_5_model_scaled_minimal_vicon_new_seth.bioMod")
+            b = bioviz.Viz(loaded_model=self.msk_function.model)
             b.load_movement(final_dic["q"])
             b.load_experimental_markers(final_dic["markers"][:, :, :])
             b.exec()
@@ -341,7 +355,7 @@ class BiomechPipeline:
             if self.key =="vicon":
                 pass
             initial_guess = None
-            if self.key == "minimal_vicon":
+            if self.key == "minimal_vicon" and self.current_frame < 30:
                 initial_guess = self.results_dict["depth"]["q"][:, self.current_frame]
             times, dic_to_save, self.msk_function = run_ik(self.msk_function,
                                              markers, times=times, dic_to_save=dic_to_save, init_ik=init_ik,

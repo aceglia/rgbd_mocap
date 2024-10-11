@@ -38,7 +38,7 @@ class ProcessImage:
         self.masks = config['masks']
         self._dispatch_mask()
         self.first_image_loaded = False
-        return_color = False if (self.from_dlc and not tracking_options["optical_flow"] or len(dlc_enhance_markers) == 0) else True
+        return_color = False if (self.from_dlc and not tracking_options["optical_flow"] or (from_dlc and len(dlc_enhance_markers) == 0)) else True
         self.color, self.depth, _ = self._load_img(return_color=return_color)
 
         # Frame

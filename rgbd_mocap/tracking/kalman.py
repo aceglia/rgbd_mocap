@@ -5,7 +5,7 @@ from ..markers.marker_set import MarkerSet
 
 
 class Kalman:
-    def __init__(self, points, fps=60, n_measures=2, n_diff=1, **kwargs):
+    def __init__(self, points, fps=60, n_measures=2, n_diff=1, init=True, **kwargs):
         """
         points: Origin of the marker
         """
@@ -30,9 +30,12 @@ class Kalman:
         self.kalman: cv2.KalmanFilter = None
         self.last_predicted_pos = None
         self.last_corrected_pos = None
-        self.init_kalman(points)
+        self.initial_points = points
+        if init:
+            self.init_kalman(points)
 
-    def init_kalman(self, points):
+    def init_kalman(self, points=None):
+        points = self.initial_points if points is None else points
         self.kalman = cv2.KalmanFilter(self.n_states, self.n_measures, 0)
         self.kalman.measurementNoiseCov = np.eye(self.n_measures, dtype=np.float32) * float(self.measurement_noise_factor)
         self.kalman.errorCovPost = np.eye(self.n_states, self.n_states, dtype=np.float32) * float(self.error_cov_post_factor)
@@ -122,7 +125,9 @@ class KalmanSet:
         self.kalman_filters: list[Kalman] = []
 
         for marker in marker_set.markers:
-            k = Kalman(marker.get_pos())
+            k = Kalman(marker.get_pos(), n_diff=2, init=False)
+            k.set_params(measurement_noise_factor=1e-3, process_noise_factor=1e-1, error_cov_post_factor=0, error_cov_pre_factor=0)
+            k.init_kalman()
             self.kalman_filters.append(k)
 
     def __getitem__(self, item):

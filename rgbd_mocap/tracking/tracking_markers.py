@@ -108,7 +108,7 @@ class Tracker:
         # Then search for the closest blob, if found update the position estimated
         if self.optical_flow:
             estimation, st, err = self.optical_flow[index]
-            if marker.name in self.marker_set.markers_from_dlc:
+            if self.from_dlc and marker.name in self.marker_set.markers_from_dlc:
                 if marker.name in self.marker_set.dlc_enhance_markers:
                     if len(self.blobs) > 0:
                         self.get_blob_near_position(estimation, index)
@@ -116,6 +116,8 @@ class Tracker:
                         self.estimated_positions[index].append(Position(estimation, True))
                 else:
                     self.estimated_positions[index].append(Position(estimation, False))
+            else:
+                self.get_blob_near_position(estimation, index)
 
         if self.from_dlc:
             # if marker.name in self.marker_set.markers_from_dlc:

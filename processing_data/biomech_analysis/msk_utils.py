@@ -133,18 +133,31 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
         model_path = msk_function.model.path().absolutePath().to_string()
         with open(model_path, "r") as file:
             data = file.read()
-        # rt = f"1.57 -1.57 0 xyz 0 0 0"
+        rt = f"1.57 -1.57 0 xyz 0 0 0"
         init_idx = data.find("SEGMENT DEFINITION")
         end_idx = data.find("translations xyz // thorax") + len("translations xyz // thorax") + 1
-        # data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT {rt}\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-1 1\n\t\t-1 1\n\t\t-1 1\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n"
-        data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n"
+        if part =="P12":
+            data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n"
+        else:
+            data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n"
         data = data[:init_idx] + data_to_insert + data[end_idx:]
         new_model_path = compute_new_model_path(model_path, model_prefix=model_prefix)
         with open(new_model_path, "w") as file:
             file.write(data)
         msk_function.model = biorbd.Model(new_model_path)
-        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers,
-                                                           InverseKinematicsMethods.BiorbdLeastSquare)
+        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers, InverseKinematicsMethods.BiorbdLeastSquare)
+        # from biosiglive import save, load
+        # if "minimal_vicon" in new_model_path:
+        #     q = load("init_guess_tmp.bio")["q"][:, -1]
+        #     initial_guess = [q, np.zeros_like(q), np.zeros_like(q)]
+        # else:
+        #     initial_guess = None
+        # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers,
+        #                                                       InverseKinematicsMethods.BiorbdKalman,
+        #                                                       initial_guess=initial_guess)
+        # if "depth" in new_model_path:
+        #     save( {"q":q}, "init_guess_tmp.bio", safe=False)
+
         with open(new_model_path, "r") as file:
             data = file.read()
         data = data.replace(
@@ -165,7 +178,7 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
         q = q[6:, :]
         msk_function.model = biorbd.Model(new_model_path)
         msk_function.clean_all_buffers()
-        # msk_function.kalman = None
+        msk_function.kalman = None
     # else:
     #     q = msk_function.kin_buffer[0].copy()
     # if "P11" in model_path:
@@ -175,19 +188,22 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
     #     q[7, :] = 0.1
     #     q = msk_function.kin_buffer[0].copy()
     #     msk_function.clean_all_buffers()
-        q = q[:, -1] if initial_guess is None else initial_guess
+        q = q[:, -1]
     else:
         q = msk_function.kin_buffer[0].copy()
         q = q[:, -1]
         # if "P9" in model_path:
         #     q[4, :] = 0.1
     if "P11" in model_path:
-        q[-1, :] = 0.7
+        q[-1] = 0.7
     if "P16" in model_path:
-        q[5, :] = -0.1
-        q[7, :] = 0.1
-    noise_factor = 1e-8 #if "depth" in model_path else 1e-5
-    error_factor = 1e-3 #if "depth" in model_path else 1e-6
+        q[5] = -0.1
+        q[7] = 0.1
+    #q[-1] = 0.3
+    noise_factor = 1e-7 #if "depth" in model_path else 1e-5
+    error_factor = 1e-4 #if "depth" in model_path else 1e-6
+    # q = q if initial_guess is None else initial_guess
+
     initial_guess = [q, np.zeros_like(q), np.zeros_like(q)] if q is not None else None
     # initial_guess = initial_guess_tmp if initial_guess is None else initial_guess
     msk_function.compute_inverse_kinematics(markers,

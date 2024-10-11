@@ -62,7 +62,7 @@ def get_end_frame(part, file):
 
 
 if __name__ == '__main__':
-    participants = ["P9", "P10", "P11",]# "P12", "P13", "P14"]
+    participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     # trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     # trials[-1] = ["gear_10"]
     colors = plt.cm.tab10(np.linspace(0, 1, len(participants)))
@@ -74,10 +74,11 @@ if __name__ == '__main__':
     # plt.show()
     all_data, trials = load_results(participants,
                                     "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                                    file_name="test_old", recompute_cycles=False)
-
-    keys = ["q", "q_dot", "q_ddot", "tau"]
-    factors = [180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 100, 1]
+                                    file_name="kalman_proc.bio", recompute_cycles=False)
+    from biosiglive import save
+    save(all_data, "_all_data_kalman_proc.bio")
+    keys = ["q", "q_dot", "q_ddot", "tau", "mus_force"]
+    factors = [180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 1]
     units = ["°", "°/s", "°/s²", "N.m", "%", "N"]
     source = ["vicon", "vicon", "minimal_vicon"]
     to_compare_source = ["depth", "minimal_vicon", "depth"]
@@ -96,8 +97,8 @@ if __name__ == '__main__':
         all_colors = []
         shape_idx = 1 if key == "markers" else 0
         n_key = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["depth"][key].shape[shape_idx]
-        means_file = np.ndarray((n_comparison, len(participants) * n_key))
-        diffs_file = np.ndarray((n_comparison, len(participants) * n_key))
+        means_file = np.ndarray((n_comparison, len(participants) * n_key * 4))
+        diffs_file = np.ndarray((n_comparison, len(participants) * n_key * 4))
         rmse = np.ndarray((n_comparison, len(participants) * n_key))
         std = np.ndarray((n_comparison, len(participants) * n_key))
         for p, part in enumerate(all_data.keys()):
@@ -138,10 +139,13 @@ if __name__ == '__main__':
                     else:
                         means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
                         diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
+                    #means[j, :, f] = sum_minimal * factors[k]
+                    #diffs[j, :, f] = dif_minimal* factors[k]
 
             for j in range(n_comparison):
-                means_file[j, n_key * p: n_key * (p + 1)] = np.mean(means[j, :, :], axis=1)
-                diffs_file[j, n_key * p: n_key * (p + 1)] = np.mean(diffs[j, :, :], axis=1)
+
+                means_file[j, n_key * p * len(trials[p]): n_key * (p + 1) * len(trials[p])] = means[j, :, :].flatten()
+                diffs_file[j, n_key * p * len(trials[p]): n_key * (p + 1)* len(trials[p])] = diffs[j, :, :].flatten()
                 rmse[j, n_key * p: n_key * (p + 1)] = np.mean(rmse_file[j, :, :], axis=1)
                 std[j, n_key * p: n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
         all_rmse.append(rmse.mean(axis=1).round(2))
@@ -191,10 +195,10 @@ if __name__ == '__main__':
            "& minimal vs redundant &" + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]}& {all_loa[3][1][1]}& {all_bias[3][1]}" + r"\\" + "\n"
            "& RGBD vs minimal &" + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]}& {all_loa[3][2][1]}& {all_bias[3][2]}" + r"\\" + "\n" + r" \hdashline" + "\n"
 
-          #  "\multirow{3}*{Muscle forces (N)} "
-          #  "& RGBD vs redundant &" + f" {all_rmse[5][0]}& {all_std[5][0]} & {all_loa[5][0][0]}& {all_loa[5][0][1]}& {all_bias[5][0]}" + r"\\" + "\n"
-          #  "& minimal vs redundant &" + f" {all_rmse[5][1]}& {all_std[5][1]}  & {all_loa[5][1][0]}& {all_loa[5][1][1]}& {all_bias[5][1]}" + r"\\" + "\n"
-          # "& RGBD vs minimal &" + f" {all_rmse[5][2]}& {all_std[5][2]}  & {all_loa[5][2][0]}& {all_loa[5][2][1]}& {all_bias[5][2]}" + r"\\" + "\n" + r"\hline" + "\n"
+           "\multirow{3}*{Muscle forces (N)} "
+           "& RGBD vs redundant &" + f" {all_rmse[4][0]}& {all_std[4][0]} & {all_loa[4][0][0]}& {all_loa[4][0][1]}& {all_bias[4][0]}" + r"\\" + "\n"
+           "& minimal vs redundant &" + f" {all_rmse[4][1]}& {all_std[4][1]}  & {all_loa[4][1][0]}& {all_loa[4][1][1]}& {all_bias[4][1]}" + r"\\" + "\n"
+          "& RGBD vs minimal &" + f" {all_rmse[4][2]}& {all_std[4][2]}  & {all_loa[4][2][0]}& {all_loa[4][2][1]}& {all_bias[4][2]}" + r"\\" + "\n" + r"\hline" + "\n"
                      r"""                                                                                                      
                \end{tabular}
            

@@ -83,14 +83,15 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     return markers_dic, forces, f_ext, emg, vicon_to_depth_idx, peaks, rt
 
 
-def get_all_file(participants, data_dir, trial_names=None):
+def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exclude=()):
     all_path = []
     parts = []
     if trial_names and len(trial_names) != len(participants):
         trial_names = [trial_names for _ in participants]
     for part in participants:
         all_files = os.listdir(f"{data_dir}{os.sep}{part}")
-        all_files = [f"{data_dir}{os.sep}{part}{os.sep}{file}" for file in all_files if "gear" in file and "less" not in file and "more" not in file and "result" not in file]
+        all_files = [file for file in all_files if any(ext in file for ext in to_include) and not any(ext in file for ext in to_exclude)]
+        all_files = [f"{data_dir}{os.sep}{part}{os.sep}{file}" for file in all_files] # if "gear" in file and "less" not in file and "more" not in file and "result" not in file]
         final_files = all_files if not trial_names else []
         if trial_names:
             for trial in trial_names[participants.index(part)]:

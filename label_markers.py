@@ -7,6 +7,8 @@ from rgbd_mocap.model_creation.translations import Translations
 import json
 import os
 
+prefix = "/mnt/shared/" if os.name == "posix" else r"Q:\\"
+
 def get_crop_from_last_config(path):
     with open(path, "r") as f:
         data = json.load(f)
@@ -22,7 +24,7 @@ def _init_kin_marker_set():
         marker_names=[
             "xiph",
             "ster",
-            "ribs",
+            #"ribs",
             "clavsc",
             # "M1",
             # "M2",
@@ -75,7 +77,9 @@ def main():
 
 
     #trials = [[ "only", "random"]] * len(participants)
-    data_files = "Q:\Projet_hand_bike_markerless\RGBD"
+    #data_files = "Q:\Projet_hand_bike_markerless\RGBD"
+    data_files = f"{prefix}Projet_hand_bike_markerless/RGBD"
+
     for p, part in enumerate(participants):
         files = os.listdir(f"{data_files}{os.sep}{part}")
         files = [file for file in files if os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)
@@ -87,7 +91,7 @@ def main():
                     if trial in file and not 'less' in file and not "more" in file:
                         final_files.append(file)
         files = final_files
-        path_to_camera_config_file = f"Q:\Projet_hand_bike_markerless\RGBD\config_camera_files\config_camera_{part}.json"
+        path_to_camera_config_file = f"{prefix}Projet_hand_bike_markerless/RGBD/config_camera_files/config_camera_{part}.json"
         path_to_dlc_model = [
             # f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\DLC_projects\{part}_excluded_non_augmented\exported-models\DLC_test_mobilenet_v2_0.5_iteration-0_shuffle-1",
             # f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\DLC_projects\{part}_excluded_hist_eq\exported-models\DLC_test_mobilenet_v2_0.5_iteration-0_shuffle-1",
@@ -101,8 +105,8 @@ def main():
             for m,  dlc_model_path in enumerate(path_to_dlc_model):
                 for a, al in enumerate(alone):
                     print(f"working on participant {part} for trial {file[:7]}")
-                    path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_dlc.json"
-                    #path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
+                    #path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_dlc.json"
+                    path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
                     if not os.path.exists(path):
                         last_config = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
                         area = get_crop_from_last_config(last_config)
@@ -112,30 +116,33 @@ def main():
                         tracking_config = path
                     rgbd = RgbdImages(path_to_camera_config_file)
                     if part in ["P12", "P13", "P15"] and al == "filtered":
-                        rgbd.set_static_markers(["ribs", "xiph"])
+                        #rgbd.set_static_markers(["ribs", "xiph"])
+                        rgbd.set_static_markers(["xiph"])
+
                     #rgbd.set_quasi_static_markers(["ribs"], bounds=[[-20, 20]])
                     else:
-                        rgbd.set_static_markers(["ribs"])
+                        rgbd.set_quasi_static_markers(["xiph"], x_bounds=[[-10, 10]], y_bounds=[[-10, 10]])
+                        #rgbd.set_static_markers(["ribs"])
                     # elif al == "filtered":
                     #     rgbd.set_quasi_static_markers(["xiph"], x_bounds=[[-5, 20]], y_bounds=[[-5,20]])
                     # if part in ["P11", "P12", "P13"]:
                     #rgbd.set_marker_to_exclude(["M1", "M2", "M3"])
-                    rgbd.set_dlc_enhance_markers(["M1", "M2", "M3"])
+                    #rgbd.set_dlc_enhance_markers(["M1", "M2", "M3"])
                     rgbd.initialize_tracking(tracking_config, #path,
                                              build_kinematic_model=True,
-                                             use_kalman=False, #al == "filtered",
+                                             use_kalman=True, #al == "filtered",
                                              use_optical_flow=True,
                                              multi_processing=False,
                                              kin_marker_set=kin_marker_set,
                                              images_path=f"{data_files}{os.sep}{part}{os.sep}" + file,
                                              model_name="model_test.bioMod",
-                                             from_dlc=True,
+                                             from_dlc=False,
                                              dlc_model_path=dlc_model_path,
                                              dlc_marker_names=["xiph",  "ster", "clavsc", "M1", "M2",
                                                            "M3", "clavac", "delt", "arm_l", "epic_l",
                                                            "larm_l", "styl_r", "styl_u"],
                                              ignore_all_checks= al=="alone",
-                                             downsample_ratio=0.5,
+                                             downsample_ratio=1,
                                              #start_idx=None
                                              )
                     last_frame = rgbd.tracking_config["start_index"]
@@ -143,8 +150,8 @@ def main():
                         if not rgbd.get_frames(fit_model= al == "filtered",
                                                show_image=True, save_data=False, save_video=False,
                                                file_path=rgbd.tracking_config[
-                                                             "directory"] + os.sep + f"marker_pos_multi_proc_3_crops_{saving_names[m]}_{alone[a]}_ribs_and_cluster.bio",
-                                               video_name=f"video_labeled_{saving_names[m]}_{alone[a]}_ribs_and_cluster"):
+                                                             "directory"] + os.sep + f"marker_pos_multi_proc_3_crops_{saving_names[m]}_new.bio",
+                                               video_name=f"video_labeled_{saving_names[m]}_new"):
                             if rgbd.video_object is not None:
                                 rgbd.video_object.release()
                             cv2.destroyAllWindows()

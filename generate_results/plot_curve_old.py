@@ -100,7 +100,7 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
                 ax.plot(t, results_from_sources[k][plt_name]["mean"][count, :] * factor, line[k], color=color[k], alpha=0.7)
             ax.set_title(joints_names[count], fontsize=font_size)
             ax.tick_params(axis='y', labelsize=font_size - 2)
-            ax.set_xlim(0, 100)
+            #ax.set_xlim(0, 100)
             if i not in [8, 9, 10]:
                 ax.set_xticks([])
                 ax.set_xticklabels([])
@@ -113,9 +113,9 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
             count += 1
         fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
                    loc='upper right', bbox_to_anchor=(0.98, 0.95), fontsize=font_size, frameon=False)
-        plt.xlim(0, 100)
+        #plt.xlim(0, 100)
 
-        fig.align_ylabels(subplots)
+        #fig.align_ylabels(subplots)
         #fig.tight_layout()
     subplots = None
     ax = None
@@ -155,37 +155,37 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
                  # "LatissimusDorsi",
 
                  ]
-    # import biorbd
-    # model = biorbd.Model(models[0])
-    # muscle_model_names = [model.muscleNames()[i].to_string() for i in range(model.nbMuscles())]
-    # t = np.linspace(0, 100, results_from_sources[0]["mus_force"]["mean"].shape[1])
-    # # plot joints
-    # fig = plt.figure(num="Muscle forces" + fig_suffix, constrained_layout=False)
-    # subplots = fig.subplots(3, ceil(len(muscle_names) / 3), sharex=False, sharey=False)
-    # for i in range(len(muscle_names)):
-    #     ax = subplots.flat[i]
-    #     for k in range(len(results_from_sources)):
-    #         idx = muscle_model_names.index(muscle_model_format_names[i])
-    #         ax.plot(t, results_from_sources[k]["mus_force"]["mean"][idx, :], line[k], color=color[k], alpha=0.7)
-    #         ax.fill_between(t, (results_from_sources[k]["mus_force"]["mean"][idx, :] - results_from_sources[k]["mus_force"]["std"][idx, :]),
-    #                         (results_from_sources[k]["mus_force"]["mean"][idx, :] + results_from_sources[k]["mus_force"]["std"][idx, :]),
-    #                         color=color[k], alpha=0.3)
-    #     ax.set_title(muscle_names[i], fontsize=font_size)
-    #     ax.tick_params(axis='y', labelsize=font_size - 2)
-    #     if i not in [6, 7, 8]:
-    #         ax.set_xticks([])
-    #         ax.set_xticklabels([])
-    #     else:
-    #         ax.set_xlabel("Mean cycle (%)", fontsize=font_size)
-    #         ax.tick_params(axis='x', labelsize=font_size - 2)
-    #     if i in [0, 3, 6]:
-    #         ax.set_ylabel("Muscle force (N)", fontsize=font_size, rotation=90)
-    #         ax.tick_params(axis='y', labelsize=font_size - 2)
-    # fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
-    #            loc='upper center', fontsize=font_size, frameon=False, ncol=3) #bbox_to_anchor=(0.98, 0.95)
-    # fig.align_ylabels(subplots)
-    # all_names = [name.to_string() for name in model.muscleNames()]
-    # plt.xlim(0, 100)
+    import biorbd
+    model = biorbd.Model(models[0])
+    muscle_model_names = [model.muscleNames()[i].to_string() for i in range(model.nbMuscles())]
+    t = np.linspace(0, 100, results_from_sources[0]["mus_force"]["mean"].shape[1])
+    # plot joints
+    fig = plt.figure(num="Muscle forces" + fig_suffix, constrained_layout=False)
+    subplots = fig.subplots(3, ceil(len(muscle_names) / 3), sharex=False, sharey=False)
+    for i in range(len(muscle_names)):
+        ax = subplots.flat[i]
+        for k in range(len(results_from_sources)):
+            idx = muscle_model_names.index(muscle_model_format_names[i])
+            ax.plot(t, results_from_sources[k]["mus_force"]["mean"][idx, :], line[k], color=color[k], alpha=0.7)
+            ax.fill_between(t, (results_from_sources[k]["mus_force"]["mean"][idx, :] - results_from_sources[k]["mus_force"]["std"][idx, :]),
+                            (results_from_sources[k]["mus_force"]["mean"][idx, :] + results_from_sources[k]["mus_force"]["std"][idx, :]),
+                            color=color[k], alpha=0.3)
+        ax.set_title(muscle_names[i], fontsize=font_size)
+        ax.tick_params(axis='y', labelsize=font_size - 2)
+        if i not in [6, 7, 8]:
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+        else:
+            ax.set_xlabel("Mean cycle (%)", fontsize=font_size)
+            ax.tick_params(axis='x', labelsize=font_size - 2)
+        if i in [0, 3, 6]:
+            ax.set_ylabel("Muscle force (N)", fontsize=font_size, rotation=90)
+            ax.tick_params(axis='y', labelsize=font_size - 2)
+    fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
+               loc='upper center', fontsize=font_size, frameon=False, ncol=3) #bbox_to_anchor=(0.98, 0.95)
+    #fig.align_ylabels(subplots)
+    all_names = [name.to_string() for name in model.muscleNames()]
+    plt.xlim(0, 100)
 
     # plot muscle activations
     # if not isinstance(results_from_sources[0]["mus_act"]["mean"], list):
@@ -231,12 +231,12 @@ def plot_results(all_results, track_idx, vicon_to_depth, sources=("depth", "vico
 if __name__ == '__main__':
     participants = ["P9"]#, "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)#, "gear_15", "gear_20"]] * len(participants)
-    trials = [["gear_5"]] * len(participants)
+    trials = [["gear_15"]] * len(participants)
     all_data, _ = load_results(participants,
                             # "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
                                "/mnt/shared/Projet_hand_bike_markerless/process_data",
                             # file_name="3_crops_seth_new_model", trials=trials,
-                               file_name="kalman_both_proc" , trials=trials,
+                               file_name="kalman_proc.bio" , trials=trials,
                                recompute_cycles=False)
         # load_results(participants,
         #                     "/mnt/shared/Projet_hand_bike_markerless/process_data",

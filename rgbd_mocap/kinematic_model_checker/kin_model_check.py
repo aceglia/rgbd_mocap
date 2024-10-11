@@ -152,8 +152,8 @@ class KinematicModelChecker:
         with open(self.model_name, "r") as file:
             data = file.read()
         kalman = MskFunctions(self.model_name, 1)
-        q, _ = kalman.compute_inverse_kinematics(
-            marker_pos_in_meter[:, :, np.newaxis], InverseKinematicsMethods.BiorbdKalman
+        q, _, _ = kalman.compute_inverse_kinematics(
+            marker_pos_in_meter[:, :, np.newaxis], InverseKinematicsMethods.BiorbdKalman, kalman_freq=60
         )
         # replace the target string
         data = data.replace(
@@ -262,7 +262,7 @@ class KinematicModelChecker:
             if self.ik_method == "least_squares"
             else InverseKinematicsMethods.BiorbdKalman
         )
-        q, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=60)
+        q, _, _ = self.kinematics_functions.compute_inverse_kinematics(markers_for_ik, _method, kalman_freq=60)
         # q = self._check_last_q(q)
         markers = self.kinematics_functions.compute_direct_kinematics(q)
         markers = markers[:, self.kin_to_init]

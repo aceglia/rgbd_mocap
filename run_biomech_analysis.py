@@ -14,14 +14,28 @@ def init_kalman_filter_parameters(biomech_pipeline, source):
         proc_noise[:8] = [1e-1] * 8
         measurement_noise[11:14] = [1] * 3
         proc_noise[11:14] = [1] * 3
-    if "minimal_vicon" in source or "depth" in source:
-        measurement_noise = [2] * 20
-        proc_noise = [1e-1] * 20
-        measurement_noise[7:] = [2] * len(measurement_noise[7:])
+    if "minimal_vicon" in source :
+        measurement_noise = [5] * 20
+        proc_noise = [1] * 20
+        measurement_noise[7:] = [1] * len(measurement_noise[7:])
         proc_noise[7:] = [1] * len(measurement_noise[7:])
+        # measurement_noise[5:7] = [2] * len(measurement_noise[7:])
+        # proc_noise[5:7] = [1e-2] * len(measurement_noise[7:])
+    if "depth" in source:
+        measurement_noise = [5] * 20
+        proc_noise = [1] * 20
+        measurement_noise[:4] = [20] * 4
+        proc_noise[:4] = [2] * 4
+        # compute from cluster :
+        measurement_noise[10:13] = [1] * 3
+        proc_noise[10:13] = [1] * 3
+        #measurement_noise[7:] = [5] * len(measurement_noise[7:])
+        #proc_noise[7:] = [1] * len(measurement_noise[7:])
+        #measurement_noise[5:7] = [10] * 2
+        #proc_noise[5:7] = [1e-2] * 2
     if "vicon" in source:
         measurement_noise = [5] * 20
-        proc_noise = [1e-1]  * 20
+        proc_noise = [1]  * 20
         measurement_noise[7:] = [1] * len(measurement_noise[7:])
         proc_noise[7:] = [1] * len(measurement_noise[7:])
     biomech_pipeline.set_variable("measurement_noise", measurement_noise)
@@ -48,11 +62,12 @@ def main(model_dir, participants, processed_data_path, source, save_data=True, s
     live_filter_method = live_filter_method if live_filter_method is not None else [FilteringMethod.NONE] * len(source)
     live_filter_method = live_filter_method if isinstance(live_filter_method, list) else [live_filter_method] * len(source)
     biomech_pipeline = BiomechPipeline(stop_frame=stop_frame)
-    all_files, mapped_part = get_all_file(participants, processed_data_path)
+    all_files, mapped_part = get_all_file(participants, processed_data_path, to_include=["gear"]
+    ,to_exclude=["result", "less", "more"])
     markers_rate = 120
     for part, file in zip(mapped_part, all_files):
         trial_short = file.split(os.sep)[-1].split('_')[0] + "_" + file.split(os.sep)[-1].split('_')[1]
-        output_file = prefix + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_ekf_alone.bio"
+        output_file = prefix + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_kalman_proc_same_model.bio"
         markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frame_idx = get_data_from_sources(
             part, trial_short, source, model_dir, model_source,
             live_filter_method, source_to_keep,
@@ -69,7 +84,7 @@ def main(model_dir, participants, processed_data_path, source, save_data=True, s
             markers_rate = 60 if (live_filter_method[key_counter].value != 0 and "dlc" in key) else markers_rate
             biomech_pipeline.set_variable("markers_rate", markers_rate)
             biomech_pipeline.process_all_frames(markers_dic[key][1],
-                                                compute_so=False,
+                                                compute_so=True,
                                                 compute_id=True,
                                                 live_filter_method=live_filter_method[key_counter],
                                                 model_path=model_path,
@@ -97,13 +112,13 @@ if __name__ == '__main__':
     source = ["depth",  "vicon", "minimal_vicon",
         # , "dlc_0_8", "dlc_0_9", "dlc_1"
               ]
-    model_source = ["depth", "vicon" , "minimal_vicon"
+    model_source = ["depth", "vicon" , "depth"
         # , "dlc_ribs", "dlc_ribs", "dlc_ribs"
                     ]
-    filter_method = [FilteringMethod.NONE, FilteringMethod.NONE, FilteringMethod.NONE, FilteringMethod.Kalman,
+    filter_method = [FilteringMethod.Kalman, FilteringMethod.Kalman, FilteringMethod.Kalman, FilteringMethod.Kalman,
                      FilteringMethod.Kalman, FilteringMethod.Kalman]
     model_dir = prefix + "/Projet_hand_bike_markerless/RGBD"
     processed_data_path = prefix + "/Projet_hand_bike_markerless/RGBD"
-    main(model_dir, participants, processed_data_path, save_data=True, stop_frame=5000,
-        plot=True, source=source, model_source=model_source, live_filter_method=filter_method,
+    main(model_dir, participants, processed_data_path, save_data=True, stop_frame=None,
+        plot=False, source=source, model_source=model_source, live_filter_method=filter_method,
          interpolate_dlc=True)
