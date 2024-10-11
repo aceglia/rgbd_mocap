@@ -11,7 +11,7 @@ class Kalman:
         """
         # self.dt = 1/fps
         self.last_pos = None
-        self.dt = 1/fps
+        self.dt = 1 / fps
         # self.dt = 1
         self.measurement_noise_factor = 10
         self.process_noise_factor = 2
@@ -37,13 +37,19 @@ class Kalman:
     def init_kalman(self, points=None):
         points = self.initial_points if points is None else points
         self.kalman = cv2.KalmanFilter(self.n_states, self.n_measures, 0)
-        self.kalman.measurementNoiseCov = np.eye(self.n_measures, dtype=np.float32) * float(self.measurement_noise_factor)
-        self.kalman.errorCovPost = np.eye(self.n_states, self.n_states, dtype=np.float32) * float(self.error_cov_post_factor)
+        self.kalman.measurementNoiseCov = np.eye(self.n_measures, dtype=np.float32) * float(
+            self.measurement_noise_factor
+        )
+        self.kalman.errorCovPost = np.eye(self.n_states, self.n_states, dtype=np.float32) * float(
+            self.error_cov_post_factor
+        )
         self.kalman.processNoiseCov = np.eye(self.n_states, dtype=np.float32) * float(self.process_noise_factor)
-        self.kalman.errorCovPre = np.eye(self.n_states, self.n_states, dtype=np.float32) * float(self.error_cov_pre_factor)
+        self.kalman.errorCovPre = np.eye(self.n_states, self.n_states, dtype=np.float32) * float(
+            self.error_cov_pre_factor
+        )
 
         self.kalman.measurementMatrix = np.zeros((self.n_measures, self.n_states), dtype=np.float32)
-        self.kalman.measurementMatrix[:self.n_measures, :self.n_measures] = np.eye((self.n_measures))
+        self.kalman.measurementMatrix[: self.n_measures, : self.n_measures] = np.eye((self.n_measures))
         # F = np.zeros((self.n_states, self.n_states), np.float32)
         # for d in range(self.n_diff + 1):
         #     for i in range(self.n_states - (d * 2)):
@@ -67,7 +73,7 @@ class Kalman:
         input_points = np.float32(np.ndarray.flatten(points))
         input_points_list = []
         for n in range(self.n_states):
-            if n < self.n_states/(self.n_diff + 1):
+            if n < self.n_states / (self.n_diff + 1):
                 input_points_list.append(input_points[n])
             else:
                 input_points_list.append(0)
@@ -79,14 +85,18 @@ class Kalman:
 
     def predict(self):
         prediction = self.kalman.predict()
-        self.last_predicted_pos = prediction[:self.n_measures].reshape(self.n_measures, )
+        self.last_predicted_pos = prediction[: self.n_measures].reshape(
+            self.n_measures,
+        )
         self.last_pos = prediction
         return self.last_predicted_pos
 
     def correct(self, points):
-        points = np.round(np.array(points[:self.n_measures]), 8).astype(np.float32)
+        points = np.round(np.array(points[: self.n_measures]), 8).astype(np.float32)
         self.last_pos = self.kalman.correct(points)
-        self.last_corrected_pos = self.last_pos[:self.n_measures].reshape(self.n_measures, )
+        self.last_corrected_pos = self.last_pos[: self.n_measures].reshape(
+            self.n_measures,
+        )
         return self.last_corrected_pos
 
     def _get_transition_matrix(self, dt):
@@ -95,21 +105,30 @@ class Kalman:
         # if self.n_diff > 1:
         #     A[self.n_measures:self.n_measures * 2, self.n_measures * 2:] = np.eye((self.n_measures)) * dt ** 2
         A = np.eye(self.n_states, self.n_states, dtype=np.float32)
-        A[:self.n_measures, self.n_measures:self.n_measures * 2] = np.eye((self.n_measures)) * dt
+        A[: self.n_measures, self.n_measures : self.n_measures * 2] = np.eye((self.n_measures)) * dt
         if self.n_diff == 2:
-            A[:self.n_measures, self.n_measures * 2:] = np.eye((self.n_measures)) * 0.5 * dt ** 2
+            A[: self.n_measures, self.n_measures * 2 :] = np.eye((self.n_measures)) * 0.5 * dt**2
 
-        #A[:self.n_measures, self.n_measures:] = np.eye((self.n_measures)) * dt
+        # A[:self.n_measures, self.n_measures:] = np.eye((self.n_measures)) * dt
         return A
+
     def get_future_pose(self, dt=None):
         if dt is None:
             dt = self.dt
         A = self._get_transition_matrix(dt)
         future_pose = np.dot(A, self.last_pos)
-        future_pose = future_pose[:self.n_measures].reshape(self.n_measures, )
+        future_pose = future_pose[: self.n_measures].reshape(
+            self.n_measures,
+        )
         return future_pose
 
-    def set_params(self, measurement_noise_factor=None, process_noise_factor=None, error_cov_post_factor=None, error_cov_pre_factor=None):
+    def set_params(
+        self,
+        measurement_noise_factor=None,
+        process_noise_factor=None,
+        error_cov_post_factor=None,
+        error_cov_pre_factor=None,
+    ):
         if measurement_noise_factor is not None:
             self.measurement_noise_factor = measurement_noise_factor
         if process_noise_factor is not None:
@@ -119,6 +138,7 @@ class Kalman:
         if error_cov_pre_factor is not None:
             self.error_cov_pre_factor = error_cov_pre_factor
 
+
 class KalmanSet:
     def __init__(self, marker_set: MarkerSet):
         self.marker_set = marker_set
@@ -126,7 +146,12 @@ class KalmanSet:
 
         for marker in marker_set.markers:
             k = Kalman(marker.get_pos(), n_diff=2, init=False)
-            k.set_params(measurement_noise_factor=1e-2, process_noise_factor=1e-1, error_cov_post_factor=0, error_cov_pre_factor=0)
+            k.set_params(
+                measurement_noise_factor=1e-2,
+                process_noise_factor=1e-1,
+                error_cov_post_factor=0,
+                error_cov_pre_factor=0,
+            )
             k.init_kalman()
             self.kalman_filters.append(k)
 
@@ -150,4 +175,3 @@ class KalmanSet:
 
     def reinit_kalman(self):
         [kalman.init_kalman(self.marker_set[i].pos[:2]) for i, kalman in enumerate(self)]
-

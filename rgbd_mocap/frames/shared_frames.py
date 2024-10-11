@@ -6,9 +6,9 @@ import cv2
 class SharedFrames(Frames):
     def __init__(self, color_frame, depth_frame, index=None, downsample_ratio=None):
         super().__init__(color_frame, depth_frame, index, downsample_ratio)
-        self.color_array = RawArray('c', self.width * self.height)  # 'c' -> value between 0-255
-        self.depth_array = RawArray('i', self.width * self.height)  # 'i' -> int32
-        self.index = RawValue('i', 0)
+        self.color_array = RawArray("c", self.width * self.height)  # 'c' -> value between 0-255
+        self.depth_array = RawArray("i", self.width * self.height)  # 'i' -> int32
+        self.index = RawValue("i", 0)
 
         self.color = np.frombuffer(self.color_array, dtype=np.uint8).reshape((self.width, self.height))
         self.depth = np.frombuffer(self.depth_array, dtype=np.int32).reshape((self.width, self.height))

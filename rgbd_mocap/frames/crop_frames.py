@@ -22,4 +22,3 @@ class CropFrames(Frames):
     def get_images(self):
         self.update_image()
         return self.color, self.depth
-

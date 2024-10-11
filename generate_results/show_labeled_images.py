@@ -11,11 +11,14 @@ from biosiglive import load
 from biosiglive.file_io.save_and_load import dic_merger
 import os
 
+
 def get_markers_set(camera):
-    markers_thorax = MarkerSet(marker_set_name="thorax", marker_names=["xiph", "ster", "clavsc",
-                                                                       "M1", "M2", "M3", "clavac"], image_idx=0)
-    markers_arm = MarkerSet(marker_set_name="arm",
-                            marker_names=["delt", "arm_l", "epic_l", "larm_l", "styl_r", "styl_u"], image_idx=1)
+    markers_thorax = MarkerSet(
+        marker_set_name="thorax", marker_names=["xiph", "ster", "clavsc", "M1", "M2", "M3", "clavac"], image_idx=0
+    )
+    markers_arm = MarkerSet(
+        marker_set_name="arm", marker_names=["delt", "arm_l", "epic_l", "larm_l", "styl_r", "styl_u"], image_idx=1
+    )
     camera.add_marker_set([markers_thorax, markers_arm])
 
     kinematics_marker_set_shoulder = MarkerSet(
@@ -48,7 +51,9 @@ def get_markers_set(camera):
 
 def reprocess_file(camera, images_dir, mask, suffix, frame, file_name):
     camera, kin_marker_set = get_markers_set(camera)
-    shutil.copy2(rf"{images_dir}{os.sep}t" + f"racking_config.json", rf"{images_dir}{os.sep}t" + f"racking_config_tmp.json")
+    shutil.copy2(
+        rf"{images_dir}{os.sep}t" + f"racking_config.json", rf"{images_dir}{os.sep}t" + f"racking_config_tmp.json"
+    )
     camera.start_index += frame
     camera.camera_frame_numbers = camera.camera_frame_numbers[frame:]
     camera.initialize_tracking(
@@ -92,28 +97,29 @@ def reprocess_file(camera, images_dir, mask, suffix, frame, file_name):
     os.remove(rf"{images_dir}{os.sep}t" + f"racking_config_tmp.json")
     os.remove(f"{images_dir}{os.sep}kinematic_model_{suffix}_tmp.bioMod")
 
+
 def merge_markers_pos(init_results, new_results):
     for key in init_results.keys():
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = ["P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     for participant in participants:
-        image_path = fr"D:\Documents\Programmation\pose_estimation\data_files\{participant}"
+        image_path = rf"D:\Documents\Programmation\pose_estimation\data_files\{participant}"
         files = os.listdir(f"{image_path}")
         # files = [file for file in files if file[:7] == "gear_15"]
-        files = [file for file in files if
-                 "anato" in file and os.path.isdir(f"{image_path}{os.sep}" + file)
-                 ]
-        config_file = fr"D:\Documents\Programmation\pose_estimation\config_camera_files\config_camera_{participant}.json"
+        files = [file for file in files if "anato" in file and os.path.isdir(f"{image_path}{os.sep}" + file)]
+        config_file = (
+            rf"D:\Documents\Programmation\pose_estimation\config_camera_files\config_camera_{participant}.json"
+        )
         for file in files:
             print("processing file : ", file)
             if not os.path.isfile(f"{image_path}{os.sep}" + file + "/markers_pos.bio"):
                 continue
             file = f"{image_path}{os.sep}" + file
             suffix = file[-19:]
-            tracking_file = fr"{file}{os.sep}t" + f"racking_config.json"
+            tracking_file = rf"{file}{os.sep}t" + f"racking_config.json"
             start_idx = start_idx_from_json(tracking_file)
             load_markers = load(file + "/markers_pos.bio")
             markers_depth = load_markers["markers_in_meters"]
@@ -140,13 +146,21 @@ if __name__ == '__main__':
                 downsampled=1,
                 load_all_dir=False,
             )
-            camera.all_color_files = [0] * camera.start_index + [file + os.sep + "color_" + str(f) + ".png" for f in load_markers["camera_frame_idx"]]
-            camera.all_depth_files = [0] * camera.start_index + [file + os.sep + "depth_" + str(f) + ".png" for f in load_markers["camera_frame_idx"]]
+            camera.all_color_files = [0] * camera.start_index + [
+                file + os.sep + "color_" + str(f) + ".png" for f in load_markers["camera_frame_idx"]
+            ]
+            camera.all_depth_files = [0] * camera.start_index + [
+                file + os.sep + "depth_" + str(f) + ".png" for f in load_markers["camera_frame_idx"]
+            ]
             camera.camera_frame_numbers = load_markers["camera_frame_idx"]
-            camera.show_labeled_images(load_markers["markers_in_pixel"][:, :, frame:], fps=60,
-                                       occlusions=load_markers["occlusions"],
-                                       markers_names=load_markers["markers_names"], show_image=False,
-                                       save_video=True)
+            camera.show_labeled_images(
+                load_markers["markers_in_pixel"][:, :, frame:],
+                fps=60,
+                occlusions=load_markers["occlusions"],
+                markers_names=load_markers["markers_names"],
+                show_image=False,
+                save_video=True,
+            )
             # reprocess = input("reprocess file from the current frame ? y/n")
             # if reprocess == "y":
             #     new_frame_idx = camera.frame_idx

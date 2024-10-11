@@ -7,19 +7,19 @@ def recursive_find_scale(model_data):
     delta_start = len("scale\t")
     while True:
         data_idx = model_data[start_index:].find("scale\t")
-        data_start = data_idx+ delta_start
+        data_start = data_idx + delta_start
         if data_idx == -1:
             break
-        end_data = model_data[start_index + data_start:].find("\n")
+        end_data = model_data[start_index + data_start :].find("\n")
         global_end_data = start_index + data_start + end_data
-        scale_factors = model_data[start_index + data_start:global_end_data].split(" ")
+        scale_factors = model_data[start_index + data_start : global_end_data].split(" ")
         scale_factors = [float(scale) for scale in scale_factors]
         scale_list.append(scale_factors)
         start_index = global_end_data
     return scale_list
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     sources = ["depth", "vicon", "minimal_vicon"]
     model_dir = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
@@ -35,9 +35,10 @@ if __name__ == '__main__':
             s_factors = [np.mean(scale) for scale in scale_factors]
             finale_scale[:, p] = s_factors
         scale_factors_total.append([np.mean(finale_scale, axis=1).round(2), np.std(finale_scale, axis=1).round(2)])
-        #scale_factors_total.append([finale_scale[i]/len(participants) for i in range(len(finale_scale))] )
+        # scale_factors_total.append([finale_scale[i]/len(participants) for i in range(len(finale_scale))] )
     # latex table:
-    print(r"""
+    print(
+        r"""
     \begin{table}
     \caption{Scaling factor(mean along all axis) by segment for the three methods.}
     \centering
@@ -47,21 +48,19 @@ if __name__ == '__main__':
     &  \multirow{2} * {RGBD} & \multicolumn{2}{c}{Vicon} \\
     Segment & & redundant & minimal \\ \hline
     """
-    f"Thorax & {scale_factors_total[0][0][0]} $\pm$ {scale_factors_total[0][1][0]} & {scale_factors_total[1][0][0]} $\pm$ {scale_factors_total[1][1][0]} & {scale_factors_total[2][0][0]} $\pm$ {scale_factors_total[2][1][0]} "
-              r" \\ "
-    f"\nClavicle & {scale_factors_total[0][0][1]} $\pm$ {scale_factors_total[0][1][1]} & {scale_factors_total[1][0][1]} $\pm$ {scale_factors_total[1][1][1]} & {scale_factors_total[2][0][1]} $\pm$ {scale_factors_total[2][1][1]}"
-              r"\\" 
-    f"\nScapula & {scale_factors_total[0][0][2]} $\pm$ {scale_factors_total[0][1][2]} & {scale_factors_total[1][0][2]} $\pm$ {scale_factors_total[1][1][2]} & {scale_factors_total[2][0][2]}$\pm$ {scale_factors_total[2][1][2]}"
-              r"\\"
-    f"\nHumerus & {scale_factors_total[0][0][3]} $\pm$ {scale_factors_total[0][1][3]} & {scale_factors_total[1][0][3]} $\pm$ {scale_factors_total[1][1][3]} & {scale_factors_total[2][0][3]} $\pm$ {scale_factors_total[2][1][3]}"
-              r"\\"
-    f"\nForearm & {scale_factors_total[0][0][4]} $\pm$ {scale_factors_total[0][1][4]} & {scale_factors_total[1][0][4]} $\pm$ {scale_factors_total[1][1][4]} & {scale_factors_total[2][0][4]} $\pm$ {scale_factors_total[2][1][4]}"
-              r"\\"
-    r"""
+        f"Thorax & {scale_factors_total[0][0][0]} $\pm$ {scale_factors_total[0][1][0]} & {scale_factors_total[1][0][0]} $\pm$ {scale_factors_total[1][1][0]} & {scale_factors_total[2][0][0]} $\pm$ {scale_factors_total[2][1][0]} "
+        r" \\ "
+        f"\nClavicle & {scale_factors_total[0][0][1]} $\pm$ {scale_factors_total[0][1][1]} & {scale_factors_total[1][0][1]} $\pm$ {scale_factors_total[1][1][1]} & {scale_factors_total[2][0][1]} $\pm$ {scale_factors_total[2][1][1]}"
+        r"\\"
+        f"\nScapula & {scale_factors_total[0][0][2]} $\pm$ {scale_factors_total[0][1][2]} & {scale_factors_total[1][0][2]} $\pm$ {scale_factors_total[1][1][2]} & {scale_factors_total[2][0][2]}$\pm$ {scale_factors_total[2][1][2]}"
+        r"\\"
+        f"\nHumerus & {scale_factors_total[0][0][3]} $\pm$ {scale_factors_total[0][1][3]} & {scale_factors_total[1][0][3]} $\pm$ {scale_factors_total[1][1][3]} & {scale_factors_total[2][0][3]} $\pm$ {scale_factors_total[2][1][3]}"
+        r"\\"
+        f"\nForearm & {scale_factors_total[0][0][4]} $\pm$ {scale_factors_total[0][1][4]} & {scale_factors_total[1][0][4]} $\pm$ {scale_factors_total[1][1][4]} & {scale_factors_total[2][0][4]} $\pm$ {scale_factors_total[2][1][4]}"
+        r"\\"
+        r"""
     \end{tabular}
     \label{tab_delay}
     \end{table}
-        """)
-
-
-
+        """
+    )

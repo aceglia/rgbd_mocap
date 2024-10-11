@@ -6,6 +6,7 @@ import numpy as np
 from processing_data.data_processing_helper import get_vicon_to_depth_idx, compute_blandt_altman
 from processing_data.file_io import load_results
 
+
 def compute_error(data, ref):
     shape_idx = 1 if data.shape[0] == 3 else 0
     n_data = data.shape[shape_idx]
@@ -61,7 +62,7 @@ def get_end_frame(part, file):
     return end_frame
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     # trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     # trials[-1] = ["gear_10"]
@@ -72,10 +73,14 @@ if __name__ == '__main__':
         plt.scatter(i, i, color=colors[i], s=200, alpha=0.5)
     plt.legend(participants)
     # plt.show()
-    all_data, trials = load_results(participants,
-                                    "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                                    file_name="kalman_proc.bio", recompute_cycles=False)
+    all_data, trials = load_results(
+        participants,
+        "/mnt/shared/Projet_hand_bike_markerless/process_data",
+        file_name="kalman_proc.bio",
+        recompute_cycles=False,
+    )
     from biosiglive import save
+
     save(all_data, "_all_data_kalman_proc.bio")
     keys = ["q", "q_dot", "q_ddot", "tau", "mus_force"]
     factors = [180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 1]
@@ -111,15 +116,18 @@ if __name__ == '__main__':
                 for j in range(n_comparison):
                     end_frame = get_end_frame(part, file)
 
-                    to_compare = all_data[part][file][to_compare_source[j]][key][...,
-                                 :end_frame] if end_frame is not None else all_data[part][file][to_compare_source[j]][
-                        key]
-                    ref_data = all_data[part][file][source[j]][key][..., :end_frame] if end_frame is not None else \
-                        all_data[part][file][source[j]][key]
-                    rmse_file[j, :, f] = compute_error(to_compare * factors[k],
-                                                       ref_data * factors[k])
-                    std_file[j, :, f] = compute_std(to_compare * factors[k],
-                                                    ref_data * factors[k])
+                    to_compare = (
+                        all_data[part][file][to_compare_source[j]][key][..., :end_frame]
+                        if end_frame is not None
+                        else all_data[part][file][to_compare_source[j]][key]
+                    )
+                    ref_data = (
+                        all_data[part][file][source[j]][key][..., :end_frame]
+                        if end_frame is not None
+                        else all_data[part][file][source[j]][key]
+                    )
+                    rmse_file[j, :, f] = compute_error(to_compare * factors[k], ref_data * factors[k])
+                    std_file[j, :, f] = compute_std(to_compare * factors[k], ref_data * factors[k])
                     sum_minimal = (to_compare + ref_data) / 2
                     dif_minimal = to_compare - ref_data
                     nan_idx = np.argwhere(np.isnan(sum_minimal))
@@ -128,48 +136,63 @@ if __name__ == '__main__':
                     sum_minimal = np.delete(sum_minimal, nan_idx, axis=1)
                     dif_minimal = np.delete(dif_minimal, nan_idx, axis=1)
                     if key == "q":
-                       for m in range(dif_minimal.shape[0]):
-                           dif_minimal_tmp = dif_minimal[m, :] * factors[k]
-                           dif_minimal_tmp_clipped = dif_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
-                           sum_minimal_tmp = sum_minimal[m, :] * factors[k]
-                           sum_minimal_tmp_clipped = sum_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
-                           print(part, file, sum_minimal_tmp_clipped.shape, dif_minimal_tmp_clipped.shape)
-                           means[j, m, f] = np.mean(sum_minimal_tmp_clipped)
-                           diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
+                        for m in range(dif_minimal.shape[0]):
+                            dif_minimal_tmp = dif_minimal[m, :] * factors[k]
+                            dif_minimal_tmp_clipped = dif_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
+                            sum_minimal_tmp = sum_minimal[m, :] * factors[k]
+                            sum_minimal_tmp_clipped = sum_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
+                            print(part, file, sum_minimal_tmp_clipped.shape, dif_minimal_tmp_clipped.shape)
+                            means[j, m, f] = np.mean(sum_minimal_tmp_clipped)
+                            diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
                     else:
                         means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
                         diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
-                    #means[j, :, f] = sum_minimal * factors[k]
-                    #diffs[j, :, f] = dif_minimal* factors[k]
+                    # means[j, :, f] = sum_minimal * factors[k]
+                    # diffs[j, :, f] = dif_minimal* factors[k]
 
             for j in range(n_comparison):
 
-                means_file[j, n_key * p * len(trials[p]): n_key * (p + 1) * len(trials[p])] = means[j, :, :].flatten()
-                diffs_file[j, n_key * p * len(trials[p]): n_key * (p + 1)* len(trials[p])] = diffs[j, :, :].flatten()
-                rmse[j, n_key * p: n_key * (p + 1)] = np.mean(rmse_file[j, :, :], axis=1)
-                std[j, n_key * p: n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
+                means_file[j, n_key * p * len(trials[p]) : n_key * (p + 1) * len(trials[p])] = means[j, :, :].flatten()
+                diffs_file[j, n_key * p * len(trials[p]) : n_key * (p + 1) * len(trials[p])] = diffs[j, :, :].flatten()
+                rmse[j, n_key * p : n_key * (p + 1)] = np.mean(rmse_file[j, :, :], axis=1)
+                std[j, n_key * p : n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
         all_rmse.append(rmse.mean(axis=1).round(2))
         all_std.append(std.mean(axis=1).round(2))
-        bias, lower_loa, upper_loa = compute_blandt_altman(means_file[0, :], diffs_file[0, :],
-                                                           units=units[k],
-                                                           title="Bland-Altman Plot for " + key + " depth vs vicon",
-                                                           show=False, color=all_colors)
+        bias, lower_loa, upper_loa = compute_blandt_altman(
+            means_file[0, :],
+            diffs_file[0, :],
+            units=units[k],
+            title="Bland-Altman Plot for " + key + " depth vs vicon",
+            show=False,
+            color=all_colors,
+        )
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
-        bias, lower_loa, upper_loa = compute_blandt_altman(means_file[1, :], diffs_file[1, :], units=units[k],
-                                                           title="Bland-Altman Plot for " + key + " minimal vs redundancy",
-                                                           show=False, color=all_colors)
+        bias, lower_loa, upper_loa = compute_blandt_altman(
+            means_file[1, :],
+            diffs_file[1, :],
+            units=units[k],
+            title="Bland-Altman Plot for " + key + " minimal vs redundancy",
+            show=False,
+            color=all_colors,
+        )
 
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
-        bias, lower_loa, upper_loa = compute_blandt_altman(means_file[2, :], diffs_file[2, :], units=units[k],
-                                                           title="Bland-Altman Plot for " + key + " depth vs minimal",
-                                                           show=False, color=all_colors)
+        bias, lower_loa, upper_loa = compute_blandt_altman(
+            means_file[2, :],
+            diffs_file[2, :],
+            units=units[k],
+            title="Bland-Altman Plot for " + key + " depth vs minimal",
+            show=False,
+            color=all_colors,
+        )
 
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
 
-    print(r"""
+    print(
+        r"""
     \begin{table}[h]
     \caption{Root Mean Square Deviation (RMSD), along with Bland-Altman limit of agreement (LOA) and Bland-Altman Bias,
      of the biomechanical outcomes using both Vicon-based methods, with redundancy and minimal, as reference standards.}
@@ -180,29 +203,60 @@ if __name__ == '__main__':
          &  &  & & Low & High &  \\
          \hline
          """
-          "\multirow{3}*{Joint angles (\degree~)} "
-          "& RGBD vs redundant &" + f" {all_rmse[0][0]}& {all_std[0][0]} & {all_loa[0][0][0]}& {all_loa[0][0][1]}& {all_bias[0][0]}" + r"\\" + "\n"
-                                                                                                                                               "& minimal vs redundant &" + f" {all_rmse[0][1]}& {all_std[0][1]}  & {all_loa[0][1][0]}& {all_loa[0][1][1]}& {all_bias[0][1]}" + r"\\" + "\n"
-                                                                                                                                                                                                                                                                                        "& RGBD vs minimal &" + f" {all_rmse[0][2]}& {all_std[0][2]}  & {all_loa[0][2][0]}& {all_loa[0][2][1]}& {all_bias[0][2]}" + r"\\" + "\n" + r" \hdashline" + "\n"
-
-          # "\multirow{3}*{Joint velocity (\degree~/s)} "
-          # "& RGBD vs redundant &" + f" {all_rmse[1][0]}& {all_std[1][0]} & {all_loa[1][0][0]}& {all_loa[1][0][1]}& {all_bias[1][0]}" + r"\\" + "\n" 
-          # "& minimal vs redundant &" + f" {all_rmse[1][1]}& {all_std[1][1]}  & {all_loa[1][1][0]}& {all_loa[1][1][1]}& {all_bias[1][1]}" + r"\\" + "\n" 
-          # "& RGBD vs minimal &" + f" {all_rmse[1][2]}& {all_std[1][2]}  & {all_loa[1][2][0]}& {all_loa[1][2][1]}& {all_bias[1][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
-
-            "\multirow{3}*{Joint torques (N.m)} "
-            "& RGBD vs redundant &" + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]}& {all_loa[3][0][1]}& {all_bias[3][0]}" + r"\\" + "\n"
-           "& minimal vs redundant &" + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]}& {all_loa[3][1][1]}& {all_bias[3][1]}" + r"\\" + "\n"
-           "& RGBD vs minimal &" + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]}& {all_loa[3][2][1]}& {all_bias[3][2]}" + r"\\" + "\n" + r" \hdashline" + "\n"
-
-           "\multirow{3}*{Muscle forces (N)} "
-           "& RGBD vs redundant &" + f" {all_rmse[4][0]}& {all_std[4][0]} & {all_loa[4][0][0]}& {all_loa[4][0][1]}& {all_bias[4][0]}" + r"\\" + "\n"
-           "& minimal vs redundant &" + f" {all_rmse[4][1]}& {all_std[4][1]}  & {all_loa[4][1][0]}& {all_loa[4][1][1]}& {all_bias[4][1]}" + r"\\" + "\n"
-          "& RGBD vs minimal &" + f" {all_rmse[4][2]}& {all_std[4][2]}  & {all_loa[4][2][0]}& {all_loa[4][2][1]}& {all_bias[4][2]}" + r"\\" + "\n" + r"\hline" + "\n"
-                     r"""                                                                                                      
+        "\multirow{3}*{Joint angles (\degree~)} "
+        "& RGBD vs redundant &"
+        + f" {all_rmse[0][0]}& {all_std[0][0]} & {all_loa[0][0][0]}& {all_loa[0][0][1]}& {all_bias[0][0]}"
+        + r"\\"
+        + "\n"
+        "& minimal vs redundant &"
+        + f" {all_rmse[0][1]}& {all_std[0][1]}  & {all_loa[0][1][0]}& {all_loa[0][1][1]}& {all_bias[0][1]}"
+        + r"\\"
+        + "\n"
+        "& RGBD vs minimal &"
+        + f" {all_rmse[0][2]}& {all_std[0][2]}  & {all_loa[0][2][0]}& {all_loa[0][2][1]}& {all_bias[0][2]}"
+        + r"\\"
+        + "\n"
+        + r" \hdashline"
+        + "\n"
+        # "\multirow{3}*{Joint velocity (\degree~/s)} "
+        # "& RGBD vs redundant &" + f" {all_rmse[1][0]}& {all_std[1][0]} & {all_loa[1][0][0]}& {all_loa[1][0][1]}& {all_bias[1][0]}" + r"\\" + "\n"
+        # "& minimal vs redundant &" + f" {all_rmse[1][1]}& {all_std[1][1]}  & {all_loa[1][1][0]}& {all_loa[1][1][1]}& {all_bias[1][1]}" + r"\\" + "\n"
+        # "& RGBD vs minimal &" + f" {all_rmse[1][2]}& {all_std[1][2]}  & {all_loa[1][2][0]}& {all_loa[1][2][1]}& {all_bias[1][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
+        "\multirow{3}*{Joint torques (N.m)} "
+        "& RGBD vs redundant &"
+        + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]}& {all_loa[3][0][1]}& {all_bias[3][0]}"
+        + r"\\"
+        + "\n"
+        "& minimal vs redundant &"
+        + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]}& {all_loa[3][1][1]}& {all_bias[3][1]}"
+        + r"\\"
+        + "\n"
+        "& RGBD vs minimal &"
+        + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]}& {all_loa[3][2][1]}& {all_bias[3][2]}"
+        + r"\\"
+        + "\n"
+        + r" \hdashline"
+        + "\n"
+        "\multirow{3}*{Muscle forces (N)} "
+        "& RGBD vs redundant &"
+        + f" {all_rmse[4][0]}& {all_std[4][0]} & {all_loa[4][0][0]}& {all_loa[4][0][1]}& {all_bias[4][0]}"
+        + r"\\"
+        + "\n"
+        "& minimal vs redundant &"
+        + f" {all_rmse[4][1]}& {all_std[4][1]}  & {all_loa[4][1][0]}& {all_loa[4][1][1]}& {all_bias[4][1]}"
+        + r"\\"
+        + "\n"
+        "& RGBD vs minimal &"
+        + f" {all_rmse[4][2]}& {all_std[4][2]}  & {all_loa[4][2][0]}& {all_loa[4][2][1]}& {all_bias[4][2]}"
+        + r"\\"
+        + "\n"
+        + r"\hline"
+        + "\n"
+        r"""                                                                                                      
                \end{tabular}
            
                \label{tab:errors}
            \end{table}
-                                                                                                                                                                                                                                                                                             """)
+                                                                                                                                                                                                                                                                                             """
+    )
     plt.show()

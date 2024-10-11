@@ -12,7 +12,15 @@ from rgbd_mocap.enums import ColorResolution, DepthResolution
 
 
 class RGBDRecorder:
-    def __init__(self, from_rgbd=True, fps=60, threads_number=3, depth=DepthResolution.R_848x480, color=ColorResolution.R_848x480, align_color=True):
+    def __init__(
+        self,
+        from_rgbd=True,
+        fps=60,
+        threads_number=3,
+        depth=DepthResolution.R_848x480,
+        color=ColorResolution.R_848x480,
+        align_color=True,
+    ):
         self.from_rgbd = from_rgbd
         self.pipeline = None
         self.participant = None
@@ -134,9 +142,11 @@ class RGBDRecorder:
             color_image_to_save = color_image.copy()
             frame_number = color_frame.frame_number
             if not save_data:
-                if i==0:
-                    print("Ready to record. Please press 's' to start recording."
-                          " If you want to keep alive the image turn keep_image to True.")
+                if i == 0:
+                    print(
+                        "Ready to record. Please press 's' to start recording."
+                        " If you want to keep alive the image turn keep_image to True."
+                    )
                 if cv2.waitKey(1) & 0xFF == ord("s"):
                     save_data = True
                 color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
@@ -181,12 +191,8 @@ class RGBDRecorder:
         final_frame = -1
         frame_number = 0
         tic_init = time.time()
-        if not os.path.exists(
-            rf"{save_dir}\{self.participant}\{self.file_name}_{self.date_time}"
-        ):
-            os.makedirs(
-                rf"{save_dir}\{self.participant}\{self.file_name}_{self.date_time}"
-            )
+        if not os.path.exists(rf"{save_dir}\{self.participant}\{self.file_name}_{self.date_time}"):
+            os.makedirs(rf"{save_dir}\{self.participant}\{self.file_name}_{self.date_time}")
 
         nb_frame = 0
         init_count = 0
@@ -216,17 +222,19 @@ class RGBDRecorder:
             except:
                 pass
         print(
-            len(
-                os.listdir(
-                    rf"{save_dir}\{self.participant}\{self.file_name}_{self.date_time}"
-                )
-            ), "images were saved."
+            len(os.listdir(rf"{save_dir}\{self.participant}\{self.file_name}_{self.date_time}")), "images were saved."
         )
         print("saving time: {}".format(time.time() - tic_init))
 
     def start(self, keep_image=False):
         processes = []
-        p = mp.Process(target=RGBDRecorder.get_rgbd, args=(self,keep_image,))
+        p = mp.Process(
+            target=RGBDRecorder.get_rgbd,
+            args=(
+                self,
+                keep_image,
+            ),
+        )
         processes.append(p)
         for i in range(self.nb_save_process):
             p = mp.Process(target=RGBDRecorder.save_rgbd_from_buffer, args=(self, i))

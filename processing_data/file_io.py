@@ -12,7 +12,7 @@ from processing_data.data_processing_helper import (
     fill_and_interpolate,
     convert_cluster_to_anato,
     adjust_idx,
-    process_cycles
+    process_cycles,
 )
 import json
 
@@ -48,11 +48,11 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
         markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
         for i in range(3):
             markers_depth_filtered[i, :7, :] = OfflineProcessing().butter_lowpass_filter(
-                markers_depth[i, :7, :],
-                2, 120, 2)
+                markers_depth[i, :7, :], 2, 120, 2
+            )
             markers_depth_filtered[i, 7:, :] = OfflineProcessing().butter_lowpass_filter(
-                markers_depth[i, 7:, :],
-                10, 120, 2)
+                markers_depth[i, 7:, :], 10, 120, 2
+            )
         markers_depth = markers_depth_filtered
     markers_dic["depth"] = [names_from_source[0], markers_depth]
     markers_dic["vicon"] = [names_from_source[1], markers_vicon]
@@ -66,19 +66,27 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
         load=np.zeros((6, 1)),
     )
     if part in ["P10", "P12", "P13", "P14"]:
-        f_ext = np.array([sensix_data["LMY"],
-                          sensix_data["LMX"],
-                          sensix_data["LMZ"],
-                          sensix_data["LFY"],
-                          -sensix_data["LFX"],
-                          -sensix_data["LFZ"]])
+        f_ext = np.array(
+            [
+                sensix_data["LMY"],
+                sensix_data["LMX"],
+                sensix_data["LMZ"],
+                sensix_data["LFY"],
+                -sensix_data["LFX"],
+                -sensix_data["LFZ"],
+            ]
+        )
     else:
-        f_ext = np.array([sensix_data["LMY"],
-                          sensix_data["LMX"],
-                          sensix_data["LMZ"],
-                          sensix_data["LFY"],
-                          sensix_data["LFX"],
-                          sensix_data["LFZ"]])
+        f_ext = np.array(
+            [
+                sensix_data["LMY"],
+                sensix_data["LMX"],
+                sensix_data["LMZ"],
+                sensix_data["LFY"],
+                sensix_data["LFX"],
+                sensix_data["LFZ"],
+            ]
+        )
     f_ext = f_ext[:, 0, :]
     return markers_dic, forces, f_ext, emg, vicon_to_depth_idx, peaks, rt
 
@@ -94,7 +102,9 @@ def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exc
             all_files = [file for file in all_files if any(ext in file for ext in to_include)]
         if len(to_exclude) != 0:
             all_files = [file for file in all_files if not any(ext in file for ext in to_exclude)]
-        all_files = [f"{data_dir}{os.sep}{part}{os.sep}{file}" for file in all_files] # if "gear" in file and "less" not in file and "more" not in file and "result" not in file]
+        all_files = [
+            f"{data_dir}{os.sep}{part}{os.sep}{file}" for file in all_files
+        ]  # if "gear" in file and "less" not in file and "more" not in file and "result" not in file]
         final_files = all_files if not trial_names else []
         if trial_names:
             for trial in trial_names[participants.index(part)]:
@@ -109,12 +119,26 @@ def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exc
 
 def get_dlc_data(dlc_data_path, markers_dic=None, source="dlc"):
     markers_dic = {} if markers_dic is None else markers_dic
-    ordered_markers_names = ["ribs", 'ster', 'xiph', 'clavsc', 'clavac',
-                              'delt', 'arml', 'epicl', 'larml', 'stylr', 'stylu', 'm1', 'm2', 'm3']
+    ordered_markers_names = [
+        "ribs",
+        "ster",
+        "xiph",
+        "clavsc",
+        "clavac",
+        "delt",
+        "arml",
+        "epicl",
+        "larml",
+        "stylr",
+        "stylu",
+        "m1",
+        "m2",
+        "m3",
+    ]
     data = load(dlc_data_path)
-    reordered_markers_dlc, idx = reorder_markers_from_names(data["markers_in_meters"],
-                                                              ordered_markers_names,
-                                                              list(data["markers_names"][:, 0]))
+    reordered_markers_dlc, idx = reorder_markers_from_names(
+        data["markers_in_meters"], ordered_markers_names, list(data["markers_names"][:, 0])
+    )
     markers_dic[source] = [ordered_markers_names, reordered_markers_dlc]
     return markers_dic, data["frame_idx"]
 
@@ -122,16 +146,13 @@ def get_dlc_data(dlc_data_path, markers_dic=None, source="dlc"):
 def filter_dlc_data(markers_list, frame_idx, part, interpolation_shape, rt=None):
     data_dlc = markers_list[1]
     dlc_names = markers_list[0]
-    new_markers_dlc = np.zeros((3, data_dlc.shape[1], data_dlc.shape[2] ))
+    new_markers_dlc = np.zeros((3, data_dlc.shape[1], data_dlc.shape[2]))
     if rt is not None:
         markers_dlc_hom = np.ones((4, data_dlc.shape[1], data_dlc.shape[2]))
         markers_dlc_hom[:3, ...] = data_dlc[:3, ...]
         for k in range(new_markers_dlc.shape[2]):
             new_markers_dlc[:, :, k] = np.dot(np.array(rt), markers_dlc_hom[:, :, k])[:3, :]
-    new_markers_dlc = fill_and_interpolate(data=new_markers_dlc,
-                                            idx=frame_idx,
-                                            shape=interpolation_shape,
-                                            fill=True)
+    new_markers_dlc = fill_and_interpolate(data=new_markers_dlc, idx=frame_idx, shape=interpolation_shape, fill=True)
     config = "with_depth"
     measurements_dir_path = "D:\Documents\Programmation\pose_estimation\data_collection_mesurement"
     calibration_matrix_dir = "D:\Documents\Programmation\pose_estimation\calibration_matrix"
@@ -140,43 +161,67 @@ def filter_dlc_data(markers_list, frame_idx, part, interpolation_shape, rt=None)
     calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[config]["calibration_matrix_name"]
     anato_from_cluster = convert_cluster_to_anato(new_markers_dlc[:, -3:, :], measurements, calibration_matrix)
     first_idx = dlc_names.index("clavac")
-    new_markers_dlc = np.concatenate((new_markers_dlc[:, :first_idx + 1, :],
-                                      anato_from_cluster[:3, :, :],
-                                      new_markers_dlc[:, first_idx + 1:, :]), axis=1
-                                     )
-    new_markers_names = markers_list[0][:first_idx + 1] + ['scapaa', 'scapia', 'scapts'] + markers_list[0][first_idx + 1:]
+    new_markers_dlc = np.concatenate(
+        (new_markers_dlc[:, : first_idx + 1, :], anato_from_cluster[:3, :, :], new_markers_dlc[:, first_idx + 1 :, :]),
+        axis=1,
+    )
+    new_markers_names = (
+        markers_list[0][: first_idx + 1] + ["scapaa", "scapia", "scapts"] + markers_list[0][first_idx + 1 :]
+    )
     new_markers_dlc_filtered = np.zeros((3, new_markers_dlc.shape[1], new_markers_dlc.shape[2]))
     for i in range(3):
         new_markers_dlc_filtered[i, :8, :] = OfflineProcessing().butter_lowpass_filter(
-            new_markers_dlc[i, :8, :],
-            2, 120, 2)
+            new_markers_dlc[i, :8, :], 2, 120, 2
+        )
         new_markers_dlc_filtered[i, 8:, :] = OfflineProcessing().butter_lowpass_filter(
-            new_markers_dlc[i, 8:, :],
-            10, 120, 2)
+            new_markers_dlc[i, 8:, :], 10, 120, 2
+        )
     markers_list[1] = new_markers_dlc_filtered
     markers_list[0] = new_markers_names
     return markers_list
 
 
 def refine_markers_dlc(markers_dic, frame_idx, labeled_data_path):
-    ordered_depth_markers = ['ster', 'xiph', 'clavsc', 'clavac',
-                             'delt', 'arml', 'epicl', 'larml', 'stylu', 'stylr', 'm1', 'm2', 'm3']
+    ordered_depth_markers = [
+        "ster",
+        "xiph",
+        "clavsc",
+        "clavac",
+        "delt",
+        "arml",
+        "epicl",
+        "larml",
+        "stylu",
+        "stylr",
+        "m1",
+        "m2",
+        "m3",
+    ]
     data = load(labeled_data_path)
-    reordered_markers_depth, idx = reorder_markers_from_names(data["markers_in_meters"],
-                                                              ordered_depth_markers,
-                                                              list(data["markers_names"][:, 0]))
+    reordered_markers_depth, idx = reorder_markers_from_names(
+        data["markers_in_meters"], ordered_depth_markers, list(data["markers_names"][:, 0])
+    )
     frame_idx_dlc = frame_idx.copy()
     framer_idx_depth = data["frame_idx"].copy()
     for key in markers_dic:
         if "dlc" in key:
-            data_dlc, data_labeling, idx_start, idx_end, frame_idx = check_frames(markers_dic[key][1], reordered_markers_depth,
-                                                                       framer_idx_depth, frame_idx_dlc)
+            data_dlc, data_labeling, idx_start, idx_end, frame_idx = check_frames(
+                markers_dic[key][1], reordered_markers_depth, framer_idx_depth, frame_idx_dlc
+            )
             markers_dic[key][1] = data_dlc
     return markers_dic, idx_start, idx_end, frame_idx
 
 
-def get_data_from_sources(participant, trial_name, source_list, model_dir, model_source, live_filter: list = None,
-                          source_to_keep=None, output_file=None):
+def get_data_from_sources(
+    participant,
+    trial_name,
+    source_list,
+    model_dir,
+    model_source,
+    live_filter: list = None,
+    source_to_keep=None,
+    output_file=None,
+):
     once_loaded = False
     dlc_frames_idx = None
     is_dlc = False
@@ -186,8 +231,9 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
     existing_keys = []
     forces, f_ext, emg, vicon_to_depth, peaks, rt = None, None, None, None, None, None
     root_dir = f"{prefix}{os.sep}Projet_hand_bike_markerless/RGBD/{participant}"
-    directory = \
-    [direc for direc in os.listdir(root_dir) if trial_name in direc and os.path.isdir(root_dir + os.sep + direc)]
+    directory = [
+        direc for direc in os.listdir(root_dir) if trial_name in direc and os.path.isdir(root_dir + os.sep + direc)
+    ]
     if len(directory) == 0:
         raise ValueError(f"No directory found for participant {participant} and trial {trial_name}")
     directory = directory[0]
@@ -207,8 +253,11 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
         elif ("vicon" in source or "depth" in source) and not once_loaded:
             print(f"Processing participant {participant}, trial : {trial_name}")
             markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
-                prefix + "/Projet_hand_bike_markerless/process_data", participant, f"{trial_name}",
-                live_filter[source_list.index("depth")].value == 4, markers_dic
+                prefix + "/Projet_hand_bike_markerless/process_data",
+                participant,
+                f"{trial_name}",
+                live_filter[source_list.index("depth")].value == 4,
+                markers_dic,
             )
             markers_dic = {key: markers_dic[key] for key in source_list if "dlc" not in key}
             once_loaded = True
@@ -219,23 +268,23 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
             markers_dic, dlc_frames_idx = get_dlc_data(dlc_data_path, markers_dic, source)
 
     if os.path.isfile(labeled_data_path) and is_dlc:
-        markers_dic, idx_start, idx_end, dlc_frames_idx = refine_markers_dlc(markers_dic, dlc_frames_idx, labeled_data_path)
+        markers_dic, idx_start, idx_end, dlc_frames_idx = refine_markers_dlc(
+            markers_dic, dlc_frames_idx, labeled_data_path
+        )
     count = 0
     for key in markers_dic:
         if key in source_to_keep and key in existing_keys:
             count += 1
             continue
         if "dlc" not in key and is_dlc:
-            markers_dic[key][1] = adjust_idx({"mark": markers_dic[key][1]}, idx_start, idx_end)[
-                "mark"]
+            markers_dic[key][1] = adjust_idx({"mark": markers_dic[key][1]}, idx_start, idx_end)["mark"]
         if live_filter[source_list.index(key)].value != 0:
             count += 1
             continue
         if "dlc" in key and live_filter[source_list.index(key)].value == 4:
-            markers_dic[key] = filter_dlc_data(markers_dic[key], dlc_frames_idx, participant,
-                                          markers_dic["depth"][1].shape[-1], rt
-
-                                               )
+            markers_dic[key] = filter_dlc_data(
+                markers_dic[key], dlc_frames_idx, participant, markers_dic["depth"][1].shape[-1], rt
+            )
         # model_path = f"{model_dir}/{participant}/model_scaled_{model_source[count]}_new_seth.bioMod"
         # model_markers_names = [mark.to_string() for mark in biorbd.Model(model_path).markerNames()]
         # markers_dic[key][1], _ = reorder_markers_from_names(markers_dic[key][1][:, :-3, :],
@@ -246,21 +295,29 @@ def get_data_from_sources(participant, trial_name, source_list, model_dir, model
     return markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frames_idx
 
 
-def load_results(participants, processed_data_path, trials=None, file_name="", to_exclude=(), recompute_cycles=True,
-                 trials_to_exclude=()):
+def load_results(
+    participants,
+    processed_data_path,
+    trials=None,
+    file_name="",
+    to_exclude=(),
+    recompute_cycles=True,
+    trials_to_exclude=(),
+):
     if trials is None:
         trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     all_data = {}
     for p, part in enumerate(participants):
         all_data[part] = {}
         all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if "gear" in file
-                     # and "result_offline" in file
-                     and file_name in file
-                     and "ik" not in file
-                     and "rt" not in file
-                     # and "3_crops" in file and "3_crops_3_crops" not in file
-                     ]
+        all_files = [
+            file
+            for file in all_files
+            if "gear" in file
+            # and "result_offline" in file
+            and file_name in file and "ik" not in file and "rt" not in file
+            # and "3_crops" in file and "3_crops_3_crops" not in file
+        ]
         for exc in to_exclude:
             all_files = [file for file in all_files if exc not in file]
         trials_tmp = []
@@ -284,5 +341,5 @@ def load_results(participants, processed_data_path, trials=None, file_name="", t
     return all_data, trials
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Testing file_io.py")

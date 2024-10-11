@@ -14,9 +14,19 @@ from ..frames.crop_frames import CropFrames
 class Tracker:
     DELTA = 10
 
-    def __init__(self, frame: CropFrames, marker_set: MarkerSet, naive=False, optical_flow=True, kalman=True,
-                 depth_range=None, from_dlc=False, dlc_live=None, ignore_all_checks=False,
-                 **kwargs):
+    def __init__(
+        self,
+        frame: CropFrames,
+        marker_set: MarkerSet,
+        naive=False,
+        optical_flow=True,
+        kalman=True,
+        depth_range=None,
+        from_dlc=False,
+        dlc_live=None,
+        ignore_all_checks=False,
+        **kwargs,
+    ):
         self.marker_set = marker_set
         self.from_dlc = from_dlc
         self.ignore_all_checks = ignore_all_checks
@@ -121,7 +131,7 @@ class Tracker:
 
         if self.from_dlc:
             # if marker.name in self.marker_set.markers_from_dlc:
-                # if marker.name in self.marker_set.dlc_enhance_markers:
+            # if marker.name in self.marker_set.dlc_enhance_markers:
             if not marker.from_dlc:
                 pos, likelihood, dlc_visible = [0, 0], 0, False
             else:
@@ -183,7 +193,7 @@ class Tracker:
         self.frame = frame
         self.depth = depth
 
-        #if self.kalman:
+        # if self.kalman:
         #    self.kalman.correct()
         self.correct()
 
@@ -198,7 +208,6 @@ class Tracker:
         # Track the next position for all markers
         if self.optical_flow:
             self.optical_flow.get_optical_flow_pos(frame.color, self.depth, self.marker_set)
-
 
         # depth_to_show = self.dlc_live.depth_image.copy()
         # for p in range(poses.shape[0]):

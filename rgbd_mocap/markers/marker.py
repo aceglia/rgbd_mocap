@@ -92,8 +92,12 @@ class Marker:
             self.set_depth_visibility(visibility)
 
     def set_bounds(self, bounds, downsample_ratio=1):
-        self.x_bounds = Bounds(min=bounds[0][0] * downsample_ratio + self.pos[0], max=bounds[0][1] * downsample_ratio + self.pos[0])
-        self.y_bounds = Bounds(min=bounds[1][0] * downsample_ratio + self.pos[1], max=bounds[1][1] * downsample_ratio  + self.pos[1])
+        self.x_bounds = Bounds(
+            min=bounds[0][0] * downsample_ratio + self.pos[0], max=bounds[0][1] * downsample_ratio + self.pos[0]
+        )
+        self.y_bounds = Bounds(
+            min=bounds[1][0] * downsample_ratio + self.pos[1], max=bounds[1][1] * downsample_ratio + self.pos[1]
+        )
         self.is_bounded = True
 
     def get_bounds(self):

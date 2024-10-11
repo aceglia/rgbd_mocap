@@ -13,16 +13,16 @@ def modify_config_file(tmp_config, project_path):
             data = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
-    #data["project_path"] = r'\\10.89.24.15\q' + os.sep + project_path[3:]
+    # data["project_path"] = r'\\10.89.24.15\q' + os.sep + project_path[3:]
     data["project_path"] = project_path
     # list_past_iter = glob.glob(project_path + r"\dlc-models\iteration-0\testApr23-trainset95shuffle1\train\**.index")
     # list_idx = []
     # for file in list_past_iter:
     #     list_idx.append(int(Path(file).stem.split("-")[-1]))
     # data["snapshotindex"] = -1 if len(list_idx) < 1 else np.sort(list_idx)[-1]
-    with open(project_path + '\config.yaml', 'w') as outfile:
+    with open(project_path + "\config.yaml", "w") as outfile:
         yaml.dump(data, outfile, default_flow_style=False)
-    return project_path + '\config.yaml'
+    return project_path + "\config.yaml"
 
 
 def modify_pose_cfg(pose_path, from_last_iter=False, max_iter_init=1000000):
@@ -40,7 +40,7 @@ def modify_pose_cfg(pose_path, from_last_iter=False, max_iter_init=1000000):
         for file in list_past_iter:
             list_idx.append(int(Path(file).stem.split("-")[-1]))
         last_iter = np.sort(list_idx)[-1]
-        data["init_weights"] = str(Path(glob.glob(train_path + f"\**{last_iter}.index")[0]))[:-len(".index")]
+        data["init_weights"] = str(Path(glob.glob(train_path + f"\**{last_iter}.index")[0]))[: -len(".index")]
         max_iter = max_iter_init - last_iter
     else:
         data["convolution"]["embossratio"] = 0
@@ -57,21 +57,22 @@ def modify_pose_cfg(pose_path, from_last_iter=False, max_iter_init=1000000):
         data["scale_jitter_lo"] = 0.8
         data["scale_jitter_up"] = 1.1
         max_iter = max_iter_init
-        #data_step = [10000, 430000, 730000, 1030000]
+        # data_step = [10000, 430000, 730000, 1030000]
         data_step = [5000, 100000, 200000, 300000]
     # data["rotratio"] = 0.0
     # data["rotation"] = False
     # data["cropratio"] = 0
 
     # data["apply_prob"] = 0
-    #data["multi_step"] = [[0.005, data_step[0]], [0.02, data_step[1]], [0.002, data_step[2]], [0.001, data_step[3]]]
-    with open(pose_path, 'w') as outfile:
+    # data["multi_step"] = [[0.005, data_step[0]], [0.02, data_step[1]], [0.002, data_step[2]], [0.001, data_step[3]]]
+    with open(pose_path, "w") as outfile:
         yaml.dump(data, outfile, default_flow_style=False)
     return max_iter
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import time
+
     main_path = "Q:\Projet_hand_bike_markerless\RGBD\Training_data"
     local_path = r"C:\Users\User\Documents\Amedeo"
     config_tmp_path = "Q:\Projet_hand_bike_markerless\RGBD\Training_data\config_tmp.yaml"
@@ -91,10 +92,12 @@ if __name__ == '__main__':
                 os.mkdir(project_path + r"\training-datasets")
                 os.mkdir(project_path + r"\videos")
             # don't edit these:
-            video_file_path = [project_path + os.sep + project_name + '/videos/']
+            video_file_path = [project_path + os.sep + project_name + "/videos/"]
             path_config_file = modify_config_file(config_tmp_path, project_path)
             if len(os.listdir(project_path + r"\labeled-data")) == 0:
-                shutil.copytree(main_path + f"\{participant}{file_name[:-3]}", project_path + r"\labeled-data\data_test")
+                shutil.copytree(
+                    main_path + f"\{participant}{file_name[:-3]}", project_path + r"\labeled-data\data_test"
+                )
             if not os.path.exists(project_path + r"\labeled-data\annotated_images_aug"):
                 os.mkdir(project_path + r"\labeled-data\annotated_images_aug")
                 dist = project_path + r"\labeled-data\annotated_images_aug\CollectedData_Ame.csv"
@@ -106,7 +109,11 @@ if __name__ == '__main__':
                 # dist = project_path + r"\labeled-data\data_test\CollectedData_ame.h5"
                 # shutil.copy2(src, dist)
             if not os.path.exists(project_path + "\dlc-models\iteration-0"):
-                deeplabcut.create_training_dataset(path_config_file, net_type='mobilenet_v2_0.35', augmenter_type='imgaug', )
+                deeplabcut.create_training_dataset(
+                    path_config_file,
+                    net_type="mobilenet_v2_0.35",
+                    augmenter_type="imgaug",
+                )
                 from_last_iter = False
             else:
                 from_last_iter = True

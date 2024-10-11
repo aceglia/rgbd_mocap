@@ -129,16 +129,20 @@ class CameraConverter:
         conf_data = load_json(conf_data)
         self.conf_data_dic = conf_data
         self.depth_scale = conf_data["depth_scale"]
-        self.depth.set_intrinsics_from_file(conf_data["depth_fx_fy"],
-                                            conf_data["depth_ppx_ppy"],
-                                            conf_data["dist_coeffs_color"],
-                                            conf_data["size_depth"],
-                                            conf_data["depth_rate"])
-        self.color.set_intrinsics_from_file(conf_data["color_fx_fy"],
-                                            conf_data["color_ppx_ppy"],
-                                            conf_data["dist_coeffs_color"],
-                                            conf_data["size_color"],
-                                            conf_data["color_rate"])
+        self.depth.set_intrinsics_from_file(
+            conf_data["depth_fx_fy"],
+            conf_data["depth_ppx_ppy"],
+            conf_data["dist_coeffs_color"],
+            conf_data["size_depth"],
+            conf_data["depth_rate"],
+        )
+        self.color.set_intrinsics_from_file(
+            conf_data["color_fx_fy"],
+            conf_data["color_ppx_ppy"],
+            conf_data["dist_coeffs_color"],
+            conf_data["size_color"],
+            conf_data["color_rate"],
+        )
 
     def _set_extrinsic_from_file(self, conf_data=None):
         conf_data = self.conf_data_dic if not conf_data else load_json(conf_data)
@@ -157,10 +161,7 @@ class CameraConverter:
             Pipeline linked to the connected camera.
         """
         _intrinsics = (
-            pipeline.get_active_profile()
-            .get_stream(rs.stream.depth)
-            .as_video_stream_profile()
-            .get_intrinsics()
+            pipeline.get_active_profile().get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
         )
         self.depth_scale = pipeline.get_active_profile().get_device().first_depth_sensor().get_depth_scale()
         self.depth.set_intrinsics(_intrinsics)
@@ -186,9 +187,10 @@ class CameraConverter:
         for i in range(len(marker_pos_in_meters)):
             computed_pos = rs.rs2_project_point_to_pixel(
                 _intrinsics,
-                np.array([marker_pos_in_meters[i][0],
-                          marker_pos_in_meters[i][1],
-                          marker_pos_in_meters[i][2]], dtype=np.float32),
+                np.array(
+                    [marker_pos_in_meters[i][0], marker_pos_in_meters[i][1], marker_pos_in_meters[i][2]],
+                    dtype=np.float32,
+                ),
             )
 
             markers.append(computed_pos)
@@ -224,8 +226,7 @@ class CameraConverter:
 
         for i, pos in enumerate(marker_pos_in_pixel):
             computed_pos = rs.rs2_deproject_pixel_to_point(
-                _intrinsics, np.array([pos[0], pos[1]], dtype=np.float32),
-                float(pos[2])
+                _intrinsics, np.array([pos[0], pos[1]], dtype=np.float32), float(pos[2])
             )
 
             markers[0].append(computed_pos[0])
@@ -237,7 +238,11 @@ class CameraConverter:
         # return markers_in_meters
 
     @staticmethod
-    def _compute_markers(intrinsics, marker_pos, method, ):
+    def _compute_markers(
+        intrinsics,
+        marker_pos,
+        method,
+    ):
         """
         Private method.
         Compute the markers positions with the given method and intrinsics.
@@ -260,10 +265,7 @@ class CameraConverter:
         markers = [[], [], []]
 
         for i, pos in enumerate(marker_pos):
-            computed_pos = method(
-                intrinsics, np.array([pos[0], pos[1]], dtype=np.float32),
-                float(pos[2])
-            )
+            computed_pos = method(intrinsics, np.array([pos[0], pos[1]], dtype=np.float32), float(pos[2]))
 
             markers[0].append(computed_pos[0])
             markers[1].append(computed_pos[1])

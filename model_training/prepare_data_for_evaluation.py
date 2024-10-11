@@ -18,8 +18,9 @@ windows_destroyed = False
 
 import time
 
-out = cv2.VideoWriter(path + '\P9_test.avi', cv2.VideoWriter_fourcc('M','J','P','G'),
-60, (frame_width, frame_height))
+out = cv2.VideoWriter(
+    path + "\P9_test.avi", cv2.VideoWriter_fourcc("M", "J", "P", "G"), 60, (frame_width, frame_height)
+)
 for i in range(1000, 1800):
     try:
         depth = cv2.imread(path + f"\depth_{idx[i]}.png", cv2.IMREAD_ANYDEPTH)

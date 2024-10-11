@@ -5,7 +5,6 @@ import numpy as np
 from utils_old import load_all_data
 
 
-
 def _convert_string(string):
     return string.lower().replace("_", "")
 
@@ -20,10 +19,10 @@ def reorder_markers(markers, model, names):
         if names[i] == "elb":
             names[i] = "elbow"
         if _convert_string(names[i]) in model_marker_names:
-            reordered_markers[:, model_marker_names.index(_convert_string(names[i])),
-            :] = markers[:, count, :]
+            reordered_markers[:, model_marker_names.index(_convert_string(names[i])), :] = markers[:, count, :]
             count += 1
     return reordered_markers
+
 
 def get_force_to_show(sensix_data, q, model_bio):
     # f_ext = np.array([sensix_data["RMY"],
@@ -32,12 +31,16 @@ def get_force_to_show(sensix_data, q, model_bio):
     #                   sensix_data["RFY"],
     #                   -sensix_data["RFX"],
     #                   sensix_data["RFZ"]])
-    f_ext = np.array([-sensix_data["RMY"],
-                      sensix_data["RMX"],
-                      sensix_data["RMZ"],
-                      -sensix_data["RFY"],
-                      sensix_data["RFX"],
-                      sensix_data["RFZ"]])
+    f_ext = np.array(
+        [
+            -sensix_data["RMY"],
+            sensix_data["RMX"],
+            sensix_data["RMZ"],
+            -sensix_data["RFY"],
+            sensix_data["RFX"],
+            sensix_data["RFZ"],
+        ]
+    )
     f_ext = f_ext[:, 0, :]
     f_ext_mat = np.zeros((1, 6, f_ext.shape[1]))
     for i in range(f_ext.shape[1]):
@@ -59,12 +62,10 @@ def get_force_to_show(sensix_data, q, model_bio):
     return f_ext_mat
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = ["P9"]
     trials = [["gear_10"]] * len(participants)
-    all_data, trials = load_all_data(participants,
-                                     "/mnt/shared/Projet_hand_bike_markerless/process_data", trials
-                                     )
+    all_data, trials = load_all_data(participants, "/mnt/shared/Projet_hand_bike_markerless/process_data", trials)
     key = ["markers"]
     n_key = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["markers_depth"].shape[1]
     means_file = np.ndarray((len(participants) * n_key))
@@ -80,11 +81,11 @@ if __name__ == '__main__':
             names_from_source[idx_ts] = "scapia"
             names_from_source[idx_ai] = "scapts"
             # markers = all_data[part][file]["markers_depth"][:, :-3, :]
-            msk_func = MskFunctions(model=f"/mnt/shared/Projet_hand_bike_markerless/process_data/{part}/models/gear_10_processed_3_model_scaled_vicon.bioMod",
-                                    data_buffer_size=markers.shape[2])
-            markers_target = reorder_markers(markers[:, :-3, :],
-                                             msk_func.model,
-                                             names_from_source[:-3])
+            msk_func = MskFunctions(
+                model=f"/mnt/shared/Projet_hand_bike_markerless/process_data/{part}/models/gear_10_processed_3_model_scaled_vicon.bioMod",
+                data_buffer_size=markers.shape[2],
+            )
+            markers_target = reorder_markers(markers[:, :-3, :], msk_func.model, names_from_source[:-3])
             markers = markers_target
             q, _, _ = msk_func.compute_inverse_kinematics(markers, method=InverseKinematicsMethods.BiorbdKalman)
             f_ext = get_force_to_show(all_data[part][file]["sensix_data_interpolated"], q, msk_func.model)

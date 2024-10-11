@@ -214,7 +214,9 @@ class ScapulaCluster:
         mat_rm_to_rg = self._create_axis_coordinates(marker[:3, 0, :], marker[:3, 1, :], marker[:3, 2, :])
         coord_gen = np.zeros((4, 3, mat_rm_to_rg.shape[2]))
         for i in range(mat_rm_to_rg.shape[2]):
-            mat_rm_to_rg = self._create_axis_coordinates(marker[:3, 0, i:i+1], marker[:3, 1, i:i+1], marker[:3, 2, i:i+1])
+            mat_rm_to_rg = self._create_axis_coordinates(
+                marker[:3, 0, i : i + 1], marker[:3, 1, i : i + 1], marker[:3, 2, i : i + 1]
+            )
             coord_gen[:, 1, i] = np.dot(mat_rm_to_rg[:, :, 0], ia_in_rm)
             coord_gen[:, 2, i] = np.dot(mat_rm_to_rg[:, :, 0], ts_in_rm)
             coord_gen[:, 0, i] = np.dot(mat_rm_to_rg[:, :, 0], aa_in_rm)
@@ -293,7 +295,9 @@ class ScapulaCluster:
                     file_path_tmp = all_files[i][:-4] + "_processed.c3d"
             else:
                 if marker_positions[i].shape[0] != 4:
-                    marker_positions[i] = np.append(( marker_positions[i]), np.ones_like(marker_positions[i][0:1, :, :]), axis=0)
+                    marker_positions[i] = np.append(
+                        (marker_positions[i]), np.ones_like(marker_positions[i][0:1, :, :]), axis=0
+                    )
                 all_markers_data = marker_positions[i][:, :, s:e]
                 if file_path:
                     file_path_tmp = file_path[i]

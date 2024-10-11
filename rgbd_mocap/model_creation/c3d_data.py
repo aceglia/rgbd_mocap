@@ -1,4 +1,5 @@
 import numpy as np
+
 try:
     import ezc3d
 except ImportError:

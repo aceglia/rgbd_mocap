@@ -6,8 +6,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from utils import _reorder_markers_from_names
+
+
 def _convert_string(string):
     return string.lower().replace("_", "")
+
 
 def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
     vicon_markers_names = [_convert_string(name) for name in names_vicon]
@@ -33,15 +36,15 @@ def get_model_markers_names(model, names=None):
     return markers
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = [f"P{i}" for i in range(10, 11)]
     # participants.pop(participants.index("P14"))
 
     data_path = "Q://Projet_hand_bike_markerless/RGBD"
     model_source = ["dlc_ribs", "vicon"]
-    sources = ["dlc_1"] #, "vicon"]
+    sources = ["dlc_1"]  # , "vicon"]
     for participant in participants:
-        all_files = os.listdir(fr"{data_path}\{participant}")
+        all_files = os.listdir(rf"{data_path}\{participant}")
         all_files = [file for file in all_files if "gear" in file]
         for file in all_files:
             model = "normal_500_down_b1"
@@ -57,6 +60,7 @@ if __name__ == '__main__':
                     raise ValueError(f"source {source} not in data keys")
                 model_path = f"Q://Projet_hand_bike_markerless/RGBD/P10/model_scaled_{model_source[s]}.bioMod"
                 import numpy as np
+
                 markers = data[source]["tracked_markers"][..., :1000]
                 if source == "vicon":
                     markers = np.nan_to_num(markers, nan=0.0)

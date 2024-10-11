@@ -25,17 +25,17 @@ from ..tracking.position import Position
 from rgbd_mocap.utils import find_closest_blob
 
 
-
-
 class KinematicModelChecker:
-    def __init__(self, frames: Frames,
-                 marker_sets: list[MarkerSet],
-                 converter: CameraConverter,
-                 model_name: str = "kinematic_model.bioMod",
-                 markers_to_exclude=[],
-                 build_model=True,
-                 kin_marker_set=None,
-                 ):
+    def __init__(
+        self,
+        frames: Frames,
+        marker_sets: list[MarkerSet],
+        converter: CameraConverter,
+        model_name: str = "kinematic_model.bioMod",
+        markers_to_exclude=[],
+        build_model=True,
+        kin_marker_set=None,
+    ):
 
         self.frames = frames
         self.marker_sets = marker_sets
@@ -59,7 +59,7 @@ class KinematicModelChecker:
         # Set Markers to exclude
         self.markers_to_exclude = markers_to_exclude
 
-        self.ik_method = 'kalman'
+        self.ik_method = "kalman"
 
         self.last_q = None
 
@@ -170,8 +170,9 @@ class KinematicModelChecker:
         for m, marker_set in enumerate(self.marker_sets):
             crops[m].tracker.frame = crops[m].frame
             for i in range(marker_set.nb_markers):
-                crops[m].tracker.estimated_positions[i] = [Position(marker_set.markers[i].pos,
-                                                                    marker_set.markers[i].get_visibility())]
+                crops[m].tracker.estimated_positions[i] = [
+                    Position(marker_set.markers[i].pos, marker_set.markers[i].get_visibility())
+                ]
         return crops
 
     def _set_markers(self, markers, crops):
@@ -197,11 +198,13 @@ class KinematicModelChecker:
                 if marker_set.markers[i].name in marker_set.markers_from_dlc:
                     if marker_set.markers[i].name not in marker_set.dlc_enhance_markers:
                         crops[m].tracker.estimated_positions[i].append(Position(marker_in_local, True))
-                    elif len(crops[m].tracker.blobs) > 0 and marker_set.markers[i].name in marker_set.dlc_enhance_markers:
+                    elif (
+                        len(crops[m].tracker.blobs) > 0 and marker_set.markers[i].name in marker_set.dlc_enhance_markers
+                    ):
                         position, visible = find_closest_blob(marker_in_local, crops[m].tracker.blobs, delta=10)
                         crops[m].tracker.estimated_positions[i].append(Position(position, visible))
                 else:
-                     crops[m].tracker.estimated_positions[i].append(Position(marker_in_local, True))
+                    crops[m].tracker.estimated_positions[i].append(Position(marker_in_local, True))
                 # else:
                 #     crops[m].tracker.estimated_positions[i].append(None)
             crops[m].tracker.merge_positions()

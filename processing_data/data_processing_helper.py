@@ -6,12 +6,24 @@ from processing_data.scapula_cluster.from_cluster_to_anato import ScapulaCluster
 import matplotlib.pyplot as plt
 import scipy.stats as st
 
+
 def convert_string(string):
     return string.lower().replace("_", "")
 
 
-def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None,
-                          markers=None, ax=None, threeshold=np.inf, no_y_label=False):
+def compute_blandt_altman(
+    data1,
+    data2,
+    units="mm",
+    title="Bland-Altman Plot",
+    show=True,
+    color=None,
+    x_axis=None,
+    markers=None,
+    ax=None,
+    threeshold=np.inf,
+    no_y_label=False,
+):
     def _remove_nan(data1, data2):
         mean = data1
         diff = data2
@@ -19,6 +31,7 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
         mean = np.delete(mean, nan_index, axis=0)
         diff = np.delete(diff, nan_index, axis=0)
         return mean, diff
+
     # mean = (data1 + data2) / 2
     # diff = data1 - data2
     mean_to_plot = data1
@@ -28,12 +41,12 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     bias = np.mean(diff)
     # Sample standard deviation
     s = np.std(diff, ddof=1)  # Use ddof=1 to get the sample standard deviation
-    print(f'For the differences, μ = {bias:.4f} {units} and s = {s:.4f} {units} ')
+    print(f"For the differences, μ = {bias:.4f} {units} and s = {s:.4f} {units} ")
 
     # Limits of agreement (LOAs)
     upper_loa = bias + 1.96 * s
     lower_loa = bias - 1.96 * s
-    print(f'The limits of agreement are {upper_loa:.2f} {units} and {lower_loa:.2f} {units} ')
+    print(f"The limits of agreement are {upper_loa:.2f} {units} and {lower_loa:.2f} {units} ")
 
     # Confidence level
     C = 0.95  # 95%
@@ -46,11 +59,11 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     # Critical z-score, calculated using the percent-point function (aka the
     # quantile function) of the normal distribution
     z_star = st.norm.ppf(q)
-    print(f'95% of normally distributed data lies within {z_star}σ of the mean')
+    print(f"95% of normally distributed data lies within {z_star}σ of the mean")
     # Limits of agreement (LOAs)
     loas = (bias - z_star * s, bias + z_star * s)
 
-    print(f'The limits of agreement are {loas} {units} ')
+    print(f"The limits of agreement are {loas} {units} ")
     # Limits of agreement (LOAs)
     loas = st.norm.interval(C, bias, s)
     print(np.round(loas, 2))
@@ -61,7 +74,7 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     # Standard error of the bias
     se_bias = s / np.sqrt(n)
     # Standard error of the LOAs
-    se_loas = np.sqrt(3 * s ** 2 / n)
+    se_loas = np.sqrt(3 * s**2 / n)
 
     # Confidence interval for the bias
     ci_bias = st.t.interval(C, dof, bias, se_bias)
@@ -71,33 +84,32 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     ci_upper_loa = st.t.interval(C, dof, loas[1], se_loas)
 
     print(
-        f' Lower LOA = {np.round(lower_loa, 2)}, 95% CI {np.round(ci_lower_loa, 2)}\n',
-        f'Bias = {np.round(bias, 2)}, 95% CI {np.round(ci_bias, 2)}\n',
-        f'Upper LOA = {np.round(upper_loa, 2)}, 95% CI {np.round(ci_upper_loa, 2)}'
+        f" Lower LOA = {np.round(lower_loa, 2)}, 95% CI {np.round(ci_lower_loa, 2)}\n",
+        f"Bias = {np.round(bias, 2)}, 95% CI {np.round(ci_bias, 2)}\n",
+        f"Upper LOA = {np.round(upper_loa, 2)}, 95% CI {np.round(ci_upper_loa, 2)}",
     )
     if ax is None:
         plt.figure(title)
     ax = plt.axes() if ax is None else ax
-    markers = markers if markers is not None else 'o'
+    markers = markers if markers is not None else "o"
     if color is not None:
         for i in range(len(color)):
-            mean_tmp = mean_to_plot[i * len(color[i]) * 4:(i + 1) * len(color[i])*4]
-            diff_tmp = diff_to_plot[i * len(color[i]) * 4:(i + 1) * len(color[i])*4]
+            mean_tmp = mean_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
+            diff_tmp = diff_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
             ax.scatter(mean_tmp, diff_tmp, color=color[i][0], s=100, alpha=0.6, marker=markers)
 
-
-            #for j in range(len(mean_tmp)):
+            # for j in range(len(mean_tmp)):
             #    #if np.abs(diff_tmp[j]) > threeshold:
             #    #    continue
             #    ax.scatter(mean_tmp[j], diff_tmp[j], color=color[i][j], s=100, alpha=0.6, marker=markers)
 
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
-    ax.axhline(y=0, color='k', lw=0.5)
+    ax.axhline(y=0, color="k", lw=0.5)
     # Plot the bias and the limits of agreement
-    ax.axhline(y=loas[1], color='grey', ls='--')
-    ax.axhline(y=bias, color='grey', ls='--')
-    ax.axhline(y=loas[0], color='grey', ls='--')
+    ax.axhline(y=loas[1], color="grey", ls="--")
+    ax.axhline(y=bias, color="grey", ls="--")
+    ax.axhline(y=loas[0], color="grey", ls="--")
 
     # Labels
     font = 18
@@ -106,11 +118,11 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     if x_axis is not None:
         ax.set_xlabel(x_axis, fontsize=font)
     else:
-        ax.set_xlabel(f'Mean ({units})', fontsize=font)
-    ax.tick_params(axis='y', labelsize=font)
-    ax.tick_params(axis='x', labelsize=font)
+        ax.set_xlabel(f"Mean ({units})", fontsize=font)
+    ax.tick_params(axis="y", labelsize=font)
+    ax.tick_params(axis="x", labelsize=font)
     if not no_y_label:
-        ax.set_ylabel(f'Difference ({units})', fontsize=font)
+        ax.set_ylabel(f"Difference ({units})", fontsize=font)
     else:
         ax.set_ylabel("", fontsize=font)
     # ax.xticks(fontsize=font)
@@ -128,30 +140,31 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     domain = right - left
     ax.set_xlim(left, left + domain)
     # Annotations
-    ax.annotate('+LOA', (right, upper_loa), (0, 7), textcoords='offset pixels', fontsize=font)
-    ax.annotate(f'{upper_loa:+4.2f}', (right, upper_loa), (0, -25), textcoords='offset pixels', fontsize=font)
-    ax.annotate('Bias', (right, bias), (0, 7), textcoords='offset pixels', fontsize=font)
-    ax.annotate(f'{bias:+4.2f}', (right, bias), (0, -25), textcoords='offset pixels', fontsize=font)
-    ax.annotate('-LOA', (right, lower_loa), (0, 7), textcoords='offset pixels', fontsize=font)
-    ax.annotate(f'{lower_loa:+4.2f}', (right, lower_loa), (0, -25), textcoords='offset pixels', fontsize=font)
+    ax.annotate("+LOA", (right, upper_loa), (0, 7), textcoords="offset pixels", fontsize=font)
+    ax.annotate(f"{upper_loa:+4.2f}", (right, upper_loa), (0, -25), textcoords="offset pixels", fontsize=font)
+    ax.annotate("Bias", (right, bias), (0, 7), textcoords="offset pixels", fontsize=font)
+    ax.annotate(f"{bias:+4.2f}", (right, bias), (0, -25), textcoords="offset pixels", fontsize=font)
+    ax.annotate("-LOA", (right, lower_loa), (0, 7), textcoords="offset pixels", fontsize=font)
+    ax.annotate(f"{lower_loa:+4.2f}", (right, lower_loa), (0, -25), textcoords="offset pixels", fontsize=font)
 
     # Confidence intervals
-    ax.plot([left] * 2, list(ci_upper_loa), color='grey', ls='--', alpha=0.5)
-    ax.plot([left] * 2, list(ci_bias), color='grey', ls='--', alpha=0.5)
-    ax.plot([left] * 2, list(ci_lower_loa), color='grey', ls='--', alpha=0.5)
+    ax.plot([left] * 2, list(ci_upper_loa), color="grey", ls="--", alpha=0.5)
+    ax.plot([left] * 2, list(ci_bias), color="grey", ls="--", alpha=0.5)
+    ax.plot([left] * 2, list(ci_lower_loa), color="grey", ls="--", alpha=0.5)
     # Confidence intervals' caps
     x_range = [left - domain * 0.025, left + domain * 0.025]
-    ax.plot(x_range, [ci_upper_loa[1]] * 2, color='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_upper_loa[0]] * 2, color='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_bias[1]] * 2, color='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_bias[0]] * 2, color='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_lower_loa[1]] * 2, color='grey', ls='--', alpha=0.5)
-    ax.plot(x_range, [ci_lower_loa[0]] * 2, color='grey', ls='--', alpha=0.5)
+    ax.plot(x_range, [ci_upper_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
+    ax.plot(x_range, [ci_upper_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
+    ax.plot(x_range, [ci_bias[1]] * 2, color="grey", ls="--", alpha=0.5)
+    ax.plot(x_range, [ci_bias[0]] * 2, color="grey", ls="--", alpha=0.5)
+    ax.plot(x_range, [ci_lower_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
+    ax.plot(x_range, [ci_lower_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
 
     if show:
         plt.show()
 
     return bias, lower_loa, upper_loa
+
 
 def process_cycles(all_results, peaks, n_peaks=None, interpolation_size=120, key_to_get_size="q"):
     for key in all_results.keys():
@@ -173,10 +186,14 @@ def process_cycles(all_results, peaks, n_peaks=None, interpolation_size=120, key
                     break
                 interp_function = _interpolate_2d_data if len(all_results[key][key2].shape) == 2 else interpolate_data
                 if array_tmp is None:
-                    array_tmp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], interpolation_size)
+                    array_tmp = interp_function(
+                        all_results[key][key2][..., peaks[k] : peaks[k + 1]], interpolation_size
+                    )
                     array_tmp = array_tmp[None, ...]
                 else:
-                    data_interp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], interpolation_size)
+                    data_interp = interp_function(
+                        all_results[key][key2][..., peaks[k] : peaks[k + 1]], interpolation_size
+                    )
                     array_tmp = np.concatenate((array_tmp, data_interp[None, ...]), axis=0)
             dic_tmp[key2] = array_tmp
         all_results[key]["cycles"] = dic_tmp
@@ -192,8 +209,9 @@ def compute_error_mark(ref_mark, mark):
         nan_index = np.argwhere(np.isnan(new_markers_depth_tmp))
         new_markers_depth_tmp = np.delete(new_markers_depth_tmp, nan_index, axis=1)
         new_markers_vicon_int_tmp = np.delete(new_markers_vicon_int_tmp, nan_index, axis=1)
-        err_markers[i, 0] = np.median(np.sqrt(
-            np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0)))
+        err_markers[i, 0] = np.median(
+            np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
+        )
     return list(err_markers[:, 0])
 
 
@@ -202,8 +220,7 @@ def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=200):
     for i in range(nb_frame):
         marker_to_refine_tmp = marker_to_refine[:, :, :-i] if i != 0 else marker_to_refine
         marker_to_refine_tmp = interpolate_data(marker_to_refine_tmp, marker_full.shape[2])
-        error_markers = compute_error_mark(
-            marker_full[:, ...], marker_to_refine_tmp[:, ...])
+        error_markers = compute_error_mark(marker_full[:, ...], marker_to_refine_tmp[:, ...])
         error_tmp = np.abs(np.mean(error_markers))
         error_list.append(error_tmp)
     idx = error_list.index(min(error_list))
@@ -211,12 +228,13 @@ def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=200):
     marker_to_refine_tmp = interpolate_data(marker_to_refine_tmp, marker_full.shape[2])
     if plot_fig:
         import matplotlib.pyplot as plt
+
         plt.figure("refine synchro")
         for i in range(marker_to_refine_tmp.shape[1]):
             plt.subplot(4, 4, i + 1)
             for j in range(0, 3):
                 plt.plot(marker_to_refine_tmp[j, i, :], "b")
-                plt.plot(marker_full[j, i, :], 'r')
+                plt.plot(marker_full[j, i, :], "r")
     print("idx to refine synchro : ", idx, "error", min(error_list))
     return marker_to_refine_tmp, idx
 
@@ -280,13 +298,13 @@ def fill_and_interpolate(data, shape, idx=None, names=None, fill=True):
     names = [f"n_{i}" for i in range(data_nan.shape[-2])] if not names else names
     if len(data_nan.shape) == 2:
         data_df = pd.DataFrame(data_nan, names)
-        data_filled_extr = data_df.interpolate(method='linear', axis=1)
+        data_filled_extr = data_df.interpolate(method="linear", axis=1)
         data_int = _interpolate_2d_data(data_filled_extr, shape)
     elif len(data_nan.shape) == 3:
         data_filled_extr = np.zeros((3, data_nan.shape[1], data_nan.shape[2]))
         for i in range(3):
             data_df = pd.DataFrame(data_nan[i, :, :], names)
-            data_filled_extr[i, :, :] = data_df.interpolate(method='linear', axis=1)
+            data_filled_extr[i, :, :] = data_df.interpolate(method="linear", axis=1)
         data_int = interpolate_data(data_filled_extr, shape)
     else:
         raise ValueError("Data shape not supported")
@@ -347,11 +365,19 @@ def convert_cluster_to_anato(data, measurements=None, calibration_matrix=None, s
     if scapula_cluster is None:
         if measurements is None or calibration_matrix is None:
             raise ValueError("Measurements and calibration matrix should be provided")
-        scapula_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
-                                         measurements[4], measurements[5], calibration_matrix)
+        scapula_cluster = ScapulaCluster(
+            measurements[0],
+            measurements[1],
+            measurements[2],
+            measurements[3],
+            measurements[4],
+            measurements[5],
+            calibration_matrix,
+        )
 
-    anato_pos = scapula_cluster.process(marker_cluster_positions=data * 1000, cluster_marker_names=["M1", "M2", "M3"],
-                                        save_file=False)
+    anato_pos = scapula_cluster.process(
+        marker_cluster_positions=data * 1000, cluster_marker_names=["M1", "M2", "M3"], save_file=False
+    )
     return anato_pos * 0.001
 
 

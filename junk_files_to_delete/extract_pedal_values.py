@@ -26,27 +26,27 @@ def reorder_markers(markers, model, names):
         if names[i] == "elb":
             names[i] = "elbow"
         if _convert_string(names[i]) in model_marker_names:
-            reordered_markers[:, model_marker_names.index(_convert_string(names[i])),
-            :] = markers[:, count, :]
+            reordered_markers[:, model_marker_names.index(_convert_string(names[i])), :] = markers[:, count, :]
             count += 1
     return reordered_markers
+
+
 def read_sensix_files():
     pass
 
+
 def express_forces_in_global(crank_angle, f_ext):
     crank_angle = crank_angle
-    Roty = np.array([[np.cos(crank_angle), 0, np.sin(crank_angle)],
-                        [0, 1, 0],
-                        [-np.sin(crank_angle), 0, np.cos(crank_angle)]])
+    Roty = np.array(
+        [[np.cos(crank_angle), 0, np.sin(crank_angle)], [0, 1, 0], [-np.sin(crank_angle), 0, np.cos(crank_angle)]]
+    )
     return Roty @ f_ext
 
 
-if __name__ == '__main__':
-    participants = ["P16"]#, "P11", "P12", "P13"]#, "P14", "P15", "P16"]
+if __name__ == "__main__":
+    participants = ["P16"]  # , "P11", "P12", "P13"]#, "P14", "P15", "P16"]
     trials = [["gear_15"]] * len(participants)
-    all_data, trials = load_all_data(participants,
-                                     "/mnt/shared/Projet_hand_bike_markerless/process_data", trials
-                                     )
+    all_data, trials = load_all_data(participants, "/mnt/shared/Projet_hand_bike_markerless/process_data", trials)
 
     for part in all_data.keys():
         for f, file in enumerate(all_data[part].keys()):
@@ -60,10 +60,9 @@ if __name__ == '__main__':
             # markers = all_data[part][file]["markers_depth"][:, :-3, :]
             msk_func = MskFunctions(
                 model=f"/mnt/shared/Projet_hand_bike_markerless/process_data/{part}/models/gear_10_processed_3_model_scaled_vicon.bioMod",
-                data_buffer_size=markers.shape[2])
-            markers_target = reorder_markers(markers[:, :-3, :],
-                                             msk_func.model,
-                                             names_from_source[:-3])
+                data_buffer_size=markers.shape[2],
+            )
+            markers_target = reorder_markers(markers[:, :-3, :], msk_func.model, names_from_source[:-3])
             markers = markers_target
             q, _, _ = msk_func.compute_inverse_kinematics(markers, method=InverseKinematicsMethods.BiorbdKalman)
             dic_data = all_data[part][file]["sensix_data_interpolated"]
@@ -71,7 +70,7 @@ if __name__ == '__main__':
             peaks = [peak for peak in peaks if dic_data["crank_angle"][0, peak] > 6]
             for key in dic_data.keys():
                 if isinstance(dic_data[key], np.ndarray):
-                    dic_data[key] = dic_data[key][0, peaks[0]:]
+                    dic_data[key] = dic_data[key][0, peaks[0] :]
             all_data_int = dic_data["crank_angle"][np.newaxis, :].copy()
 
             f_x = dic_data["raw_LFX"].copy()
@@ -110,13 +109,21 @@ if __name__ == '__main__':
                     dic_data["right_pedal_angle"][i] = 0
 
             for i in range(all_data_int.shape[1]):
-                dic_data["crank_angle"][i] = dic_data["crank_angle"][i] # 3.14
-                #dic_data["crank_angle"][i] = dic_data["crank_angle"][i] - 1.57
+                dic_data["crank_angle"][i] = dic_data["crank_angle"][i]  # 3.14
+                # dic_data["crank_angle"][i] = dic_data["crank_angle"][i] - 1.57
                 crank_angle = -dic_data["crank_angle"][i]
                 left_angle = -dic_data["left_pedal_angle"][i]
                 right_angle = -dic_data["right_pedal_angle"][i]
-                force_vector_l = [dic_data["raw_LFX_crank"][i], dic_data["raw_LFY_crank"][i], dic_data["raw_LFZ_crank"][i]]
-                force_vector_r = [dic_data["raw_RFX_crank"][i], dic_data["raw_RFY_crank"][i], dic_data["raw_RFZ_crank"][i]]
+                force_vector_l = [
+                    dic_data["raw_LFX_crank"][i],
+                    dic_data["raw_LFY_crank"][i],
+                    dic_data["raw_LFZ_crank"][i],
+                ]
+                force_vector_r = [
+                    dic_data["raw_RFX_crank"][i],
+                    dic_data["raw_RFY_crank"][i],
+                    dic_data["raw_RFZ_crank"][i],
+                ]
 
                 force_vector_l = express_forces_in_global(crank_angle, force_vector_l)
                 force_vector_r = express_forces_in_global(crank_angle, force_vector_r)
@@ -162,19 +169,27 @@ if __name__ == '__main__':
             #     plt.pause(0.8)
             #     plt.cla()
             if part in ["P10", "P11", "P12", "P13"]:
-                f_ext = np.array([dic_data["LMY"],
-                                  dic_data["LMX"],
-                                  dic_data["LMZ"],
-                                  dic_data["LFY"],
-                                  -dic_data["LFX"],
-                                  -dic_data["LFZ"]])
+                f_ext = np.array(
+                    [
+                        dic_data["LMY"],
+                        dic_data["LMX"],
+                        dic_data["LMZ"],
+                        dic_data["LFY"],
+                        -dic_data["LFX"],
+                        -dic_data["LFZ"],
+                    ]
+                )
             else:
-                f_ext = np.array([dic_data["LMY"],
-                                  dic_data["LMX"],
-                                  dic_data["LMZ"],
-                                  dic_data["LFY"],
-                                  dic_data["LFX"],
-                                  dic_data["LFZ"]])
+                f_ext = np.array(
+                    [
+                        dic_data["LMY"],
+                        dic_data["LMX"],
+                        dic_data["LMZ"],
+                        dic_data["LFY"],
+                        dic_data["LFX"],
+                        dic_data["LFZ"],
+                    ]
+                )
             f_ext_mat = np.zeros((1, 6, f_ext.shape[1]))
             for i in range(f_ext.shape[1]):
                 B = [0, 0, 0, 1]

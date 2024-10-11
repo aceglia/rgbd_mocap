@@ -278,7 +278,7 @@ class VideoEdit(QLabel):
             return
         self.color_frame = color[self.area[1] : self.area[3], self.area[0] : self.area[2]]
         self.depth_frame = depth[self.area[1] : self.area[3], self.area[0] : self.area[2]]
-        #print("WARING --- to remove")
+        # print("WARING --- to remove")
         # h, w = self.depth_frame.shape
         # ratio = 1
         # self.color_frame = cv2.resize(self.color_frame,

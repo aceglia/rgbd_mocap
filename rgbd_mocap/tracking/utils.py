@@ -32,23 +32,25 @@ def check_tracking_config_file(dic, dlc_marker_names=(), dlc_enhance_markers=())
         dic["crops"] = [{"name": "crop", "area": (0, 0, 848, 480), "markers": []}]
     for crop in dic["crops"]:
         if "filters" not in crop.keys():
-            crop["filters"] = {'blend': 100,
-             'white_range': [100, 255],
-             'blob_area': [1, 200],
-             'convexity': 5,
-             'circularity': 5,
-             'distance_between_blobs': 1,
-             'distance_in_centimeters': [5, 500],
-             'clahe_clip_limit': 1,
-             'clahe_grid_size': 3,
-             'gaussian_blur': 0,
-             'use_contour': True,
-             'mask': None,
-             'white_option': False,
-             'blob_option': False,
-             'clahe_option': False,
-             'distance_option': False,
-             'masks_option': False}
+            crop["filters"] = {
+                "blend": 100,
+                "white_range": [100, 255],
+                "blob_area": [1, 200],
+                "convexity": 5,
+                "circularity": 5,
+                "distance_between_blobs": 1,
+                "distance_in_centimeters": [5, 500],
+                "clahe_clip_limit": 1,
+                "clahe_grid_size": 3,
+                "gaussian_blur": 0,
+                "use_contour": True,
+                "mask": None,
+                "white_option": False,
+                "blob_option": False,
+                "clahe_option": False,
+                "distance_option": False,
+                "masks_option": False,
+            }
         if "markers" not in crop:
             crop["markers"] = []
             is_markers += 0
@@ -67,6 +69,7 @@ def check_tracking_config_file(dic, dlc_marker_names=(), dlc_enhance_markers=())
         dic["masks"] = [None]
     return dic, is_markers != 0
 
+
 def _get_first_idx(directory):
     all_color_files = glob.glob(directory + "/color*.png")
     # check where there is a gap in the numbering
@@ -78,7 +81,7 @@ def print_blobs(frame, blobs, size=5, color=(0, 255, 0)):
     img = frame.copy()
     for blob in blobs:
         color = color if len(img.shape) == 3 else 0
-        img[blob[1] - size:blob[1] + size, blob[0] - size:blob[0] + size] = color
+        img[blob[1] - size : blob[1] + size, blob[0] - size : blob[0] + size] = color
 
     return img
 
@@ -95,20 +98,26 @@ def print_marker(frame, marker_set: MarkerSet):
         pos_x_tmp = int((marker.pos[0] + off_set[0]) / downsample)
         pos_y_tmp = int((marker.pos[1] + off_set[1]) / downsample)
         if marker.is_visible:
-            frame = cv2.putText(frame, marker.name,
-                                (pos_x_tmp + 10, pos_y_tmp + 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, color_ok, 1)
+            frame = cv2.putText(
+                frame, marker.name, (pos_x_tmp + 10, pos_y_tmp + 10), cv2.FONT_HERSHEY_SIMPLEX, 1, color_ok, 1
+            )
             visible.append([pos_x_tmp, pos_y_tmp])
 
         else:
-            frame = cv2.putText(frame, marker.name,
-                                (pos_x_tmp + 10, pos_y_tmp + 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, color_not_ok, 1)
+            frame = cv2.putText(
+                frame, marker.name, (pos_x_tmp + 10, pos_y_tmp + 10), cv2.FONT_HERSHEY_SIMPLEX, 1, color_not_ok, 1
+            )
             not_visible.append([pos_x_tmp, pos_y_tmp])
         # if marker.is_depth_visible:
-        frame = cv2.putText(frame, f"{marker.get_depth():.2f}",
-                            (pos_x_tmp + 20, pos_y_tmp + 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_ok, 1)
+        frame = cv2.putText(
+            frame,
+            f"{marker.get_depth():.2f}",
+            (pos_x_tmp + 20, pos_y_tmp + 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            color_ok,
+            1,
+        )
     frame = print_blobs(frame, visible, size=2, color=color_ok)
     return print_blobs(frame, not_visible, size=2, color=color_not_ok)
 
@@ -153,7 +162,7 @@ def set_marker_pos(marker_set: MarkerSet, positions: List[Position]):
 def main():
     # Image
     path = "test_image/"
-    name = 'marker'
+    name = "marker"
     angle = 5
     all_color_files = [path + f"{name}_{i}.png" for i in range(0, 360, angle)]
     color_images = [cv2.imread(file) for file in all_color_files[:]]
@@ -162,7 +171,7 @@ def main():
     image = CropFrames((0, 0, frame.width, frame.height), frame)
 
     # Marker Set
-    marker_set = MarkerSet('Test', ['a', 'b', 'c', 'd'])
+    marker_set = MarkerSet("Test", ["a", "b", "c", "d"])
 
     # Base positions
     base_positions = [(184, 99), (186, 242), (391, 341), (249, 482)]
@@ -193,12 +202,12 @@ def main():
             img = print_estimated_positions(img, estimate_positions)
             img = print_marker(img, marker_set)
 
-            cv2.imshow('test.json', img)
+            cv2.imshow("test.json", img)
 
-            if cv2.waitKey(10 * angle) == ord('q'):
+            if cv2.waitKey(10 * angle) == ord("q"):
                 quit_press = True
                 break
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

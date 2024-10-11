@@ -83,11 +83,11 @@ if __name__ == "__main__":
                 #     0,
                 #     depth,
                 # )
-            #     all_depth[i, :, :] = depth
-            # max_depth = np.max(all_depth)
-            # min_depth = np.min(all_depth[all_depth > 0]) - 50
-            # for i in range(len(idx_final)):
-            #     depth = all_depth[i, : ,:]
+                #     all_depth[i, :, :] = depth
+                # max_depth = np.max(all_depth)
+                # min_depth = np.min(all_depth[all_depth > 0]) - 50
+                # for i in range(len(idx_final)):
+                #     depth = all_depth[i, : ,:]
                 # normalize image to 0-255 using min and max values
                 min_depth = np.min(depth[depth > 0])
                 max_depth = np.max(depth)

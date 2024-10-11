@@ -4,14 +4,14 @@ import glob
 import os
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     dir = "D:\Documents\Programmation\pose_estimation\data_collection_mesurement"
     tmp_scaling_1 = "Q:\Projet_hand_bike_markerless\RGBD\scaling_tool_minimal_1.xml"
     tmp_scaling_2 = "Q:\Projet_hand_bike_markerless\RGBD\scaling_tool_minimal_2.xml"
     data_path = "Q:\Projet_hand_bike_markerless/RGBD"
     parts = [f"P{i}" for i in range(9, 17)]
     for part in parts:
-        all_files = os.listdir(fr"{data_path}\{part}")
+        all_files = os.listdir(rf"{data_path}\{part}")
         all_files = [file for file in all_files if "gear_10" in file]
         for file in all_files:
             trc_path = f"{data_path}\{part}\{file}\{file}_dlc_ribs_and_cluster.trc"
@@ -39,5 +39,3 @@ if __name__ == '__main__':
                 f.write(scaling_1)
             with open(f"{data_path}\{part}\{file}\scaling_tool_minimal_2.xml", "w") as f:
                 f.write(scaling_2)
-
-

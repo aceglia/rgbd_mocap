@@ -52,19 +52,23 @@ def _get_vicon_to_depth_idx(names_depth=None, names_vicon=None):
     return vicon_to_depth_idx
 
 
-def load_results_offline(participants, processed_data_path, trials=None, file_name="", to_exclude=None,
-                         recompute_cycles=True):
+def load_results_offline(
+    participants, processed_data_path, trials=None, file_name="", to_exclude=None, recompute_cycles=True
+):
     if trials is None:
         trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     all_data = {}
     for p, part in enumerate(participants):
         all_data[part] = {}
         all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if "gear" in file
-                     # and "result_offline" in file
-                     # and file_name in file
-                     # and "3_crops" in file and "3_crops_3_crops" not in file
-                     ]
+        all_files = [
+            file
+            for file in all_files
+            if "gear" in file
+            # and "result_offline" in file
+            # and file_name in file
+            # and "3_crops" in file and "3_crops_3_crops" not in file
+        ]
         trials_tmp = []
         for file in all_files:
             for trial in trials[p]:
@@ -75,7 +79,8 @@ def load_results_offline(participants, processed_data_path, trials=None, file_na
                 trial = file.split("_")[0] + "_" + file.split("_")[1]
                 print(f"Processing participant {part}, trial : {file}")
                 all_data[part][file] = load(
-                    f"{processed_data_path}/{part}/{file}/result_offline_{file}_normal_alone.bio")
+                    f"{processed_data_path}/{part}/{file}/result_offline_{file}_normal_alone.bio"
+                )
                 if recompute_cycles:
                     peaks = find_peaks(all_data[part][file]["vicon"]["markers"][0, -1, :])[0]
                     all_data[part][file] = process_cycles_offline(all_data[part][file], peaks)
@@ -84,20 +89,29 @@ def load_results_offline(participants, processed_data_path, trials=None, file_na
     return all_data, trials
 
 
-def load_results(participants, processed_data_path, trials=None, file_name="", to_exclude=(), recompute_cycles=True,
-                 trials_to_exclude=()):
+def load_results(
+    participants,
+    processed_data_path,
+    trials=None,
+    file_name="",
+    to_exclude=(),
+    recompute_cycles=True,
+    trials_to_exclude=(),
+):
     if trials is None:
         trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     all_data = {}
     for p, part in enumerate(participants):
         all_data[part] = {}
         all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if "gear" in file
-                     # and "result_offline" in file
-                     and file_name in file
-                     and "ik" not in file
-                     # and "3_crops" in file and "3_crops_3_crops" not in file
-                     ]
+        all_files = [
+            file
+            for file in all_files
+            if "gear" in file
+            # and "result_offline" in file
+            and file_name in file and "ik" not in file
+            # and "3_crops" in file and "3_crops_3_crops" not in file
+        ]
         for exc in to_exclude:
             all_files = [file for file in all_files if exc not in file]
         trials_tmp = []
@@ -150,10 +164,37 @@ def reorder_markers_from_names(markers_data, ordered_markers_names, markers_name
 
 
 def load_data_from_dlc(labeled_data_path=None, dlc_data_path=None, part=None, file=None, in_pixel=False):
-    init_depth_markers_names = ['ster', 'xiph', 'clavsc', 'clavac',
-                                'delt', 'arml', 'epicl', 'larml', 'stylu', 'stylr', 'm1', 'm2', 'm3']
-    init_dlc_markers_names = ["ribs", 'ster', 'xiph', 'clavsc', 'clavac',
-                              'delt', 'arml', 'epicl', 'larml', 'stylr', 'stylu', 'm1', 'm2', 'm3']
+    init_depth_markers_names = [
+        "ster",
+        "xiph",
+        "clavsc",
+        "clavac",
+        "delt",
+        "arml",
+        "epicl",
+        "larml",
+        "stylu",
+        "stylr",
+        "m1",
+        "m2",
+        "m3",
+    ]
+    init_dlc_markers_names = [
+        "ribs",
+        "ster",
+        "xiph",
+        "clavsc",
+        "clavac",
+        "delt",
+        "arml",
+        "epicl",
+        "larml",
+        "stylr",
+        "stylu",
+        "m1",
+        "m2",
+        "m3",
+    ]
 
     names = [init_depth_markers_names, init_dlc_markers_names]
     measurements_dir_path = "data_collection_mesurement"
@@ -162,11 +203,9 @@ def load_data_from_dlc(labeled_data_path=None, dlc_data_path=None, part=None, fi
     reordered_markers_list = []
     dict_list = [{}, {}]
     plt.figure("markers")
-    measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"
-                                      ))
+    measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"))
     measurements = measurement_data[f"with_depth"]["measure"]
-    calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[f"with_depth"][
-        "calibration_matrix_name"]
+    calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[f"with_depth"]["calibration_matrix_name"]
     for p, path in enumerate([labeled_data_path, dlc_data_path]):
         markers_names_list.append([])
         reordered_markers_list.append([])
@@ -184,13 +223,14 @@ def load_data_from_dlc(labeled_data_path=None, dlc_data_path=None, part=None, fi
         dict_list[p]["markers_names"] = names[p]
         dict_list[p]["time_to_process"] = data["time_to_process"]
     if labeled_data_path is None:
-        return dict_list[1]["markers_in_meters"], dict_list[1]["markers_in_pixel"], dict_list[1]["markers_names"], \
-        dict_list[1]["frame_idx"]
+        return (
+            dict_list[1]["markers_in_meters"],
+            dict_list[1]["markers_in_pixel"],
+            dict_list[1]["markers_names"],
+            dict_list[1]["frame_idx"],
+        )
     data_dlc, data_labeling, idx_start, idx_end = check_frames(dict_list[0], dict_list[1])
     return data_dlc, data_labeling, dict_list[1]["markers_names"], dict_list[1]["time_to_process"], idx_start, idx_end
-
-
-
 
 
 def check_frames(data_labeling, data_dlc):
@@ -243,18 +283,26 @@ def check_frames(data_labeling, data_dlc):
 
 
 def _convert_cluster_to_anato(new_cluster, data):
-    anato_pos = new_cluster.process(marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"],
-                                    save_file=False)
+    anato_pos = new_cluster.process(
+        marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"], save_file=False
+    )
     return anato_pos
 
 
-def _convert_cluster_to_anato_old(measurements,
-                                  calibration_matrix, data):
-    new_cluster = ScapulaCluster(measurements[0], measurements[1], measurements[2], measurements[3],
-                                 measurements[4], measurements[5], calibration_matrix)
+def _convert_cluster_to_anato_old(measurements, calibration_matrix, data):
+    new_cluster = ScapulaCluster(
+        measurements[0],
+        measurements[1],
+        measurements[2],
+        measurements[3],
+        measurements[4],
+        measurements[5],
+        calibration_matrix,
+    )
 
-    anato_pos = new_cluster.process(marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"],
-                                    save_file=False)
+    anato_pos = new_cluster.process(
+        marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"], save_file=False
+    )
     land_dist = new_cluster.get_landmarks_distance()
     return anato_pos, land_dist
 
@@ -266,9 +314,15 @@ def load_all_data(participants, processed_data_path, trials=None):
     for p, part in enumerate(participants):
         all_data[part] = {}
         all_files = os.listdir(f"{processed_data_path}/{part}")
-        all_files = [file for file in all_files if
-                     "gear" in file and "result_biomech" not in file and "processed" in file and "rt" in file
-                     and "3_crops" in file]
+        all_files = [
+            file
+            for file in all_files
+            if "gear" in file
+            and "result_biomech" not in file
+            and "processed" in file
+            and "rt" in file
+            and "3_crops" in file
+        ]
         trials_tmp = []
         for file in all_files:
             for trial in trials[p]:
@@ -300,8 +354,9 @@ def compute_error_mark(ref_mark, mark):
         nan_index = np.argwhere(np.isnan(new_markers_depth_tmp))
         new_markers_depth_tmp = np.delete(new_markers_depth_tmp, nan_index, axis=1)
         new_markers_vicon_int_tmp = np.delete(new_markers_vicon_int_tmp, nan_index, axis=1)
-        err_markers[i, 0] = np.median(np.sqrt(
-            np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0)))
+        err_markers[i, 0] = np.median(
+            np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
+        )
     return list(err_markers[:, 0])
 
 
@@ -321,8 +376,9 @@ def compute_error(depth_dic, vicon_dic):
         nan_index = np.argwhere(np.isnan(new_markers_depth_tmp))
         new_markers_depth_tmp = np.delete(new_markers_depth_tmp, nan_index, axis=1)
         new_markers_vicon_int_tmp = np.delete(new_markers_vicon_int_tmp, nan_index, axis=1)
-        err_markers[i, 0] = np.median(np.sqrt(
-            np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0)))
+        err_markers[i, 0] = np.median(
+            np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
+        )
 
     err_q = []
     for i in range(depth_dic["q"].shape[0]):
@@ -331,12 +387,14 @@ def compute_error(depth_dic, vicon_dic):
     err_q_dot = []
     for i in range(depth_dic["q"].shape[0]):
         err_q_dot.append(
-            np.mean(np.sqrt(np.mean(((depth_dic["q_dot"][i, :] - vicon_dic["q_dot"][i, :]) ** 2), axis=0))))
+            np.mean(np.sqrt(np.mean(((depth_dic["q_dot"][i, :] - vicon_dic["q_dot"][i, :]) ** 2), axis=0)))
+        )
 
     err_q_ddot = []
     for i in range(depth_dic["q_ddot"].shape[0]):
         err_q_ddot.append(
-            np.mean(np.sqrt(np.mean(((depth_dic["q_ddot"][i, :] - vicon_dic["q_ddot"][i, :]) ** 2), axis=0))))
+            np.mean(np.sqrt(np.mean(((depth_dic["q_ddot"][i, :] - vicon_dic["q_ddot"][i, :]) ** 2), axis=0)))
+        )
 
     # normalize tau
     norm_tau = np.max(vicon_dic["tau"], axis=1)
@@ -355,7 +413,8 @@ def compute_error(depth_dic, vicon_dic):
     err_mus_act = []
     for i in range(depth_dic["mus_act"].shape[0]):
         err_mus_act.append(
-            np.mean(np.sqrt(np.mean(((depth_dic["mus_act"][i, :] - vicon_dic["mus_act"][i, :]) ** 2), axis=0))))
+            np.mean(np.sqrt(np.mean(((depth_dic["mus_act"][i, :] - vicon_dic["mus_act"][i, :]) ** 2), axis=0)))
+        )
     err_q = [err_q[i] * 180 / np.pi for i in range(len(err_q))]
     err_q_dot = [err_q_dot[i] * 180 / np.pi for i in range(len(err_q_dot))]
     err_q_ddot = [err_q_ddot[i] * 180 / np.pi for i in range(len(err_q_ddot))]
@@ -371,8 +430,19 @@ def remove_nan(data1, data2):
     return mean, diff
 
 
-def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", show=True, color=None, x_axis=None,
-                          markers=None, ax=None, threeshold=np.inf, no_y_label=False):
+def compute_blandt_altman(
+    data1,
+    data2,
+    units="mm",
+    title="Bland-Altman Plot",
+    show=True,
+    color=None,
+    x_axis=None,
+    markers=None,
+    ax=None,
+    threeshold=np.inf,
+    no_y_label=False,
+):
     # mean = (data1 + data2) / 2
     # diff = data1 - data2
     mean_to_plot = data1
@@ -382,12 +452,12 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     bias = np.mean(diff)
     # Sample standard deviation
     s = np.std(diff, ddof=1)  # Use ddof=1 to get the sample standard deviation
-    print(f'For the differences, μ = {bias:.4f} {units} and s = {s:.4f} {units} ')
+    print(f"For the differences, μ = {bias:.4f} {units} and s = {s:.4f} {units} ")
 
     # Limits of agreement (LOAs)
     upper_loa = bias + 1.96 * s
     lower_loa = bias - 1.96 * s
-    print(f'The limits of agreement are {upper_loa:.2f} {units} and {lower_loa:.2f} {units} ')
+    print(f"The limits of agreement are {upper_loa:.2f} {units} and {lower_loa:.2f} {units} ")
 
     # Confidence level
     C = 0.95  # 95%
@@ -400,11 +470,11 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     # Critical z-score, calculated using the percent-point function (aka the
     # quantile function) of the normal distribution
     z_star = st.norm.ppf(q)
-    print(f'95% of normally distributed data lies within {z_star}σ of the mean')
+    print(f"95% of normally distributed data lies within {z_star}σ of the mean")
     # Limits of agreement (LOAs)
     loas = (bias - z_star * s, bias + z_star * s)
 
-    print(f'The limits of agreement are {loas} {units} ')
+    print(f"The limits of agreement are {loas} {units} ")
     # Limits of agreement (LOAs)
     loas = st.norm.interval(C, bias, s)
     print(np.round(loas, 2))
@@ -415,7 +485,7 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     # Standard error of the bias
     se_bias = s / np.sqrt(n)
     # Standard error of the LOAs
-    se_loas = np.sqrt(3 * s ** 2 / n)
+    se_loas = np.sqrt(3 * s**2 / n)
 
     # Confidence interval for the bias
     ci_bias = st.t.interval(C, dof, bias, se_bias)
@@ -425,18 +495,18 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     ci_upper_loa = st.t.interval(C, dof, loas[1], se_loas)
 
     print(
-        f' Lower LOA = {np.round(lower_loa, 2)}, 95% CI {np.round(ci_lower_loa, 2)}\n',
-        f'Bias = {np.round(bias, 2)}, 95% CI {np.round(ci_bias, 2)}\n',
-        f'Upper LOA = {np.round(upper_loa, 2)}, 95% CI {np.round(ci_upper_loa, 2)}'
+        f" Lower LOA = {np.round(lower_loa, 2)}, 95% CI {np.round(ci_lower_loa, 2)}\n",
+        f"Bias = {np.round(bias, 2)}, 95% CI {np.round(ci_bias, 2)}\n",
+        f"Upper LOA = {np.round(upper_loa, 2)}, 95% CI {np.round(ci_upper_loa, 2)}",
     )
     if ax is None:
         plt.figure(title)
     ax = plt.axes() if ax is None else ax
-    markers = markers if markers is not None else 'o'
+    markers = markers if markers is not None else "o"
     if color is not None:
         for i in range(len(color)):
-            mean_tmp = mean_to_plot[i * len(color[i]):(i + 1) * len(color[i])]
-            diff_tmp = diff_to_plot[i * len(color[i]):(i + 1) * len(color[i])]
+            mean_tmp = mean_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
+            diff_tmp = diff_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
             for j in range(len(mean_tmp)):
                 if np.abs(diff_tmp[j]) > threeshold:
                     continue
@@ -444,11 +514,11 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
 
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
-    ax.axhline(y=0, c='k', lw=0.5)
+    ax.axhline(y=0, c="k", lw=0.5)
     # Plot the bias and the limits of agreement
-    ax.axhline(y=loas[1], c='grey', ls='--')
-    ax.axhline(y=bias, c='grey', ls='--')
-    ax.axhline(y=loas[0], c='grey', ls='--')
+    ax.axhline(y=loas[1], c="grey", ls="--")
+    ax.axhline(y=bias, c="grey", ls="--")
+    ax.axhline(y=loas[0], c="grey", ls="--")
 
     # Labels
     font = 18
@@ -457,11 +527,11 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     if x_axis is not None:
         ax.set_xlabel(x_axis, fontsize=font)
     else:
-        ax.set_xlabel(f'Mean ({units})', fontsize=font)
-    ax.tick_params(axis='y', labelsize=font)
-    ax.tick_params(axis='x', labelsize=font)
+        ax.set_xlabel(f"Mean ({units})", fontsize=font)
+    ax.tick_params(axis="y", labelsize=font)
+    ax.tick_params(axis="x", labelsize=font)
     if not no_y_label:
-        ax.set_ylabel(f'Difference ({units})', fontsize=font)
+        ax.set_ylabel(f"Difference ({units})", fontsize=font)
     else:
         ax.set_ylabel("", fontsize=font)
     # ax.xticks(fontsize=font)
@@ -479,17 +549,17 @@ def compute_blandt_altman(data1, data2, units="mm", title="Bland-Altman Plot", s
     domain = right - left
     ax.set_xlim(left, left + domain)
     # Annotations
-    ax.annotate('+LOA', (right, upper_loa), (0, 7), textcoords='offset pixels', fontsize=font)
-    ax.annotate(f'{upper_loa:+4.2f}', (right, upper_loa), (0, -25), textcoords='offset pixels', fontsize=font)
-    ax.annotate('Bias', (right, bias), (0, 7), textcoords='offset pixels', fontsize=font)
-    ax.annotate(f'{bias:+4.2f}', (right, bias), (0, -25), textcoords='offset pixels', fontsize=font)
-    ax.annotate('-LOA', (right, lower_loa), (0, 7), textcoords='offset pixels', fontsize=font)
-    ax.annotate(f'{lower_loa:+4.2f}', (right, lower_loa), (0, -25), textcoords='offset pixels', fontsize=font)
+    ax.annotate("+LOA", (right, upper_loa), (0, 7), textcoords="offset pixels", fontsize=font)
+    ax.annotate(f"{upper_loa:+4.2f}", (right, upper_loa), (0, -25), textcoords="offset pixels", fontsize=font)
+    ax.annotate("Bias", (right, bias), (0, 7), textcoords="offset pixels", fontsize=font)
+    ax.annotate(f"{bias:+4.2f}", (right, bias), (0, -25), textcoords="offset pixels", fontsize=font)
+    ax.annotate("-LOA", (right, lower_loa), (0, 7), textcoords="offset pixels", fontsize=font)
+    ax.annotate(f"{lower_loa:+4.2f}", (right, lower_loa), (0, -25), textcoords="offset pixels", fontsize=font)
 
     # Confidence intervals
-    ax.plot([left] * 2, list(ci_upper_loa), c='grey', ls='--', alpha=0.5)
-    ax.plot([left] * 2, list(ci_bias), c='grey', ls='--', alpha=0.5)
-    ax.plot([left] * 2, list(ci_lower_loa), c='grey', ls='--', alpha=0.5)
+    ax.plot([left] * 2, list(ci_upper_loa), c="grey", ls="--", alpha=0.5)
+    ax.plot([left] * 2, list(ci_bias), c="grey", ls="--", alpha=0.5)
+    ax.plot([left] * 2, list(ci_lower_loa), c="grey", ls="--", alpha=0.5)
     # Confidence intervals' caps
     # x_range = [left - domain * 0.025, left + domain * 0.025]
     # ax.plot(x_range, [ci_upper_loa[1]] * 2, c='grey', ls='--', alpha=0.5)
@@ -521,10 +591,10 @@ def process_cycles_offline(all_results, peaks, n_peaks=None):
                     break
                 interp_function = _interpolate_data_2d if len(all_results[key][key2].shape) == 2 else _interpolate_data
                 if array_tmp is None:
-                    array_tmp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    array_tmp = interp_function(all_results[key][key2][..., peaks[k] : peaks[k + 1]], 120)
                     array_tmp = array_tmp[None, ...]
                 else:
-                    data_interp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    data_interp = interp_function(all_results[key][key2][..., peaks[k] : peaks[k + 1]], 120)
                     array_tmp = np.concatenate((array_tmp, data_interp[None, ...]), axis=0)
             dic_tmp[key2] = array_tmp
         all_results[key]["cycles"] = dic_tmp
@@ -551,10 +621,10 @@ def process_cycles(all_results, peaks, n_peaks=None):
                     break
                 interp_function = _interpolate_data_2d if len(all_results[key][key2].shape) == 2 else _interpolate_data
                 if array_tmp is None:
-                    array_tmp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    array_tmp = interp_function(all_results[key][key2][..., peaks[k] : peaks[k + 1]], 120)
                     array_tmp = array_tmp[None, ...]
                 else:
-                    data_interp = interp_function(all_results[key][key2][..., peaks[k]:peaks[k + 1]], 120)
+                    data_interp = interp_function(all_results[key][key2][..., peaks[k] : peaks[k + 1]], 120)
                     array_tmp = np.concatenate((array_tmp, data_interp[None, ...]), axis=0)
             dic_tmp[key2] = array_tmp
         all_results[key]["cycles"] = dic_tmp
@@ -591,8 +661,7 @@ def reorder_markers(markers, model, names):
         if names[i] == "elb":
             names[i] = "elbow"
         if _convert_string(names[i]) in model_marker_names:
-            reordered_markers[:, model_marker_names.index(_convert_string(names[i])),
-            :] = markers[:, count, :]
+            reordered_markers[:, model_marker_names.index(_convert_string(names[i])), :] = markers[:, count, :]
             final_names.append(model.markerNames()[i].to_string())
             count += 1
     return reordered_markers, final_names
@@ -608,9 +677,6 @@ def get_muscular_torque(x, act, model):
         for a, state in zip(act[:, i], states):
             state.setActivation(a)  # And fill it with the current value
         muscular_torque[:, i] = model.muscularJointTorque(
-            states, x[: model.nbQ(), i], x[model.nbQ(): model.nbQ() * 2, i]
+            states, x[: model.nbQ(), i], x[model.nbQ() : model.nbQ() * 2, i]
         ).to_array()
     return muscular_torque
-
-
-

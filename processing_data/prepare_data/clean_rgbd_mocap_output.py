@@ -20,21 +20,24 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
         data_1_tmp = {}
         end_idx = data_1_gap["frame_idx"].index(data_2_gap["frame_idx"][0])
         for key in data.keys():
-            data_1_tmp[key] = data_1_gap[key][..., :end_idx] \
-                if isinstance(data_1_gap[key], np.ndarray) else data_1_gap[key][:end_idx]
+            data_1_tmp[key] = (
+                data_1_gap[key][..., :end_idx] if isinstance(data_1_gap[key], np.ndarray) else data_1_gap[key][:end_idx]
+            )
 
         data_3_tmp = {}
         idx = data_1_gap["frame_idx"].index(data_2_gap["frame_idx"][-1])
         for key in data.keys():
-            data_3_tmp[key] = data_1_gap[key][..., idx:] \
-                if isinstance(data_1_gap[key], np.ndarray) else data_1_gap[key][idx:]
+            data_3_tmp[key] = (
+                data_1_gap[key][..., idx:] if isinstance(data_1_gap[key], np.ndarray) else data_1_gap[key][idx:]
+            )
 
         data_tmp = {}
         end_idx = data["frame_idx"].index(data_1_gap["frame_idx"][0])
         for key in data.keys():
             if isinstance(data[key], np.ndarray):
-                data_tmp[key] = np.concatenate((data[key][..., :end_idx], data_1_tmp[key],
-                                                data_2_gap[key], data_3_tmp[key]), axis=-1)
+                data_tmp[key] = np.concatenate(
+                    (data[key][..., :end_idx], data_1_tmp[key], data_2_gap[key], data_3_tmp[key]), axis=-1
+                )
             else:
                 data_tmp[key] = data[key][:end_idx] + data_1_tmp[key] + data_2_gap[key] + data_3_tmp[key]
         return data_tmp
@@ -44,7 +47,7 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
         end_idx = data["frame_idx"].index(data_1_gap["frame_idx"][0])
         for key in data.keys():
             if isinstance(data_1_gap[key], np.ndarray):
-                data_tmp[key] = np.concatenate((data[key][..., :end_idx], data_1_gap[key]), axis = -1)
+                data_tmp[key] = np.concatenate((data[key][..., :end_idx], data_1_gap[key]), axis=-1)
             else:
                 data_tmp[key] = data[key][:end_idx] + data_1_gap[key]
     else:
@@ -55,7 +58,7 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
         end_idx = data_1_gap["frame_idx"].index(data_2_gap["frame_idx"][0])
         for key in data.keys():
             if isinstance(data_2_gap[key], np.ndarray):
-                data_tmp_2[key] = np.concatenate((data_tmp[key][..., :end_idx], data_2_gap[key]), axis = -1)
+                data_tmp_2[key] = np.concatenate((data_tmp[key][..., :end_idx], data_2_gap[key]), axis=-1)
             else:
                 data_tmp_2[key] = data_tmp[key][:end_idx] + data_2_gap[key]
         final_data_to_return = data_tmp_2
@@ -76,7 +79,7 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
     return final_data_to_return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     file_name = f"marker_pos_multi_proc_3_crops_normal_times_three_new.bio"
     # file_name = "marker_pos_multi_proc_3_crops_normal_filtered.bio"
     participants = [f"P{i}" for i in range(9, 17)]

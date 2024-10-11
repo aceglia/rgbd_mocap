@@ -13,8 +13,7 @@ class Frames:
         self.index = index
 
     def _shape_error(self, got, expected):
-        raise ValueError(
-            f'{self}: Given array has a wrong shape, got "{got.shape}" expected "{expected.shape}".')
+        raise ValueError(f'{self}: Given array has a wrong shape, got "{got.shape}" expected "{expected.shape}".')
 
     def _check_frame(self, old, new):
         # if self.downsample_ratio != 1:
@@ -47,7 +46,7 @@ class Frames:
     def _get_crop(image, area):
         if image is None:
             return None
-        return image[area[1]: area[3], area[0]:area[2]]
+        return image[area[1] : area[3], area[0] : area[2]]
 
     def get_crop(self, area, downsample_ratio=1):
         color, depth = self._get_crop(self.color, area), self._get_crop(self.depth, area)

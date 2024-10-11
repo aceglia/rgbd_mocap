@@ -2,17 +2,20 @@ import numpy as np
 
 from utils_old import *
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
-    #trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    #trials[-1] = ["gear_10"]
-    all_data, _ = load_results(participants,
-                            "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                               file_name="kalman_proc", recompute_cycles=False
-                            )
-    init_data, _ = load_all_data(participants,
-                              "/mnt/shared/Projet_hand_bike_markerless/process_data",
-                            )
+    # trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    # trials[-1] = ["gear_10"]
+    all_data, _ = load_results(
+        participants,
+        "/mnt/shared/Projet_hand_bike_markerless/process_data",
+        file_name="kalman_proc",
+        recompute_cycles=False,
+    )
+    init_data, _ = load_all_data(
+        participants,
+        "/mnt/shared/Projet_hand_bike_markerless/process_data",
+    )
     all_colors = []
     time_ik = []
     time_id = []
@@ -34,10 +37,14 @@ if __name__ == '__main__':
             time_tracking.append(np.mean(init_data[part][file]["process_time_depth"][1:]))
             std_tracking.append(np.std(init_data[part][file]["process_time_depth"][1:]))
 
-    print("time_ik : ", np.mean(time_ik) * 1000, "+/-", np.mean(std_ik)*1000, "ms")
-    print("time_id : ", np.mean(time_id) * 1000, "+/-", np.mean(std_id)*1000, "ms")
-    print("time_so : ", np.mean(time_so) * 1000, "+/-", np.mean(std_so)*1000, "ms")
-    print("time_tracking : ", np.mean(time_tracking) * 1000, "+/-", np.mean(std_tracking)*1000, "ms")
-    print("total time : ", (np.mean(time_ik) + np.mean(time_id) + np.mean(time_so) + np.mean(time_tracking)) * 1000,
-          "+/-", (np.mean(std_ik) + np.mean(std_id) + np.mean(std_so)+ np.mean(std_tracking))*1000, "ms")
-
+    print("time_ik : ", np.mean(time_ik) * 1000, "+/-", np.mean(std_ik) * 1000, "ms")
+    print("time_id : ", np.mean(time_id) * 1000, "+/-", np.mean(std_id) * 1000, "ms")
+    print("time_so : ", np.mean(time_so) * 1000, "+/-", np.mean(std_so) * 1000, "ms")
+    print("time_tracking : ", np.mean(time_tracking) * 1000, "+/-", np.mean(std_tracking) * 1000, "ms")
+    print(
+        "total time : ",
+        (np.mean(time_ik) + np.mean(time_id) + np.mean(time_so) + np.mean(time_tracking)) * 1000,
+        "+/-",
+        (np.mean(std_ik) + np.mean(std_id) + np.mean(std_so) + np.mean(std_tracking)) * 1000,
+        "ms",
+    )

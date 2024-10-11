@@ -5,7 +5,7 @@ from biosiglive import load
 import os
 import glob
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = ["P9"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     main_path = "Q:\Projet_hand_bike_markerless\RGBD"
     # main_path = "data_files"
@@ -15,15 +15,37 @@ if __name__ == '__main__':
     n_markers = 13
     all_rmse = []
     all_std = []
-    rmse = np.ndarray((len(models), len(participants) * n_markers,))
-    std = np.ndarray((len(models), len(participants) * n_markers,))
+    rmse = np.ndarray(
+        (
+            len(models),
+            len(participants) * n_markers,
+        )
+    )
+    std = np.ndarray(
+        (
+            len(models),
+            len(participants) * n_markers,
+        )
+    )
     colors = ["r", "g", "b"]
     lines = ["-", "--", "-."]
     for p, participant in enumerate(participants):
         files = os.listdir(f"{main_path}{os.sep}{participant}")
         files = [file for file in files if "only" in file and "less" not in file and "more" not in file]
-        rmse_file = np.ndarray((len(models), n_markers, len(files),))
-        std_file = np.ndarray((len(models), n_markers, len(files),))
+        rmse_file = np.ndarray(
+            (
+                len(models),
+                n_markers,
+                len(files),
+            )
+        )
+        std_file = np.ndarray(
+            (
+                len(models),
+                n_markers,
+                len(files),
+            )
+        )
         for f, file in enumerate(files):
             path = f"{main_path}{os.sep}{participant}{os.sep}{file}"
             all_color_files = glob.glob(path + "/color*.png")
@@ -38,9 +60,14 @@ if __name__ == '__main__':
             q = results["dlc"]["q_raw"]
             thorax_mesh = r"D:\Documents\Programmation\pose_estimation\Geometry_left\thorax.vtp"
             intrinsics = o3d.camera.PinholeCameraIntrinsic()
-            intrinsics.set_intrinsics(width=480, height=848, fx=429.6269226074219,
-                                      fy=429.6269226074219,
-                                      cx=418.1453857421875, cy=245.16981506347656)
+            intrinsics.set_intrinsics(
+                width=480,
+                height=848,
+                fx=429.6269226074219,
+                fy=429.6269226074219,
+                cx=418.1453857421875,
+                cy=245.16981506347656,
+            )
             for i in range(q.shape[1]):
                 import open3d
                 import open3d.visualization.rendering as rendering
@@ -69,21 +96,10 @@ if __name__ == '__main__':
 
                 # add mesh to the scene
                 # render.scene.add_geometry("MyMeshModel", mesh, mtl)
-                camMat = [[
-                    0.999995768070221,
-                    -0.002411586232483387,
-                    -0.001641725655645132
-                ],
-                    [
-                        0.0023998860269784927,
-                        0.9999719858169556,
-                        -0.007091784384101629
-                    ],
-                    [
-                        0.0016587821301072836,
-                        0.0070878141559660435,
-                        0.999973475933075
-                    ]
+                camMat = [
+                    [0.999995768070221, -0.002411586232483387, -0.001641725655645132],
+                    [0.0023998860269784927, 0.9999719858169556, -0.007091784384101629],
+                    [0.0016587821301072836, 0.0070878141559660435, 0.999973475933075],
                 ]
                 # render the scene with respect to the camera
                 render.scene.camera.set_projection(camMat, 0.1, 1.0, 640, 480)

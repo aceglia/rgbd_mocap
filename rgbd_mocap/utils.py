@@ -219,7 +219,7 @@ def _save_video(image, size=(480, 848), file_name=None, fps=60, video_object=Non
     if file_name is None:
         raise ValueError("file_name must be provided")
     if video_object is None:
-        video_object = cv2.VideoWriter(file_name, cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+        video_object = cv2.VideoWriter(file_name, cv2.VideoWriter_fourcc(*"DIVX"), fps, size)
     video_object.write(image)
     return video_object
 
@@ -674,7 +674,7 @@ def _save_video(image, size=(480, 848), file_name=None, fps=60, video_object=Non
     if file_name is None:
         raise ValueError("file_name must be provided")
     if video_object is None:
-        video_object = cv2.VideoWriter(file_name, cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+        video_object = cv2.VideoWriter(file_name, cv2.VideoWriter_fourcc(*"DIVX"), fps, size)
     video_object.write(image)
     return video_object
 

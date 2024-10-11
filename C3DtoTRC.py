@@ -1,4 +1,5 @@
 import numpy as np
+
 try:
     from pyomeca import Markers
 except:
@@ -23,22 +24,36 @@ class WriteTrc:
 
     def _prepare_trc(self):
         headers = [
-            ["PathFileType", 4,	"(X/Y/Z)", self.output_file_path],
-            ["DataRate",
-             "CameraRate",
-             "NumFrames",
-             "NumMarkers",
-             "Units",
-             "OrigDataRate",
-             "OrigDataStartFrame",
-             "OrigNumFrames"],
-            [self.data_rate,	self.cam_rate, self.n_frames, len(self.marker_names), self.units,	self.data_rate, self.start_frame, self.n_frames]
+            ["PathFileType", 4, "(X/Y/Z)", self.output_file_path],
+            [
+                "DataRate",
+                "CameraRate",
+                "NumFrames",
+                "NumMarkers",
+                "Units",
+                "OrigDataRate",
+                "OrigDataStartFrame",
+                "OrigNumFrames",
+            ],
+            [
+                self.data_rate,
+                self.cam_rate,
+                self.n_frames,
+                len(self.marker_names),
+                self.units,
+                self.data_rate,
+                self.start_frame,
+                self.n_frames,
+            ],
         ]
-        markers_row = ["Frame#", "Time", ]
+        markers_row = [
+            "Frame#",
+            "Time",
+        ]
         coord_row = ["", ""]
         empty_row = []
         idx = 0
-        for i in range(len(self.marker_names)*3):
+        for i in range(len(self.marker_names) * 3):
             if i % 3 == 0:
                 markers_row.append(self.marker_names[idx])
                 idx += 1
@@ -73,8 +88,8 @@ class WriteTrc:
                 for j in range(3):
                     row.append(self.markers[j, i, frame])
             headers.append(row)
-        with open(self.output_file_path, 'w', newline='') as file:
-            writer = csv.writer(file, delimiter='\t')
+        with open(self.output_file_path, "w", newline="") as file:
+            writer = csv.writer(file, delimiter="\t")
             writer.writerows(headers)
 
     def _read_c3d(self):
@@ -90,14 +105,16 @@ class WriteTrc:
 
 
 class WriteTrcFromC3d(WriteTrc):
-    def __init__(self, output_file_path,
-                 c3d_file_path,
-                 data_rate=None,
-                 cam_rate=None,
-                 n_frames=None,
-                 start_frame=1,
-                 c3d_channels=None,
-                 ):
+    def __init__(
+        self,
+        output_file_path,
+        c3d_file_path,
+        data_rate=None,
+        cam_rate=None,
+        n_frames=None,
+        start_frame=1,
+        c3d_channels=None,
+    ):
         super(WriteTrcFromC3d, self).__init__()
         self.input_file_path = c3d_file_path
         self.output_file_path = output_file_path
@@ -112,15 +129,17 @@ class WriteTrcFromC3d(WriteTrc):
 
 
 class WriteTrcFromMarkersData(WriteTrc):
-    def __init__(self, output_file_path,
-                 markers=None,
-                 marker_names=None,
-                 data_rate=None,
-                 cam_rate=None,
-                 n_frames=None,
-                 start_frame=1,
-                 units="m"
-                 ):
+    def __init__(
+        self,
+        output_file_path,
+        markers=None,
+        marker_names=None,
+        data_rate=None,
+        cam_rate=None,
+        n_frames=None,
+        start_frame=1,
+        units="m",
+    ):
         super(WriteTrcFromMarkersData, self).__init__()
         self.output_file_path = output_file_path
         self.markers = markers
@@ -136,11 +155,13 @@ class WriteTrcFromMarkersData(WriteTrc):
         self.write_trc()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import pathlib
+
     # outfile_path = "data.trc"
     # infile_path = "data.c3d"
     from biosiglive import load
+
     # markers_file = "data_files/P3_session2/gear_20_15-08-2023_09_35_38/P3_gear_20_c3d.bio"
     # data = load(markers_file)
     # markers_name = ["STER",
@@ -178,8 +199,8 @@ if __name__ == '__main__':
     # write.write()
     participant = "P4_session2"
     trial = "standing_anato"
-    file_dir = fr"data_files\{participant}\standing_anato_15-08-2023_10_28_27"
-    vicon_data = load(fr"{file_dir}\P4_{trial}_c3d.bio")
+    file_dir = rf"data_files\{participant}\standing_anato_15-08-2023_10_28_27"
+    vicon_data = load(rf"{file_dir}\P4_{trial}_c3d.bio")
     import glob
 
     # markers_depth = load(f"{file_dir}\markers_kalman.bio", number_of_line=len(glob.glob(file_dir + "\color*")))
@@ -200,25 +221,26 @@ if __name__ == '__main__':
     #                  "STYLr",
     #                  "STYLu"
     #                 ]
-    markers_vicon_names = ["STER",
-                     "XIPH",
-                     "C7",
-                     "T5",
-                     'RIBS_r',
-                     "CLAV_SC",
-                     "CLAV_AC",
-                     "SCAP_TS",
-                     "SCAP_IA",
-                     "SCAP_AA",
-                     "DELT",
-                     "ARMl",
-                     "EPICM",
-                     "EPICl",
-                     "ELB",
-                     "larm_l",
-                     "STYLr",
-                     "STYLu"
-                    ]
+    markers_vicon_names = [
+        "STER",
+        "XIPH",
+        "C7",
+        "T5",
+        "RIBS_r",
+        "CLAV_SC",
+        "CLAV_AC",
+        "SCAP_TS",
+        "SCAP_IA",
+        "SCAP_AA",
+        "DELT",
+        "ARMl",
+        "EPICM",
+        "EPICl",
+        "ELB",
+        "larm_l",
+        "STYLr",
+        "STYLu",
+    ]
     # # new_markers_depth = np.zeros((3, markers_depth.shape[1], idx[-1]-idx[0]))
     # count = 0
     # # for i in range(idx[-1]-idx[0]):
@@ -229,7 +251,7 @@ if __name__ == '__main__':
     # #         count += 1
     # #     else:
     # #         new_markers_depth[:, :, i] = np.nan
-    markers_vicon = vicon_data["markers"].values[:3, :len(markers_vicon_names), :] * 0.001
+    markers_vicon = vicon_data["markers"].values[:3, : len(markers_vicon_names), :] * 0.001
     # WriteTrcFromMarkersData(output_file_path =f"{file_dir}\{participant}_{trial}_from_depth.trc",
     #                         markers=np.round(markers_depth, 5),
     #                         marker_names=markers_depth_names,
@@ -239,11 +261,13 @@ if __name__ == '__main__':
     #                         start_frame=1,
     #                         units="m").write()
 
-    WriteTrcFromMarkersData(output_file_path =f"{file_dir}\{participant}_{trial}_from_vicon.trc",
-                            markers=np.round(markers_vicon, 5),
-                            marker_names=markers_vicon_names,
-                            data_rate=120,
-                            cam_rate=120,
-                            n_frames=markers_vicon.shape[2],
-                            start_frame=1,
-                            units="m").write()
+    WriteTrcFromMarkersData(
+        output_file_path=f"{file_dir}\{participant}_{trial}_from_vicon.trc",
+        markers=np.round(markers_vicon, 5),
+        marker_names=markers_vicon_names,
+        data_rate=120,
+        cam_rate=120,
+        n_frames=markers_vicon.shape[2],
+        start_frame=1,
+        units="m",
+    ).write()

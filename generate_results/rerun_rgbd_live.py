@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 
 import numpy as np
+
 # import pyrealsense2 as rs
 import rerun as rr  # pip install rerun-sdk
 from utils_old import load_data_from_dlc, _convert_string
@@ -24,8 +25,7 @@ def reorder_markers(markers, model, names):
         if names[i] == "elb":
             names[i] = "elbow"
         if _convert_string(names[i]) in model_marker_names:
-            reordered_markers[:, model_marker_names.index(_convert_string(names[i])),
-            :] = markers[:, count, :]
+            reordered_markers[:, model_marker_names.index(_convert_string(names[i])), :] = markers[:, count, :]
             count += 1
     return reordered_markers
 
@@ -104,6 +104,7 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
     import os
     import glob
     import cv2
+
     image_path = r"../data_files"
     main_path = "F:\markerless_project"
     main_path = "Q:\Projet_hand_bike_markerless\RGBD"
@@ -120,15 +121,18 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
             continue
         data_dlc, data_labeling = load_data_from_dlc(labeled_data_path, dlc_data_path, part, file)
         from biosiglive import MskFunctions, InverseKinematicsMethods, OfflineProcessing
+
         msk = MskFunctions(biorbd_model.model, data_buffer_size=1)
-        reorder_marker_from_source = reorder_markers(data_labeling["markers_in_meters"][:, :-3, :],
-                                                     biorbd_model.model,
-                                                     data_dlc["markers_names"][:-3])
-        new_markers_dlc_filtered = np.zeros((3, reorder_marker_from_source.shape[1], reorder_marker_from_source.shape[2]))
+        reorder_marker_from_source = reorder_markers(
+            data_labeling["markers_in_meters"][:, :-3, :], biorbd_model.model, data_dlc["markers_names"][:-3]
+        )
+        new_markers_dlc_filtered = np.zeros(
+            (3, reorder_marker_from_source.shape[1], reorder_marker_from_source.shape[2])
+        )
         for i in range(3):
             new_markers_dlc_filtered[i, :, :] = OfflineProcessing().butter_lowpass_filter(
-                reorder_marker_from_source[i, :, :],
-                2, 60, 2)
+                reorder_marker_from_source[i, :, :], 2, 60, 2
+            )
         idx = data_dlc["frame_idx"]
         # all_color_files = glob.glob(path + "/color*.png")
         all_depth_files = glob.glob(image_path_tmp + "/depth*.png")
@@ -137,15 +141,18 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
         # Read frames in a loop
         frame_nr = 0
 
-        q, _ = msk.compute_inverse_kinematics(new_markers_dlc_filtered[:, :, 0:1], method=InverseKinematicsMethods.BiorbdLeastSquare,
-                                              )
+        q, _ = msk.compute_inverse_kinematics(
+            new_markers_dlc_filtered[:, :, 0:1],
+            method=InverseKinematicsMethods.BiorbdLeastSquare,
+        )
         # q[:6, :] = np.zeros_like(q[:6, :])
         initial_state = [q, np.zeros_like(q), np.zeros_like(q)]
         msk = MskFunctions(biorbd_model.model, data_buffer_size=new_markers_dlc_filtered.shape[2])
-        q, _ = msk.compute_inverse_kinematics(new_markers_dlc_filtered[:, :, :],
-                                                method=InverseKinematicsMethods.BiorbdKalman,
-                                                # initial_state=initial_state
-                                              )
+        q, _ = msk.compute_inverse_kinematics(
+            new_markers_dlc_filtered[:, :, :],
+            method=InverseKinematicsMethods.BiorbdKalman,
+            # initial_state=initial_state
+        )
         try:
             while True:
                 if num_frames and frame_nr >= num_frames:
@@ -164,7 +171,9 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
                         0,
                         depth_image,
                     )
-                    color_image = cv2.cvtColor(cv2.imread(image_path_tmp + f"\color_{idx[frame_nr]}.png"), cv2.COLOR_BGR2RGB)
+                    color_image = cv2.cvtColor(
+                        cv2.imread(image_path_tmp + f"\color_{idx[frame_nr]}.png"), cv2.COLOR_BGR2RGB
+                    )
                 except:
                     print(f"frame {idx[frame_nr]} not found")
                     continue
@@ -172,18 +181,21 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
 
                 # frames = pipe.wait_for_frames()
                 # for f in frames:
-                    # Log the depth frame
-                    # depth_frame = frames.get_depth_frame()
-                    # depth_units = depth_frame.get_units()
-                    # depth_image = np.asanyarray(depth_frame.get_data())
+                # Log the depth frame
+                # depth_frame = frames.get_depth_frame()
+                # depth_units = depth_frame.get_units()
+                # depth_image = np.asanyarray(depth_frame.get_data())
                 rr.log("animation_phase_0/depth/image", rr.DepthImage(depth_image, meter=1 / converter.depth_scale))
 
-                    # Log the color frame
-                    # color_frame = frames.get_color_frame()
+                # Log the color frame
+                # color_frame = frames.get_color_frame()
                 # color_image = np.asanyarray(color_frame.get_data())
                 rr.log("animation_phase_0/rgb/image", rr.Image(color_image))
                 # rr.log("animation_phase_0/tracked", rr.Points3D(tracked_markers[..., frame_nr].T, colors=(255, 0, 0), radii=0.01))
-                rr.log("animation_phase_0/fk", rr.Points3D(new_markers_dlc_filtered[..., frame_nr].T, colors=(0, 255, 0), radii=0.01))
+                rr.log(
+                    "animation_phase_0/fk",
+                    rr.Points3D(new_markers_dlc_filtered[..., frame_nr].T, colors=(0, 255, 0), radii=0.01),
+                )
                 # rr.log("animation_phase_0/ik", rr.Points3D(tracked_markers_dlc[..., frame_nr].T, colors=(0, 125, 255), radii=0.01))
 
         finally:

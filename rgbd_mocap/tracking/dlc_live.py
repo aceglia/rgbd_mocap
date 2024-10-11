@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+
 try:
     from dlclive import DLCLive, Processor
 except:
@@ -27,12 +28,13 @@ class DlcLive:
 
     def get_pose(self, depth_frame=None, depth_scale=None, min_depth=None, bg_remover_threshold=None):
         import time
+
         self.depth_scale = depth_scale if depth_scale else self.depth_scale
         self.min_depth = min_depth if min_depth else self.min_depth
         self.bg_remover_threshold = bg_remover_threshold if bg_remover_threshold else self.bg_remover_threshold
         depth_frame = self.depth_image if depth_frame is None else self._process_depth(depth_frame, self.depth_scale)
         if not self.inference_initialized:
-            self. inference_initialized = True
+            self.inference_initialized = True
             pos = self.dlc_live.init_inference(depth_frame)
             return pos
 
@@ -52,6 +54,7 @@ class DlcLive:
 
     def update_depth_frame(self, depth_frame):
         import time
+
         tic = time.time()
         self.depth_image = self._process_depth(depth_frame, self.depth_scale)
         cv2.namedWindow("depth", cv2.WINDOW_NORMAL)
@@ -61,7 +64,11 @@ class DlcLive:
 
     def _process_depth(self, depth_frame, depth_scale):
         self.bg_remover_threshold = 1.2
-        depth = np.where((depth_frame > self.bg_remover_threshold / depth_scale) | (depth_frame <=  0.2 / (0.0010000000474974513)), 0, depth_frame)
+        depth = np.where(
+            (depth_frame > self.bg_remover_threshold / depth_scale) | (depth_frame <= 0.2 / (0.0010000000474974513)),
+            0,
+            depth_frame,
+        )
         return self.compute_surface_normals(depth)
 
     #
@@ -70,8 +77,7 @@ class DlcLive:
         dy = cv2.Sobel(depth_map, cv2.CV_32F, 0, 1)
 
         if self.normal is None or self.normal.shape != depth_map.shape:
-            self.normal = np.empty(
-                (depth_map.shape[0], depth_map.shape[1], 3), dtype=np.float32)
+            self.normal = np.empty((depth_map.shape[0], depth_map.shape[1], 3), dtype=np.float32)
 
         self.normal[..., 0] = -dx
         self.normal[..., 1] = -dy

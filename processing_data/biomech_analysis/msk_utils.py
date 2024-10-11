@@ -27,7 +27,7 @@ def get_map_activation_idx(model, emg_names):
     return idx
 
 
-def get_tracking_idx(model, emg_names =None):
+def get_tracking_idx(model, emg_names=None):
     muscle_list = []
     for i in range(model.nbMuscles()):
         muscle_list.append(model.muscleNames()[i].to_string())
@@ -37,6 +37,7 @@ def get_tracking_idx(model, emg_names =None):
             if emg_names[i] in muscle_list[j]:
                 muscle_track_idx.append(j)
     return muscle_track_idx
+
 
 def reorder_markers(markers, model, names):
     model_marker_names = [_convert_string(model.markerNames()[i].to_string()) for i in range(model.nbMarkers())]
@@ -49,11 +50,11 @@ def reorder_markers(markers, model, names):
         if names[i] == "elb":
             names[i] = "elbow"
         if _convert_string(names[i]) in model_marker_names:
-            reordered_markers[:, model_marker_names.index(_convert_string(names[i])),
-            :] = markers[:, count, :]
+            reordered_markers[:, model_marker_names.index(_convert_string(names[i])), :] = markers[:, count, :]
             final_names.append(model.markerNames()[i].to_string())
             count += 1
     return reordered_markers, final_names
+
 
 def _comment_markers(data):
     markers_list = ["C7", "T10", "EPICM", "ELBOW"]
@@ -64,8 +65,15 @@ def _comment_markers(data):
             print("marker not found")
         else:
             idx_marker_end = data_tmp.find("endmarker", idx_marker_start) + len("endmarker")
-            data_tmp = data_tmp[:idx_marker_start] + "/*" +data_tmp[idx_marker_start:idx_marker_end] + "*/" + data_tmp[idx_marker_end:]
+            data_tmp = (
+                data_tmp[:idx_marker_start]
+                + "/*"
+                + data_tmp[idx_marker_start:idx_marker_end]
+                + "*/"
+                + data_tmp[idx_marker_end:]
+            )
     return data_tmp
+
 
 def _comment_dofs(data):
     data_tmp = data
@@ -80,18 +88,19 @@ def _comment_dofs(data):
 
 
 def _compute_new_bounds(data):
-    bounds = ["rotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n",
-              "rotations x\n\t\tranges\n\t\t\t\t-0.7 0.2",  # clavicle
-              "rotations y\n\t\tranges\n\t\t\t\t-0.5 0.5",  # clavicle
-              "rotations z\n\t\tranges\n\t\t\t\t-3 3",  # clavicle
-              # "rotations xyz\n\t\tranges\n\t\t\t\t-0.2 1",  # scapula
-              "rotations xyz\n\t\tranges\n\t\t\t\t-0.1 1\n\t\t\t\t-0.1 0.8\n\t\t\t\t-0.2 0.5",  # scapula
-              "rotations x\n\t\tranges\n\t\t\t\t-0.4 0.8",  # shoulder
-              "rotations y\n\t\tranges\n\t\t\t\t0.2 1",  # shoulder
-              "rotations z\n\t\tranges\n\t\t\t\t-1.2 0",  # shoulder
-              "rotations z\n\t\tranges\n\t\t\t\t0.8 2.2",  # elbow
-                "rotations y\n\t\tranges\n\t\t\t\t0.3 0.8",  # forearm
-              ]
+    bounds = [
+        "rotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n",
+        "rotations x\n\t\tranges\n\t\t\t\t-0.7 0.2",  # clavicle
+        "rotations y\n\t\tranges\n\t\t\t\t-0.5 0.5",  # clavicle
+        "rotations z\n\t\tranges\n\t\t\t\t-3 3",  # clavicle
+        # "rotations xyz\n\t\tranges\n\t\t\t\t-0.2 1",  # scapula
+        "rotations xyz\n\t\tranges\n\t\t\t\t-0.1 1\n\t\t\t\t-0.1 0.8\n\t\t\t\t-0.2 0.5",  # scapula
+        "rotations x\n\t\tranges\n\t\t\t\t-0.4 0.8",  # shoulder
+        "rotations y\n\t\tranges\n\t\t\t\t0.2 1",  # shoulder
+        "rotations z\n\t\tranges\n\t\t\t\t-1.2 0",  # shoulder
+        "rotations z\n\t\tranges\n\t\t\t\t0.8 2.2",  # elbow
+        "rotations y\n\t\tranges\n\t\t\t\t0.3 0.8",  # forearm
+    ]
     data_tmp = data
     idx_start = 0
     count = 0
@@ -112,7 +121,18 @@ def _compute_new_bounds(data):
             count += 1
     return data_tmp
 
-def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None, file_path=None, init_ik=False, model_prefix="", initial_guess=None):
+
+def run_ik(
+    msk_function,
+    markers,
+    kalman_freq=120,
+    times=None,
+    dic_to_save=None,
+    file_path=None,
+    init_ik=False,
+    model_prefix="",
+    initial_guess=None,
+):
     tic_init = time.time()
     model_path = msk_function.model.path().absolutePath().to_string()
     markers = markers[..., None] if markers.ndim == 2 else markers
@@ -123,7 +143,7 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
         # msk_function.model = biorbd.Model(new_model_path)
         # print(new_model_path)
         # # q=None
-        #q, q_dot, _ = msk_function.compute_inverse_kinematics(markers, InverseKinematicsMethods.BiorbdLeastSquare)
+        # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers, InverseKinematicsMethods.BiorbdLeastSquare)
         # if "minimal_viconlkdv" in model_path:
         #     import bioviz
         #     b = bioviz.Viz(model_path=new_model_path)
@@ -136,7 +156,7 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
         rt = f"1.57 -1.57 0 xyz 0 0 0"
         init_idx = data.find("SEGMENT DEFINITION")
         end_idx = data.find("translations xyz // thorax") + len("translations xyz // thorax") + 1
-        if part =="P12":
+        if part == "P12":
             data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n"
         else:
             data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n"
@@ -161,17 +181,16 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
         with open(new_model_path, "r") as file:
             data = file.read()
         data = data.replace(
-           "RT 0 0 0 xyz 0 0 0 // thorax",
+            "RT 0 0 0 xyz 0 0 0 // thorax",
             f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax",
-
         )
         data = data.replace(
-           "rotations xyz // thorax",
-           f"//rotations xyz // thorax",
+            "rotations xyz // thorax",
+            f"//rotations xyz // thorax",
         )
         data = data.replace(
-           "translations xyz // thorax",
-           f"// translations xyz // thorax",
+            "translations xyz // thorax",
+            f"// translations xyz // thorax",
         )
         with open(new_model_path, "w") as file:
             file.write(data)
@@ -179,15 +198,15 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
         msk_function.model = biorbd.Model(new_model_path)
         msk_function.clean_all_buffers()
         msk_function.kalman = None
-    # else:
-    #     q = msk_function.kin_buffer[0].copy()
-    # if "P11" in model_path:
-    #     q[-1, :] = 0.7
-    # if "P16" in model_path:
-    #     q[5, :] = -0.1
-    #     q[7, :] = 0.1
-    #     q = msk_function.kin_buffer[0].copy()
-    #     msk_function.clean_all_buffers()
+        # else:
+        #     q = msk_function.kin_buffer[0].copy()
+        # if "P11" in model_path:
+        #     q[-1, :] = 0.7
+        # if "P16" in model_path:
+        #     q[5, :] = -0.1
+        #     q[7, :] = 0.1
+        #     q = msk_function.kin_buffer[0].copy()
+        #     msk_function.clean_all_buffers()
         q = q[:, -1]
     else:
         q = msk_function.kin_buffer[0].copy()
@@ -199,22 +218,23 @@ def run_ik(msk_function, markers, kalman_freq=120, times=None, dic_to_save=None,
     if "P16" in model_path:
         q[5] = -0.1
         q[7] = 0.1
-    #q[-1] = 0.3
-    noise_factor = 1e-7 #if "depth" in model_path else 1e-5
-    error_factor = 1e-4 #if "depth" in model_path else 1e-6
+    # q[-1] = 0.3
+    noise_factor = 1e-7  # if "depth" in model_path else 1e-5
+    error_factor = 1e-4  # if "depth" in model_path else 1e-6
     # q = q if initial_guess is None else initial_guess
 
     initial_guess = [q, np.zeros_like(q), np.zeros_like(q)] if q is not None else None
     # initial_guess = initial_guess_tmp if initial_guess is None else initial_guess
-    msk_function.compute_inverse_kinematics(markers,
-                                            method=InverseKinematicsMethods.BiorbdKalman,
-                                            kalman_freq=kalman_freq,
-                                            initial_guess=initial_guess,
-                                            # noise_factor=1e-3,
-                                            # error_factor=1e-7,
-                                            noise_factor=noise_factor,
-                                            error_factor=error_factor,
-                                            )
+    msk_function.compute_inverse_kinematics(
+        markers,
+        method=InverseKinematicsMethods.BiorbdKalman,
+        kalman_freq=kalman_freq,
+        initial_guess=initial_guess,
+        # noise_factor=1e-3,
+        # error_factor=1e-7,
+        noise_factor=noise_factor,
+        error_factor=error_factor,
+    )
     q = msk_function.kin_buffer[0].copy()
     time_ik = time.time() - tic_init
     times["ik"] = time_ik
@@ -246,13 +266,14 @@ def run_id(msk_function, f_ext, external_loads, times, dic_to_save):
     f_ext_mat[:3, 0] = f_ext[:3] + np.cross(vecteur_OB, f_ext[3:6])
     f_ext_mat[3:, 0] = f_ext[3:]
     external_loads.update_external_load_value(f_ext_mat, name="hand_pedal")
-    tau = msk_function.compute_inverse_dynamics(positions_from_inverse_kinematics=True,
-                                                velocities_from_inverse_kinematics=True,
-                                                accelerations_from_inverse_kinematics=True,
-                                                state_idx_to_process=[],
-                                                windows_length=10,
-                                                external_load=external_loads
-                                                )
+    tau = msk_function.compute_inverse_dynamics(
+        positions_from_inverse_kinematics=True,
+        velocities_from_inverse_kinematics=True,
+        accelerations_from_inverse_kinematics=True,
+        state_idx_to_process=[],
+        windows_length=10,
+        external_load=external_loads,
+    )
     time_id = time.time() - tic
     times["id"] = time_id
     dic_to_save["tau"] = tau[:, -1:]
@@ -262,8 +283,18 @@ def run_id(msk_function, f_ext, external_loads, times, dic_to_save):
     return times, dic_to_save
 
 
-def run_so(msk_function, emg, times, dic_to_save, scaling_factor,
-                print_optimization_status=False, emg_names=None, track_idx=None, map_emg_idx=None, **kwargs):
+def run_so(
+    msk_function,
+    emg,
+    times,
+    dic_to_save,
+    scaling_factor,
+    print_optimization_status=False,
+    emg_names=None,
+    track_idx=None,
+    map_emg_idx=None,
+    **kwargs,
+):
     if msk_function.model.nbQ() > 12:
         msk_function.tau_buffer[:6, :] = np.zeros((6, msk_function.tau_buffer.shape[1]))
 
@@ -278,17 +309,15 @@ def run_so(msk_function, emg, times, dic_to_save, scaling_factor,
         compile_only_first_call=True,
         emg=emg,
         muscle_track_idx=track_idx,
-        weight={"tau": 1000000000, "act": 1000,
-                "tracking_emg": 1000000000000,
-                "pas_tau": 10000000},
+        weight={"tau": 1000000000, "act": 1000, "tracking_emg": 1000000000000, "pas_tau": 10000000},
         print_optimization_status=print_optimization_status,
         torque_tracking_as_objective=True,
         **kwargs,
     )
     mus_act = np.clip(mus_act, 0.0001, 0.999999)
-    mus_force = compute_muscle_force(mus_act, msk_function.model,  msk_function.id_state_buffer[0][:, -1:],
-                                      msk_function.id_state_buffer[1][:, -1:]
-                                      )
+    mus_force = compute_muscle_force(
+        mus_act, msk_function.model, msk_function.id_state_buffer[0][:, -1:], msk_function.id_state_buffer[1][:, -1:]
+    )
     time_so = time.time() - tic
     times["so"] = time_so
     dic_to_save["mus_act"] = mus_act[:, -1:]
@@ -308,24 +337,27 @@ def compute_muscle_force(mus_act, model, q, q_dot):
 
 
 def run_jrf(msk_function, times, dic_to_save, external_loads=None):
-    q_df, q_dot_df, q_ddot_df = (msk_function.id_state_buffer[0][:, -1:],
-                                 msk_function.id_state_buffer[1][:, -1:]
-                                 , msk_function.id_state_buffer[2][:, -1:])
+    q_df, q_dot_df, q_ddot_df = (
+        msk_function.id_state_buffer[0][:, -1:],
+        msk_function.id_state_buffer[1][:, -1:],
+        msk_function.id_state_buffer[2][:, -1:],
+    )
     mus_act = dic_to_save["mus_act"]
     mus_act = np.clip(mus_act, 0.0001, 0.999999)
     tic = time.time()
-    jrf = msk_function.compute_joint_reaction_load(q_df,
-                                                   q_dot_df,
-                                                   q_ddot_df,
-                                                   mus_act,
-                                                   express_in_coordinate="scapula_left",
-                                                   apply_on_segment="scapula_left",
-                                                   application_point=[[0, 0, 0]],
-                                                   from_distal=True,
-                                                   external_loads=external_loads,
-                                                   kinetics_from_inverse_dynamics=False,
-                                                   act_from_static_optimisation=False,
-                                                   )
+    jrf = msk_function.compute_joint_reaction_load(
+        q_df,
+        q_dot_df,
+        q_ddot_df,
+        mus_act,
+        express_in_coordinate="scapula_left",
+        apply_on_segment="scapula_left",
+        application_point=[[0, 0, 0]],
+        from_distal=True,
+        external_loads=external_loads,
+        kinetics_from_inverse_dynamics=False,
+        act_from_static_optimisation=False,
+    )
     time_jrf = time.time() - tic
     times["jrf"] = time_jrf
     dic_to_save["jrf"] = jrf[:, :, -1:]
@@ -333,13 +365,15 @@ def run_jrf(msk_function, times, dic_to_save, external_loads=None):
 
 
 def convert_cluster_to_anato(new_cluster, data):
-    anato_pos = new_cluster.process(marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"],
-                                    save_file=False)
+    anato_pos = new_cluster.process(
+        marker_cluster_positions=data, cluster_marker_names=["M1", "M2", "M3"], save_file=False
+    )
     anato_pos_ordered = np.zeros_like(anato_pos)
     anato_pos_ordered[:, 0, :] = anato_pos[:, 0, :]
     anato_pos_ordered[:, 1, :] = anato_pos[:, 2, :]
     anato_pos_ordered[:, 2, :] = anato_pos[:, 1, :]
     return anato_pos
+
 
 def compute_cor(q, model):
     center = [4, 11, 16, 25]
@@ -351,4 +385,3 @@ def compute_cor(q, model):
             all_centers[:, count, i] = all_jcs[s].to_array()[:3, 3]
             count += 1
     return all_centers
-

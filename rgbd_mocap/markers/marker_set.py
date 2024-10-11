@@ -11,9 +11,15 @@ class MarkerSet:
     This class is used to store the marker information
     """
 
-    def __init__(self, marker_set_name, marker_names: list[str], shared=False,
-                 rotations: Rotations = Rotations.XYZ, translations: Translations = Translations.XYZ,
-                 downsample_ratio=1):
+    def __init__(
+        self,
+        marker_set_name,
+        marker_names: list[str],
+        shared=False,
+        rotations: Rotations = Rotations.XYZ,
+        translations: Translations = Translations.XYZ,
+        downsample_ratio=1,
+    ):
         """
         init markers class with number of markers, names and image index
 
@@ -210,7 +216,10 @@ class MarkerSet:
         """
         return [marker.get_depth_visibility() for marker in self.markers]
 
-    def get_marker_by_name(self, name: str,):
+    def get_marker_by_name(
+        self,
+        name: str,
+    ):
         """
         Get a marker from the marker set
 
@@ -231,12 +240,12 @@ class MarkerSet:
         return None
 
     def __str__(self):
-        string = self.name + ' ['
+        string = self.name + " ["
 
         for marker in self.markers[:-1]:
-            string += f'{marker.name}, '
+            string += f"{marker.name}, "
 
-        string += f'{self.markers[-1].name}]'
+        string += f"{self.markers[-1].name}]"
         return string
 
     def __getitem__(self, item):

@@ -3,7 +3,7 @@ import numpy as np
 from pyorerun import ModelUpdater, DisplayModelOptions
 from biosiglive import load
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     data_path = r"Q:\Projet_hand_bike_markerless\RGBD\P10\gear_5_15-01-2024_10_15_46\result_offline_gear_5_15-01-2024_10_15_46_normal_alone.bio"
     data = load(data_path)
     q = data["dlc"]["q"]

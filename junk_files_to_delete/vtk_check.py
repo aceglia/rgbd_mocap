@@ -2,6 +2,7 @@
 
 # noinspection PyUnresolvedReferences
 import vtkmodules.vtkInteractionStyle
+
 # noinspection PyUnresolvedReferences
 import vtkmodules.vtkRenderingOpenGL2
 from vtkmodules.vtkCommonColor import vtkNamedColors
@@ -12,7 +13,7 @@ from vtkmodules.vtkIOImage import (
     vtkPNGWriter,
     vtkPNMWriter,
     vtkPostScriptWriter,
-    vtkTIFFWriter
+    vtkTIFFWriter,
 )
 from vtkmodules.vtkRenderingCore import (
     vtkActor,
@@ -20,7 +21,7 @@ from vtkmodules.vtkRenderingCore import (
     vtkRenderWindow,
     vtkRenderWindowInteractor,
     vtkRenderer,
-    vtkWindowToImageFilter
+    vtkWindowToImageFilter,
 )
 
 
@@ -28,7 +29,7 @@ def main():
     colors = vtkNamedColors()
 
     # Set the background color.
-    colors.SetColor('BkgColor', [26, 51, 102, 255])
+    colors.SetColor("BkgColor", [26, 51, 102, 255])
 
     # create a rendering window and renderer
     ren = vtkRenderer()
@@ -53,18 +54,18 @@ def main():
     actor.SetMapper(mapper)
 
     # color the actor
-    actor.GetProperty().SetColor(colors.GetColor3d('Yellow'))
+    actor.GetProperty().SetColor(colors.GetColor3d("Yellow"))
 
     # assign actor to the renderer
     ren.AddActor(actor)
-    ren.SetBackground(colors.GetColor3d('BkgColor'))
+    ren.SetBackground(colors.GetColor3d("BkgColor"))
 
-    renWin.SetWindowName('ImageWriter')
+    renWin.SetWindowName("ImageWriter")
     renWin.Render()
 
-    ext = ['', '.png', '.jpg', '.ps', '.tiff', '.bmp', '.pnm']
-    filenames = list(map(lambda x: 'ImageWriter' + x, ext))
-    filenames[0] = filenames[0] + '1'
+    ext = ["", ".png", ".jpg", ".ps", ".tiff", ".bmp", ".pnm"]
+    filenames = list(map(lambda x: "ImageWriter" + x, ext))
+    filenames[0] = filenames[0] + "1"
     for f in filenames:
         WriteImage(f, renWin, rgba=False)
 
@@ -73,7 +74,7 @@ def main():
 
 
 def WriteImage(fileName, renWin, rgba=True):
-    '''
+    """
     Write the render window view to an image file.
 
     Image types supported are:
@@ -84,7 +85,7 @@ def WriteImage(fileName, renWin, rgba=True):
     :param renWin: The render window.
     :param rgba: Used to set the buffer type.
     :return:
-    '''
+    """
 
     import os
 
@@ -93,19 +94,19 @@ def WriteImage(fileName, renWin, rgba=True):
         path, ext = os.path.splitext(fileName)
         ext = ext.lower()
         if not ext:
-            ext = '.png'
+            ext = ".png"
             fileName = fileName + ext
-        if ext == '.bmp':
+        if ext == ".bmp":
             writer = vtkBMPWriter()
-        elif ext == '.jpg':
+        elif ext == ".jpg":
             writer = vtkJPEGWriter()
-        elif ext == '.pnm':
+        elif ext == ".pnm":
             writer = vtkPNMWriter()
-        elif ext == '.ps':
+        elif ext == ".ps":
             if rgba:
                 rgba = False
             writer = vtkPostScriptWriter()
-        elif ext == '.tiff':
+        elif ext == ".tiff":
             writer = vtkTIFFWriter()
         else:
             writer = vtkPNGWriter()
@@ -125,8 +126,8 @@ def WriteImage(fileName, renWin, rgba=True):
         writer.SetInputConnection(windowto_image_filter.GetOutputPort())
         writer.Write()
     else:
-        raise RuntimeError('Need a filename.')
+        raise RuntimeError("Need a filename.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

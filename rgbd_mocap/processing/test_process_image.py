@@ -6,15 +6,16 @@ from rgbd_mocap.processing.config import load_json
 from rgbd_mocap.crops.crop import DepthCheck
 
 tracking_options = {
-        "naive": False,
-        "kalman": True,
-        "optical_flow": True,
-    }
+    "naive": False,
+    "kalman": True,
+    "optical_flow": True,
+}
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Init
     from rgbd_mocap.enums import Rotation
+
     ProcessImage.ROTATION = Rotation.ROTATE_0
     ProcessImage.SHOW_IMAGE = True
     Handler.SHOW_CROPS = True
@@ -34,16 +35,16 @@ if __name__ == '__main__':
     if run_all:
         total_time, avg_time_per_frame = PI.process_all_image()
         print("Everything's fine !")
-        print('Average computation time per frame:', avg_time_per_frame)
-        print('Total time :', total_time)
+        print("Average computation time per frame:", avg_time_per_frame)
+        print("Total time :", total_time)
 
     # Run frame by frame
 
     else:
         import time
+
         while True:
             tic = time.time()
             if not PI.process_next_image():
                 break
             print("Time for one frame :", (time.time() - tic))
-

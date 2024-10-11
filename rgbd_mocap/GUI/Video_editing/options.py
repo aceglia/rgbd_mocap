@@ -156,7 +156,9 @@ class ClaheOption(CollapsibleBox):
     the image options for white parameters.
     """
 
-    def __init__(self, parent=None, clahe_clip_limit=3, clahe_grid_size=1, gaussian_blur=0, use_threshold=True, **kwargs):
+    def __init__(
+        self, parent=None, clahe_clip_limit=3, clahe_grid_size=1, gaussian_blur=0, use_threshold=True, **kwargs
+    ):
         """
         Initialize a ClaheOption widget.
         :param parent: QObject container parent
@@ -176,8 +178,9 @@ class ClaheOption(CollapsibleBox):
         )
         self.threshold_clahe = OptionButton("use_threshold", default_value=use_threshold)
         ### Add the Labeled Sliders to the Collapsible Boxes
-        self.option_layout = OptionBoxLayout([self.clahe_clip_limit, self.clahe_clip_grid_size, self.clahe_median_blur,
-                                              self.threshold_clahe])
+        self.option_layout = OptionBoxLayout(
+            [self.clahe_clip_limit, self.clahe_clip_grid_size, self.clahe_median_blur, self.threshold_clahe]
+        )
         self.activate = self.option_layout.activate
         self.setContentLayout(self.option_layout)
 

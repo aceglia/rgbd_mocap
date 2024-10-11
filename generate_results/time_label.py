@@ -2,7 +2,7 @@ import numpy as np
 
 from utils_old import *
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
@@ -27,7 +27,17 @@ if __name__ == '__main__':
             std_tracking_2D.append(np.std(data["time_2D"][1:]))
             time_tracking_3D.append(np.mean(data["time_3D"][1:]))
             std_tracking_3D.append(np.std(data["time_3D"][1:]))
-    print("time_tracking 2D : ", np.round(np.mean(time_tracking_2D) * 1000, 2), "+/-", np.round(np.mean(std_tracking_2D) *
-                                                                                                1000, 2), "ms")
-    print("time_tracking 3D : ", np.round(np.mean(time_tracking_3D) * 1000, 2), "+/-", np.round(np.mean(std_tracking_3D) * 1000, 2), "ms")
-
+    print(
+        "time_tracking 2D : ",
+        np.round(np.mean(time_tracking_2D) * 1000, 2),
+        "+/-",
+        np.round(np.mean(std_tracking_2D) * 1000, 2),
+        "ms",
+    )
+    print(
+        "time_tracking 3D : ",
+        np.round(np.mean(time_tracking_3D) * 1000, 2),
+        "+/-",
+        np.round(np.mean(std_tracking_3D) * 1000, 2),
+        "ms",
+    )

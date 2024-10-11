@@ -5,10 +5,12 @@ from pathlib import Path
 import shutil
 import imgaug.augmenters as iaa
 import cv2
+
 # from numba import jit
 import time
 from biosiglive import load
 from imgaug.augmentables import Keypoint, KeypointsOnImage
+
 
 def add_to_csv(image_path, markers_pos, markers_names, csv_path):
     file = csv_path
@@ -41,9 +43,9 @@ def add_to_csv(image_path, markers_pos, markers_names, csv_path):
 
 def get_augmented_images(images, keypoints=None):
     sometimes = lambda aug: iaa.Sometimes(0.5, aug)
-    seq = iaa.Sequential([            # crop some of the images by 0-10% of their height/width
+    seq = iaa.Sequential(
+        [  # crop some of the images by 0-10% of their height/width
             sometimes(iaa.Crop(percent=(0, 0.15))),
-
             # Apply affine transformations to some of the images
             # - scale to 80-120% of image height/width (each axis independently)
             # - translate by -20 to +20 relative to height/width (per axis)
@@ -55,49 +57,50 @@ def get_augmented_images(images, keypoints=None):
             # - cval: if the mode is constant, then use a random brightness
             #         for the newly created pixels (e.g. sometimes black,
             #         sometimes white)
-            sometimes(iaa.Affine(
-                scale={"x": (0.6, 1.3), "y": (0.6, 1.3)},
-                translate_percent={"x": (-0.15, 0.15), "y": (-0.2, 0.2)},
-                rotate=(-30, 30),
-                # shear=(-16, 16),
-                order=[0, 1],
-                cval=(0, 1),
-                mode="constant"
-            )),
-
+            sometimes(
+                iaa.Affine(
+                    scale={"x": (0.6, 1.3), "y": (0.6, 1.3)},
+                    translate_percent={"x": (-0.15, 0.15), "y": (-0.2, 0.2)},
+                    rotate=(-30, 30),
+                    # shear=(-16, 16),
+                    order=[0, 1],
+                    cval=(0, 1),
+                    mode="constant",
+                )
+            ),
             #
             # Execute 0 to 5 of the following (less important) augmenters per
             # image. Don't execute all of them, as that would often be way too
             # strong.
             #
-            iaa.SomeOf((0, 5),
-                       [
-
-                           # Blur each image with varying strength using
-                           # gaussian blur (sigma between 0 and 3.0),
-                           # average/uniform blur (kernel size between 2x2 and 7x7)
-                           # median blur (kernel size between 3x3 and 11x11).
-                           iaa.OneOf([
-                               iaa.GaussianBlur((0, 3.0)),
-                               iaa.AverageBlur(k=(2, 7)),
-                               iaa.MedianBlur(k=(3, 11)),
-                           ]),
-
-                           # Either drop randomly 1 to 10% of all pixels (i.e. set
-                           # them to black) or drop them on an image with 2-5% percent
-                           # of the original size, leading to large dropped
-                           # rectangles.
-                           # sometimes(iaa.Dropout((0.01, 0.05), per_channel=0.5)),
-
-                           # In some images distort local areas with varying strength.
-                           sometimes(iaa.PiecewiseAffine(scale=(0.01, 0.05)))
-                       ],
-                       # do all of the above augmentations in random order
-                       random_order=True
-                       )
+            iaa.SomeOf(
+                (0, 5),
+                [
+                    # Blur each image with varying strength using
+                    # gaussian blur (sigma between 0 and 3.0),
+                    # average/uniform blur (kernel size between 2x2 and 7x7)
+                    # median blur (kernel size between 3x3 and 11x11).
+                    iaa.OneOf(
+                        [
+                            iaa.GaussianBlur((0, 3.0)),
+                            iaa.AverageBlur(k=(2, 7)),
+                            iaa.MedianBlur(k=(3, 11)),
+                        ]
+                    ),
+                    # Either drop randomly 1 to 10% of all pixels (i.e. set
+                    # them to black) or drop them on an image with 2-5% percent
+                    # of the original size, leading to large dropped
+                    # rectangles.
+                    # sometimes(iaa.Dropout((0.01, 0.05), per_channel=0.5)),
+                    # In some images distort local areas with varying strength.
+                    sometimes(iaa.PiecewiseAffine(scale=(0.01, 0.05))),
+                ],
+                # do all of the above augmentations in random order
+                random_order=True,
+            ),
         ],
         # do all of the above augmentations in random order
-        random_order=True
+        random_order=True,
     )
     if keypoints is not None:
         return seq(images=images, keypoints=keypoints)
@@ -122,7 +125,7 @@ def save_augmented_images(images, kps_aug, path, marker_names):
         # image_to_save = kps_aug[i].draw_on_image(images[i].copy(), size=10)
         # cv2.imshow("image", image_to_save)
         # cv2.waitKey(0)
-        #out.write(image_to_save)
+        # out.write(image_to_save)
 
 
 def apply_crop_and_ratio(markers, ratio, area):
@@ -132,12 +135,14 @@ def apply_crop_and_ratio(markers, ratio, area):
         transformed_mark[:2, m] = transformed_mark[:2, m] * ratio
     return transformed_mark.astype(int)
 
+
 def get_label_image(participant_to_exclude=None):
     import json
+
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     main_path = "Q:\Projet_hand_bike_markerless\RGBD"
 
-    #main_path = "data_files"
+    # main_path = "data_files"
     nb_frame = 500
     nb_cycle = 20
     ratio_down = 3
@@ -151,7 +156,9 @@ def get_label_image(participant_to_exclude=None):
         file_gear_5 = [file for file in files if "gear_5" in file and "less" not in file and "more" not in file]
         files = [file for file in files if "only" in file and "less" not in file and "more" not in file]
         for file in files:
-            tracking_config_path = f"{main_path}{os.sep}{participant}{os.sep}" + file_gear_5[0] + f"{os.sep}tracking_config_dlc.json"
+            tracking_config_path = (
+                f"{main_path}{os.sep}{participant}{os.sep}" + file_gear_5[0] + f"{os.sep}tracking_config_dlc.json"
+            )
             with open(tracking_config_path) as json_file:
                 tracking_config = json.load(json_file)
             area = tracking_config["crops"][0]["area"]
@@ -159,7 +166,7 @@ def get_label_image(participant_to_exclude=None):
                 if a in [0, 1, 2]:
                     if a == 0 or a == 1:
                         value = area[a] - 50
-                        area[a] = value if value >=0 else 0
+                        area[a] = value if value >= 0 else 0
                     else:
                         value = area[a] + 50
                         area[a] = value if value <= 848 else 848
@@ -185,13 +192,17 @@ def get_label_image(participant_to_exclude=None):
             oc_list_ones = np.ones((occlusions.shape[1]))
             for i in range(1, occlusions.shape[0]):
                 oc_list_ones_tmp = np.ones((occlusions.shape[1]))
-                oc_list[i-1] = list(np.argwhere(occlusions[i, :] == False))
-                oc_list_ones_tmp[oc_list[i-1]] = 0
+                oc_list[i - 1] = list(np.argwhere(occlusions[i, :] == False))
+                oc_list_ones_tmp[oc_list[i - 1]] = 0
                 oc_list_ones = oc_list_ones * oc_list_ones_tmp
             final_visible_idx = np.argwhere(oc_list_ones == 1).flatten()
             final_visible_idx = [frame_idx[vis_idx] for vis_idx in final_visible_idx]
             # final_visible_idx_rand = np.sort(np.random.choice(final_visible_idx, nb_frame))
-            final_idx = [idx_cycle for idx_cycle in all_cycles_reduced if idx_cycle in final_visible_idx and idx_cycle in frame_idx]
+            final_idx = [
+                idx_cycle
+                for idx_cycle in all_cycles_reduced
+                if idx_cycle in final_visible_idx and idx_cycle in frame_idx
+            ]
             final_idx = [frame_idx.index(idx_cycle) for idx_cycle in final_idx]
             markers = markers[:, :, final_idx]
 
@@ -200,7 +211,7 @@ def get_label_image(participant_to_exclude=None):
             for i in range(len(frame_idx)):
                 depth = cv2.imread(path + f"/depth_{frame_idx[i]}.png", cv2.IMREAD_ANYDEPTH)
                 depth_init = depth.copy()
-                depth = depth[area[1]: area[3], area[0]:area[2]]
+                depth = depth[area[1] : area[3], area[0] : area[2]]
                 # cv2.imshow("depth", depth)
                 key_point_list = []
                 if count % 3 == 0:
@@ -210,7 +221,9 @@ def get_label_image(participant_to_exclude=None):
                 else:
                     ratio = 1
                 markers_tmp = apply_crop_and_ratio(markers[:, :, i], area=area, ratio=ratio)
-                depht_value_xiph = depth[markers_tmp[1, 0].astype(int), markers_tmp[0, 0].astype(int)] * 0.0010000000474974513
+                depht_value_xiph = (
+                    depth[markers_tmp[1, 0].astype(int), markers_tmp[0, 0].astype(int)] * 0.0010000000474974513
+                )
                 if depht_value_xiph > xiph_threeshold:
                     key_point_list.append(Keypoint(x=markers_tmp[0, 0], y=markers_tmp[1, 0]))
                 # else:
@@ -219,7 +232,11 @@ def get_label_image(participant_to_exclude=None):
                 #     print("threeshold: ", xiph_threeshold)
                 for j in range(1, markers_tmp.shape[1]):
                     key_point_list.append(Keypoint(x=markers_tmp[0, j], y=markers_tmp[1, j]))
-                all_kps.append(KeypointsOnImage(key_point_list, shape=(int(depth.shape[1] * ratio), int(depth.shape[0] * ratio), 3)))
+                all_kps.append(
+                    KeypointsOnImage(
+                        key_point_list, shape=(int(depth.shape[1] * ratio), int(depth.shape[0] * ratio), 3)
+                    )
+                )
                 depth = np.where(
                     (depth > 1.2 / (0.0010000000474974513)) | (depth <= 0.2 / (0.0010000000474974513)),
                     0,
@@ -228,7 +245,9 @@ def get_label_image(participant_to_exclude=None):
 
                 # compute_surface_normals(depth)
                 if ratio != 1:
-                    depth = cv2.resize(depth, (int(depth.shape[1] * ratio), int(depth.shape[0] * ratio)))#, interpolation=cv2.INTER_NEAREST)
+                    depth = cv2.resize(
+                        depth, (int(depth.shape[1] * ratio), int(depth.shape[0] * ratio))
+                    )  # , interpolation=cv2.INTER_NEAREST)
 
                 empty_depth.append(compute_surface_normals(depth))
                 # empty_depth.append(compute_surface_normals_k_nearest(depth))
@@ -255,12 +274,14 @@ def get_label_image(participant_to_exclude=None):
                 count += 1
     return empty_depth, all_kps, marker_names
 
-def compute_surface_normals(depth_map, empty_mat = None):
+
+def compute_surface_normals(depth_map, empty_mat=None):
     dx = cv2.Sobel(depth_map, cv2.CV_32F, 1, 0)
     dy = cv2.Sobel(depth_map, cv2.CV_32F, 0, 1)
 
-    normal = empty_mat if empty_mat is not None else np.empty(
-        (depth_map.shape[0], depth_map.shape[1], 3), dtype=np.float32)
+    normal = (
+        empty_mat if empty_mat is not None else np.empty((depth_map.shape[0], depth_map.shape[1], 3), dtype=np.float32)
+    )
     normal[..., 0] = -dx
     normal[..., 1] = -dy
     normal[..., 2] = 1.0
@@ -268,7 +289,7 @@ def compute_surface_normals(depth_map, empty_mat = None):
     normal /= np.linalg.norm(normal, axis=2, keepdims=True)
     # Map the normal vectors to the [0, 255] range and convert to uint8
     normal = (normal + 1.0) * 127.5
-    #normal *= 255
+    # normal *= 255
     normal = np.clip(normal, 0, 255).astype(np.uint8)
     normal = cv2.cvtColor(normal, cv2.COLOR_RGB2BGR)
     return normal
@@ -318,10 +339,11 @@ def compute_surface_normals_k_nearest(depth_map, k=9):
 
     return normals_bgr
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/Projet_hand_bike_markerless"
     np.random.seed(40)
-    participants = ["P16"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
+    participants = ["P16"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     for p, part in enumerate(participants):
         print(f"Processing data augmentation excluding {part}...")
         training_path = f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\{part}_excluded_normal_500_down"

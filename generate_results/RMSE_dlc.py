@@ -64,7 +64,7 @@ def get_end_frame(part, file):
     return end_frame
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     participants = [f"P{i}" for i in range(9, 17)]
     participants.pop(participants.index("P12"))
     participants.pop(participants.index("P9"))
@@ -79,9 +79,9 @@ if __name__ == '__main__':
         plt.scatter(i, i, color=colors[i], s=200, alpha=0.5)
     plt.legend(participants)
     # plt.show()
-    all_data, trials = load_results_offline(participants,
-                                    "Q://Projet_hand_bike_markerless/RGBD",
-                                    file_name="normal_alone", recompute_cycles=False)
+    all_data, trials = load_results_offline(
+        participants, "Q://Projet_hand_bike_markerless/RGBD", file_name="normal_alone", recompute_cycles=False
+    )
 
     keys = ["markers", "q"]
     factors = [1000, 180 / np.pi]
@@ -116,20 +116,23 @@ if __name__ == '__main__':
             for f, file in enumerate(all_data[part].keys()):
                 for j in range(n_comparison):
                     end_frame = get_end_frame(part, file)
-                    to_compare = all_data[part][file][to_compare_source[j]][key][...,
-                                 :end_frame] if end_frame is not None else all_data[part][file][to_compare_source[j]][
-                        key]
-                    ref_data = all_data[part][file][source[j]][key][..., :end_frame] if end_frame is not None else \
-                        all_data[part][file][source[j]][key]
+                    to_compare = (
+                        all_data[part][file][to_compare_source[j]][key][..., :end_frame]
+                        if end_frame is not None
+                        else all_data[part][file][to_compare_source[j]][key]
+                    )
+                    ref_data = (
+                        all_data[part][file][source[j]][key][..., :end_frame]
+                        if end_frame is not None
+                        else all_data[part][file][source[j]][key]
+                    )
                     # if key == "markers":
                     #     for k in range(ref_data.shape[0]):
                     #         if np.argwhere(np.isnan(ref_data[:, k, :])).shape[0] > 0:
                     #             print(part, file, np.argwhere(np.isnan(ref_data[k, :])).shape)
 
-                    rmse_file[j, :, f] = compute_error(to_compare * factors[k],
-                                                       ref_data * factors[k])
-                    std_file[j, :, f] = compute_std(to_compare * factors[k],
-                                                    ref_data * factors[k])
+                    rmse_file[j, :, f] = compute_error(to_compare * factors[k], ref_data * factors[k])
+                    std_file[j, :, f] = compute_std(to_compare * factors[k], ref_data * factors[k])
                     # sum_minimal = (to_compare + ref_data) / 2
                     # dif_minimal = to_compare - ref_data
                     # nan_idx = np.argwhere(np.isnan(sum_minimal))
@@ -153,8 +156,8 @@ if __name__ == '__main__':
             for j in range(n_comparison):
                 # means_file[j, n_key * p: n_key * (p + 1)] = np.mean(means[j, :, :], axis=1)
                 # diffs_file[j, n_key * p: n_key * (p + 1)] = np.mean(diffs[j, :, :], axis=1)
-                rmse[j, n_key * p: n_key * (p + 1)] = np.mean(rmse_file[j, :, :], axis=1)
-                std[j, n_key * p: n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
+                rmse[j, n_key * p : n_key * (p + 1)] = np.mean(rmse_file[j, :, :], axis=1)
+                std[j, n_key * p : n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
         all_rmse.append(rmse.mean(axis=1).round(2))
         all_std.append(std.mean(axis=1).round(2))
         # bias, lower_loa, upper_loa = compute_blandt_altman(means_file[0, :], diffs_file[0, :],
@@ -176,7 +179,8 @@ if __name__ == '__main__':
         # all_bias[k].append(np.round(bias, 2))
         # all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
 
-    print(r"""
+    print(
+        r"""
     \begin{table}[h]
     \caption{Root Mean Square Deviation (RMSD), along with Bland-Altman limit of agreement (LOA) and Bland-Altman Bias,
      of the biomechanical outcomes using both Vicon-based methods, with redundancy and minimal, as reference standards.}
@@ -187,43 +191,31 @@ if __name__ == '__main__':
          &  &  & & Low & High &  \\
          \hline
          """
-          "\multirow{3}*{Markers (mm~)} "
-          "& DLC vs Labelled &" +
-          f" {all_rmse[0][0]}& {all_std[0][0]}" + r"\\" +
-          "\n""& DLC vs Vicon &" +
-          f" {all_rmse[0][1]}& {all_std[0][1]}" +
-          r"\\" +
-          "\n""& Labelled vs Vicon &" +
-          f" {all_rmse[0][2]}& {all_std[0][2]} " +
-          r"\\" + "\n" + r" \hdashline" +
-          "\n"
-          "\multirow{3}*{Joint angle (mm~)} "
-          "& DLC vs Labelled &" +
-          f" {all_rmse[1][0]}& {all_std[1][0]}" + r"\\" +
-          "\n""& DLC vs Vicon &" +
-          f" {all_rmse[1][1]}& {all_std[1][1]}" +
-          r"\\" +
-          "\n""& Labelled vs Vicon &" +
-          f" {all_rmse[1][2]}& {all_std[1][2]} " +
-          r"\\" + "\n" + r" \hdashline" +
-          "\n"
-          # "\multirow{3}*{Joint velocity (\degree~/s)} "
-          # "& RGBD vs redundant &" + f" {all_rmse[1][0]}& {all_std[1][0]} & {all_loa[1][0][0]}& {all_loa[1][0][1]}& {all_bias[1][0]}" + r"\\" + "\n" 
-          # "& minimal vs redundant &" + f" {all_rmse[1][1]}& {all_std[1][1]}  & {all_loa[1][1][0]}& {all_loa[1][1][1]}& {all_bias[1][1]}" + r"\\" + "\n" 
-          # "& RGBD vs minimal &" + f" {all_rmse[1][2]}& {all_std[1][2]}  & {all_loa[1][2][0]}& {all_loa[1][2][1]}& {all_bias[1][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
-
-           # "\multirow{3}*{Joint torques (N.m)} "
-           # "& RGBD vs redundant &" + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]}& {all_loa[3][0][1]}& {all_bias[3][0]}" + r"\\" + "\n"
-           # "& minimal vs redundant &" + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]}& {all_loa[3][1][1]}& {all_bias[3][1]}" + r"\\" + "\n"
-           # "& RGBD vs minimal &" + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]}& {all_loa[3][2][1]}& {all_bias[3][2]}" + r"\\" + "\n" + r" \hdashline" + "\n"
-           # 
-           # "\multirow{3}*{Muscle forces (N)} "
-           # "& RGBD vs redundant &" + f" {all_rmse[5][0]}& {all_std[5][0]} & {all_loa[5][0][0]}& {all_loa[5][0][1]}& {all_bias[5][0]}" + r"\\" + "\n"
-           # "& minimal vs redundant &" + f" {all_rmse[5][1]}& {all_std[5][1]}  & {all_loa[5][1][0]}& {all_loa[5][1][1]}& {all_bias[5][1]}" + r"\\" + "\n"
-           # "& RGBD vs minimal &" + f" {all_rmse[5][2]}& {all_std[5][2]}  & {all_loa[5][2][0]}& {all_loa[5][2][1]}& {all_bias[5][2]}" + r"\\" + "\n" + r"\hline" + "\n"
-           r"""                                                                                                      
+        "\multirow{3}*{Markers (mm~)} "
+        "& DLC vs Labelled &" + f" {all_rmse[0][0]}& {all_std[0][0]}" + r"\\" + "\n"
+        "& DLC vs Vicon &" + f" {all_rmse[0][1]}& {all_std[0][1]}" + r"\\" + "\n"
+        "& Labelled vs Vicon &" + f" {all_rmse[0][2]}& {all_std[0][2]} " + r"\\" + "\n" + r" \hdashline" + "\n"
+        "\multirow{3}*{Joint angle (mm~)} "
+        "& DLC vs Labelled &" + f" {all_rmse[1][0]}& {all_std[1][0]}" + r"\\" + "\n"
+        "& DLC vs Vicon &" + f" {all_rmse[1][1]}& {all_std[1][1]}" + r"\\" + "\n"
+        "& Labelled vs Vicon &" + f" {all_rmse[1][2]}& {all_std[1][2]} " + r"\\" + "\n" + r" \hdashline" + "\n"
+        # "\multirow{3}*{Joint velocity (\degree~/s)} "
+        # "& RGBD vs redundant &" + f" {all_rmse[1][0]}& {all_std[1][0]} & {all_loa[1][0][0]}& {all_loa[1][0][1]}& {all_bias[1][0]}" + r"\\" + "\n"
+        # "& minimal vs redundant &" + f" {all_rmse[1][1]}& {all_std[1][1]}  & {all_loa[1][1][0]}& {all_loa[1][1][1]}& {all_bias[1][1]}" + r"\\" + "\n"
+        # "& RGBD vs minimal &" + f" {all_rmse[1][2]}& {all_std[1][2]}  & {all_loa[1][2][0]}& {all_loa[1][2][1]}& {all_bias[1][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
+        # "\multirow{3}*{Joint torques (N.m)} "
+        # "& RGBD vs redundant &" + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]}& {all_loa[3][0][1]}& {all_bias[3][0]}" + r"\\" + "\n"
+        # "& minimal vs redundant &" + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]}& {all_loa[3][1][1]}& {all_bias[3][1]}" + r"\\" + "\n"
+        # "& RGBD vs minimal &" + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]}& {all_loa[3][2][1]}& {all_bias[3][2]}" + r"\\" + "\n" + r" \hdashline" + "\n"
+        #
+        # "\multirow{3}*{Muscle forces (N)} "
+        # "& RGBD vs redundant &" + f" {all_rmse[5][0]}& {all_std[5][0]} & {all_loa[5][0][0]}& {all_loa[5][0][1]}& {all_bias[5][0]}" + r"\\" + "\n"
+        # "& minimal vs redundant &" + f" {all_rmse[5][1]}& {all_std[5][1]}  & {all_loa[5][1][0]}& {all_loa[5][1][1]}& {all_bias[5][1]}" + r"\\" + "\n"
+        # "& RGBD vs minimal &" + f" {all_rmse[5][2]}& {all_std[5][2]}  & {all_loa[5][2][0]}& {all_loa[5][2][1]}& {all_bias[5][2]}" + r"\\" + "\n" + r"\hline" + "\n"
+        r"""                                                                                                      
            \end{tabular}
              
            \label{tab:errors}
            \end{table}
-           """)
+           """
+    )
