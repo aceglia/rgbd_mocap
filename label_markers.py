@@ -70,10 +70,10 @@ def _init_kin_marker_set():
 
 def main():
     kin_marker_set = _init_kin_marker_set()
-    participants = [f"P{i}" for i in range(10, 11)]
+    participants = [f"P{i}" for i in range(9, 17)]
     #participants.pop(participants.index("P14"))
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    trials = [["gear_5"]] * len(participants)
+    trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
 
 
     #trials = [[ "only", "random"]] * len(participants)
@@ -106,8 +106,9 @@ def main():
                 for a, al in enumerate(alone):
                     print(f"working on participant {part} for trial {file[:7]}")
                     #path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_dlc.json"
-                    path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
+                    path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops_new.json"
                     if not os.path.exists(path):
+                        raise FileNotFoundError(f"No tracking config file found for {part} in {file}")
                         last_config = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
                         area = get_crop_from_last_config(last_config)
                         tracking_config = {"crops": [{"name": "crop_0",
@@ -121,7 +122,7 @@ def main():
 
                     #rgbd.set_quasi_static_markers(["ribs"], bounds=[[-20, 20]])
                     else:
-                        rgbd.set_quasi_static_markers(["xiph"], x_bounds=[[-10, 10]], y_bounds=[[-10, 10]])
+                        rgbd.set_quasi_static_markers(["xiph"], x_bounds=[[-20, 20]], y_bounds=[[-20, 20]])
                         #rgbd.set_static_markers(["ribs"])
                     # elif al == "filtered":
                     #     rgbd.set_quasi_static_markers(["xiph"], x_bounds=[[-5, 20]], y_bounds=[[-5,20]])
@@ -132,7 +133,7 @@ def main():
                                              build_kinematic_model=True,
                                              use_kalman=True, #al == "filtered",
                                              use_optical_flow=True,
-                                             multi_processing=False,
+                                             multi_processing=True,
                                              kin_marker_set=kin_marker_set,
                                              images_path=f"{data_files}{os.sep}{part}{os.sep}" + file,
                                              model_name="model_test.bioMod",
@@ -148,7 +149,7 @@ def main():
                     last_frame = rgbd.tracking_config["start_index"]
                     while True:
                         if not rgbd.get_frames(fit_model= al == "filtered",
-                                               show_image=True, save_data=False, save_video=False,
+                                               show_image=False, save_data=True, save_video=True,
                                                file_path=rgbd.tracking_config[
                                                              "directory"] + os.sep + f"marker_pos_multi_proc_3_crops_{saving_names[m]}_new.bio",
                                                video_name=f"video_labeled_{saving_names[m]}_new"):
@@ -170,7 +171,6 @@ def main():
                         #     cv2.destroyAllWindows()
                         #     break
                         # print(rgbd.kinematic_model_checker.marker_sets[0].markers[0].get_depth())
-                        #cv2.waitKey(0)
                         last_frame = rgbd.process_image.index
 
 

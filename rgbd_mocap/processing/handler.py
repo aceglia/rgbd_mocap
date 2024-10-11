@@ -8,7 +8,7 @@ class Handler:
     SHOW_BLOBS = True
     SHOW_ESTIMATION = True
     SHOW_MARKERS = True
-    SHOW_CROPS = True
+    SHOW_CROPS = False
     STOP = 42
     CONTINUE = 1
     RESET = 2

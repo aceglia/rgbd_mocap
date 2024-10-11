@@ -183,8 +183,9 @@ class Tracker:
         self.frame = frame
         self.depth = depth
 
-        if self.kalman:
-            self.kalman.correct()
+        #if self.kalman:
+        #    self.kalman.correct()
+        self.correct()
 
         if self.optical_flow:
             self.optical_flow.set_positions(self.marker_set)

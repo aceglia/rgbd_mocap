@@ -187,7 +187,6 @@ class RgbdImages:
             process_image = None
             self.marker_sets = self.kinematic_model_checker.marker_sets
 
-
         if show_image:
             if self.process_image.frames.color is None:
                 path = self.tracking_config["directory"]
@@ -252,6 +251,8 @@ class RgbdImages:
                 "markers_names": markers_names,
                 "occlusions": occlusions,
                 "time_to_process": self.process_image.computation_time + fit_model_time,
+                "time_2d_tracking": self.process_image.computation_time,
+                "time_3d_fitting": fit_model_time,
                 "iteration": self.iter,
                 "frame_idx": self.process_image.index,
 
