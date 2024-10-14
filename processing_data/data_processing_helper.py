@@ -314,9 +314,10 @@ def fill_and_interpolate(data, shape, idx=None, names=None, fill=True):
 def reorder_markers_from_names(markers_data, ordered_markers_names, markers_names):
     idx = []
     markers_names = [convert_string(name) for name in markers_names]
+    if "elb" in markers_names:
+        markers_names[markers_names.index("elb")] = "elbow"
+
     for i in range(len(ordered_markers_names)):
-        if markers_names[i] == "elb":
-            markers_names[i] = "elbow"
         if convert_string(ordered_markers_names[i]) in markers_names:
             idx.append(markers_names.index(convert_string(ordered_markers_names[i])))
     return markers_data[:, idx], idx

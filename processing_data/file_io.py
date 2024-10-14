@@ -21,7 +21,7 @@ prefix = "/mnt/shared" if os.name == "posix" else "Q:"
 
 def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     markers_dic = {} if markers_dic is None else markers_dic
-    data = load(f"{data_path}/{part}/{file}_processed_3_crops.bio")
+    data = load(f"{data_path}/{part}/{file}_processed_3_crops_new.bio")
     rt = None if "rt_matrix" not in data.keys() else data["rt_matrix"]
     markers_depth = data["markers_depth_interpolated"]
     markers_vicon = data["truncated_markers_vicon"]
@@ -91,8 +91,12 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     return markers_dic, forces, f_ext, emg, vicon_to_depth_idx, peaks, rt
 
 
-def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exclude=()):
+def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exclude=(), is_dir=True):
     all_path = []
+    if not isinstance(to_include, (list, tuple)):
+        to_include = [to_include]
+    if not isinstance(to_exclude, (list, tuple)):
+        to_exclude = [to_exclude]
     parts = []
     if trial_names and len(trial_names) != len(participants):
         trial_names = [trial_names for _ in participants]
@@ -102,8 +106,10 @@ def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exc
             all_files = [file for file in all_files if any(ext in file for ext in to_include)]
         if len(to_exclude) != 0:
             all_files = [file for file in all_files if not any(ext in file for ext in to_exclude)]
+
         all_files = [
             f"{data_dir}{os.sep}{part}{os.sep}{file}" for file in all_files
+            if os.path.isfile(f"{data_dir}{os.sep}{part}{os.sep}{file}") != is_dir
         ]  # if "gear" in file and "less" not in file and "more" not in file and "result" not in file]
         final_files = all_files if not trial_names else []
         if trial_names:
