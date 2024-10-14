@@ -203,7 +203,6 @@ class RgbdImages:
                     im = cv2.resize(im, (int(h * aspect_ratio), int(w * aspect_ratio)))
                 im = cv2.cvtColor(im, cv2.COLOR_GRAY2RGB)
             process_image = print_marker_sets(im, self.marker_sets)
-            from rgbd_mocap.utils import draw_blobs
 
             # kalman = [pos[0].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:] ]
             # dlc = [pos[1].position for pos in self.process_image.crops[0].tracker.estimated_positions[1:]]

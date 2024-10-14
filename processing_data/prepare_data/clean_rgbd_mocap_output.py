@@ -85,10 +85,11 @@ if __name__ == "__main__":
     participants = [f"P{i}" for i in range(9, 17)]
     trials = ["gear_5", "gear_10", "gear_15", "gear_20"]
     data_files = f"{prefix}\Projet_hand_bike_markerless\RGBD"
+    data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
     files, parts = get_all_file(participants, data_files, trial_names=trials, to_include="gear")
     for part, file in zip(parts, files):
         path = file
-        path_to_camera_config_file = f"config_camera_files\config_camera_{part}.json"
+        path_to_camera_config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files/config_camera_{part}.json"
         data_1_gap = None
         data_2_gap = None
         if not os.path.isfile(path + os.sep + file_name):

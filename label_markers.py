@@ -7,7 +7,9 @@ from rgbd_mocap.model_creation.translations import Translations
 import json
 import os
 
-prefix = "/mnt/shared/" if os.name == "posix" else r"Q:\\"
+# prefix = "/mnt/shared/" if os.name == "posix" else r"Q:\\"
+prefix = "/media/amedeo/Disque Jeux/" if os.name == "posix" else r"Q:\\"
+
 
 
 def get_crop_from_last_config(path):
@@ -73,15 +75,14 @@ def _init_kin_marker_set():
 
 def main():
     kin_marker_set = _init_kin_marker_set()
-    participants = [f"P{i}" for i in range(9, 17)]
+    participants = [f"P{i}" for i in range(11, 17)]
     # participants.pop(participants.index("P14"))
-    trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
 
     # trials = [[ "only", "random"]] * len(participants)
     # data_files = "Q:\Projet_hand_bike_markerless\RGBD"
-    data_files = f"{prefix}Projet_hand_bike_markerless/RGBD"
-
+    # data_files = f"{prefix}Projet_hand_bike_markerless/RGBD"
+    data_files = f"{prefix}Documents/Programmation/pose_estimation/data_files"
     for p, part in enumerate(participants):
         files = os.listdir(f"{data_files}{os.sep}{part}")
         files = [file for file in files if os.path.isdir(f"{data_files}{os.sep}{part}{os.sep}" + file)]
@@ -93,7 +94,7 @@ def main():
                         final_files.append(file)
         files = final_files
         path_to_camera_config_file = (
-            f"{prefix}Projet_hand_bike_markerless/RGBD/config_camera_files/config_camera_{part}.json"
+            f"{prefix}Documents/Programmation/pose_estimation/config_camera_files/config_camera_{part}.json"
         )
         path_to_dlc_model = [
             # f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\DLC_projects\{part}_excluded_non_augmented\exported-models\DLC_test_mobilenet_v2_0.5_iteration-0_shuffle-1",
@@ -110,7 +111,7 @@ def main():
                     print(f"working on participant {part} for trial {file[:7]}")
                     # path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_dlc.json"
                     path = (
-                        f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops_new.json"
+                        f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_cropsnew.json"
                     )
                     if not os.path.exists(path):
                         raise FileNotFoundError(f"No tracking config file found for {part} in {file}")
@@ -170,7 +171,7 @@ def main():
                         if not rgbd.get_frames(
                             fit_model=al == "filtered",
                             show_image=False,
-                            save_data=True,
+                            save_data=False,
                             save_video=True,
                             file_path=rgbd.tracking_config["directory"]
                             + os.sep
