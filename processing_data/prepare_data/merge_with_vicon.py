@@ -5,8 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import ceil
 import pandas as pd
-from processing_data.data_processing_helper import fill_and_interpolate, interpolate_data, reorder_markers_from_names
-from processing_data.utils import convert_string
+from processing_data.data_processing_helper import fill_and_interpolate, interpolate_data, reorder_markers_from_names, convert_string
 from pyomeca import Analogs, Markers
 import glob
 from scapula_cluster.from_cluster_to_anato import ScapulaCluster
@@ -97,8 +96,8 @@ class ProcessData:
             "m3",
         ]
 
-        self.measurements_dir_path = "../data_collection_mesurement"
-        self.calibration_matrix_dir = "../../scapula_cluster/calibration_matrix"
+        self.measurements_dir_path = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement"
+        self.calibration_matrix_dir = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix"
         self.emg_names = emg_names if emg_names else self.emg_names
         self.calibration_matrix_dir = calibration_matrix_dir if calibration_matrix_dir else self.calibration_matrix_dir
         self.depth_markers_names = depth_markers_names if depth_markers_names else self.depth_markers_names
@@ -262,7 +261,7 @@ class ProcessData:
         r, T, error, c = [], [], [], 0
         markers_depth_hom = np.ones((4, markers_depth.shape[1], markers_depth.shape[2]))
         markers_depth_hom[:3, :, :] = markers_depth
-        end_range = 200 if end_range is None else end_range
+        end_range = 2000 if end_range is None else end_range
         for i in range(end_range):
             if len(list(np.argwhere(np.isnan(markers_vicon_tmp[:, list_union, i])))) > 1:
                 continue
@@ -305,7 +304,7 @@ class ProcessData:
 
     def _load_depth_markers(self, file):
         corresponding_depth_file = self._find_corresponding_depth_file(file)
-        depth_markers_data = load(corresponding_depth_file + os.sep + "marker_pos_multi_proc_3_crops_pp.bio")
+        depth_markers_data = load(corresponding_depth_file + os.sep + "marker_pos_multi_proc_3_crops_normal_times_three_new_pp.bio")
         self.img_idx = depth_markers_data["frame_idx"]
         self.time_to_process = depth_markers_data["time_to_process"]
         self.delay_from_depth_image = (
@@ -320,11 +319,11 @@ class ProcessData:
         nan_depth_markers[:, 1:, :] = nan_depth_markers[:, 1:, :] * self.is_depth_visible[None, 1:, :]
         nan_depth_markers[nan_depth_markers == 0] = np.nan
 
-        reordered_markers_depth = reorder_markers_from_names(
-            depth_markers, depth_markers_names, self.depth_markers_names
+        reordered_markers_depth, _ = reorder_markers_from_names(
+            depth_markers, self.depth_markers_names , depth_markers_names
         )
-        reordered_nan_markers_depth = reorder_markers_from_names(
-            nan_depth_markers, depth_markers_names, self.depth_markers_names
+        reordered_nan_markers_depth, _ = reorder_markers_from_names(
+            nan_depth_markers, self.depth_markers_names , depth_markers_names
         )
         return reordered_markers_depth, reordered_nan_markers_depth
 
@@ -338,7 +337,7 @@ class ProcessData:
             print(f"error while loading markers on file {file}.")
             return
         # reorder_markers by names
-        reordered_markers = self._reorder_markers_from_names(markers_data, markers_names_tmp, final_markers_names)
+        reordered_markers, _ = reorder_markers_from_names(markers_data, final_markers_names, markers_names_tmp)
         return reordered_markers
 
     @staticmethod
@@ -794,16 +793,16 @@ class ProcessData:
             "is_visible": self.is_depth_visible,
         }
 
-        if os.path.isfile(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops.bio"):
-            os.remove(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops.bio")
+        if os.path.isfile(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new.bio"):
+            os.remove(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new.bio")
         if not os.path.isdir(f"{processed_data_path}/{self.participant}"):
             os.mkdir(f"{processed_data_path}/{self.participant}")
         save(
             dic_to_save,
-            f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops.bio",
+            f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new.bio",
             add_data=False,
         )
-        print(f"file {self.participant}/{Path(file).stem}_processed_3_crops.bio saved")
+        print(f"file {self.participant}/{Path(file).stem}_processed_3_crops_new.bio saved")
 
     def process(
         self,
@@ -854,14 +853,16 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, 
 if __name__ == "__main__":
     participants = ["P9"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
+    participants = [f"P{i}" for i in range(16, 17)]
 
-    # trials = [["gear_15", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    trials = [["anat"]] * len(participants)
+    #
+    trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    #trials = [["anat"]] * len(participants)
     # trials[0] = ["gear_10"]
     # trials[0] = ["gear_5", "gear_20"]
     # trials[1] = ["gear_5", "gear_15", "gear_20"]
     # trials[3] = ["gear_20"]
-    # trials[5] = ["gear_5", "gear_10"]
+    trials[-1] = ["gear_20"]
     # trials = ["gear_20"]
 
     processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data/"
@@ -875,6 +876,6 @@ if __name__ == "__main__":
         depth_data_files,
         sensix_path,
         trials,
-        plot=False,
+        plot=True,
         save_data=True,
     )

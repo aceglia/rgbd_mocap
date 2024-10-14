@@ -22,13 +22,15 @@ def init_kalman_filter_parameters(biomech_pipeline, source):
         # measurement_noise[5:7] = [2] * len(measurement_noise[7:])
         # proc_noise[5:7] = [1e-2] * len(measurement_noise[7:])
     if "depth" in source:
-        measurement_noise = [5] * 20
+        measurement_noise = [1] * 20
         proc_noise = [1] * 20
-        measurement_noise[:4] = [20] * 4
-        proc_noise[:4] = [2] * 4
+        measurement_noise[:4] = [10] * 4
+        proc_noise[:4] = [1] * 4
+        #measurement_noise[:4] = [20] * 4
+        #proc_noise[:4] = [2] * 4
         # compute from cluster :
-        measurement_noise[10:13] = [1] * 3
-        proc_noise[10:13] = [1] * 3
+        #measurement_noise[10:13] = [1] * 3
+        #proc_noise[10:13] = [1] * 3
         # measurement_noise[7:] = [5] * len(measurement_noise[7:])
         # proc_noise[7:] = [1] * len(measurement_noise[7:])
         # measurement_noise[5:7] = [10] * 2
@@ -81,10 +83,12 @@ def main(
     )
     markers_rate = 120
     for part, file in zip(mapped_part, all_files):
+        if part == "P16" and "gear_20" in file:
+            continue
         trial_short = file.split(os.sep)[-1].split("_")[0] + "_" + file.split(os.sep)[-1].split("_")[1]
         output_file = (
             prefix
-            + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_kalman_proc_same_model.bio"
+            + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_kalman_proc_new.bio"
         )
         markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frame_idx = get_data_from_sources(
             part, trial_short, source, model_dir, model_source, live_filter_method, source_to_keep, output_file
@@ -147,7 +151,7 @@ if __name__ == "__main__":
     model_source = [
         "depth",
         "vicon",
-        "depth",
+        "minimal_vicon",
         # , "dlc_ribs", "dlc_ribs", "dlc_ribs"
     ]
     filter_method = [

@@ -5,7 +5,10 @@ from utils_old import *
 if __name__ == "__main__":
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
+    trials[-1] = ["gear_10"]
+    #data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
+    data_files = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
+
 
     time_tracking_2D = []
     std_tracking_2D = []
@@ -22,11 +25,11 @@ if __name__ == "__main__":
                         final_files.append(file)
         files = final_files
         for f, file in enumerate(files):
-            data = load(f"{data_files}{os.sep}{part}{os.sep}{file}{os.sep}marker_pos_multi_proc_3_crops_speed.bio")
-            time_tracking_2D.append(np.mean(data["time_2D"][1:]))
-            std_tracking_2D.append(np.std(data["time_2D"][1:]))
-            time_tracking_3D.append(np.mean(data["time_3D"][1:]))
-            std_tracking_3D.append(np.std(data["time_3D"][1:]))
+            data = load(f"{data_files}{os.sep}{part}{os.sep}{file}{os.sep}marker_pos_multi_proc_3_crops_normal_times_three_new.bio")
+            time_tracking_2D.append(np.mean(data["time_2d_tracking"][1:]))
+            std_tracking_2D.append(np.std(data["time_2d_tracking"][1:]))
+            time_tracking_3D.append(np.mean(data["time_3d_fitting"][1:]))
+            std_tracking_3D.append(np.std(data["time_3d_fitting"][1:]))
     print(
         "time_tracking 2D : ",
         np.round(np.mean(time_tracking_2D) * 1000, 2),

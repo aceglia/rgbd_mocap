@@ -282,8 +282,8 @@ class BiomechPipeline:
 
             markers_tmp = self.filter_function(markers_tmp[...], compute_from_cluster=compute_from_cluster, **kwargs)
             if compute_from_cluster and self.key == "depth" and self.live_filter_method == FilteringMethod.Kalman:
-                measurement_noise = [1e3] * 3
-                proc_noise = [10] * 3
+                measurement_noise = [100] * 3
+                proc_noise = [0.1] * 3
                 markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :], self.kalman_cluster = (
                     self._get_next_frame_from_kalman(
                         markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :],
@@ -294,6 +294,7 @@ class BiomechPipeline:
                         measurement_noise=measurement_noise,
                         proc_noise=proc_noise,
                         compute_from_cluster=False,
+
                     )
                 )
 

@@ -76,12 +76,12 @@ if __name__ == "__main__":
     all_data, trials = load_results(
         participants,
         "/mnt/shared/Projet_hand_bike_markerless/process_data",
-        file_name="kalman_proc.bio",
+        file_name="kalman_proc_new.bio",
         recompute_cycles=False,
     )
     from biosiglive import save
 
-    save(all_data, "_all_data_kalman_proc.bio")
+    #save(all_data, "_all_data_kalman_proc.bio")
     keys = ["q", "q_dot", "q_ddot", "tau", "mus_force"]
     factors = [180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 1]
     units = ["°", "°/s", "°/s²", "N.m", "%", "N"]
