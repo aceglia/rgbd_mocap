@@ -2,7 +2,14 @@ from datetime import datetime
 
 import os
 import cv2
-import pyrealsense2 as rs
+try:
+    import pyrealsense2 as rs
+except ModuleNotFoundError:
+    pass
+try:
+    import pyzed.sl as sl
+except ModuleNotFoundError:
+    pass
 import numpy as np
 import json
 import datetime
@@ -14,6 +21,7 @@ from rgbd_mocap.enums import ColorResolution, DepthResolution
 class RGBDRecorder:
     def __init__(
         self,
+        camera_type="realsense",
         from_rgbd=True,
         fps=60,
         threads_number=3,
@@ -21,6 +29,9 @@ class RGBDRecorder:
         color=ColorResolution.R_848x480,
         align_color=True,
     ):
+        self.camera_type = camera_type
+        self.dropped_images = 0
+        self.zed_image_count = 0
         self.from_rgbd = from_rgbd
         self.pipeline = None
         self.participant = None
@@ -43,7 +54,7 @@ class RGBDRecorder:
         self.align_color = align_color
         self.color = color
 
-    def init_camera_pipeline(self):
+    def _inti_real_sense(self):
         self.pipeline = rs.pipeline()
         config = rs.config()
         pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
@@ -86,9 +97,65 @@ class RGBDRecorder:
             align_to = rs.stream.color
             self.align = rs.align(align_to)
 
+    def _init_zed(self, zed_params):
+        self.zed = sl.Camera()
+        # Set configuration parameters
+        input_type = sl.InputType()
+        init = sl.InitParameters(input_t=input_type)
+        init.camera_resolution = sl.RESOLUTION.HD720
+        init.depth_mode = sl.DEPTH_MODE.PERFORMANCE
+        init.coordinate_units = sl.UNIT.MILLIMETER
+        init.camera_fps = self.fps
+
+        self.pipeline = sl.RuntimeParameters()
+
+        # Prepare new image size to retrieve half-resolution images
+        image_size = self.zed.get_camera_information().camera_configuration.resolution
+        image_size.width = image_size.width / 2
+        image_size.height = image_size.height / 2
+        self.image_size_zed = image_size
+        self.image_size = [image_size.width, image_size.height]
+
+        # Declare your sl.Mat matrices
+        self.zed_image = sl.Mat(image_size.width, image_size.height, sl.MAT_TYPE.U8_C4)
+        self.zed_depth = sl.Mat(image_size.width, image_size.height, sl.MAT_TYPE.U16_C1)
+
+        err = self.zed.open(init)
+        if err != sl.ERROR_CODE.SUCCESS:
+            print(repr(err))
+            self.zed.close()
+            exit(1)
+
+        calibration_params = self.zed.get_camera_information().camera_configuration.calibration_parameters
+
+        self.dic_config_cam = {
+            "camera_name": "Zed2i",
+            "depth_scale": 1,
+            "left_color_fx_fy": [calibration_params.left_cam.fx, calibration_params.left_cam.fy],
+            "left_color_ppx_ppy": [calibration_params.left_cam.cx, calibration_params.left_cam.cy],
+            "right_color_fx_fy": [calibration_params.right_cam.fx, calibration_params.right_cam.fy],
+            "right_color_ppx_ppy": [calibration_params.right_cam.cx, calibration_params.right_cam.cy],
+            "depth_to_color_trans": [calibration_params.stereo_transform.get_translation().get()[0], 0, 0],
+            "depth_to_color_rot": np.eye(3).tolist(),
+            "dist_coeffs_color": calibration_params.left_cam.disto,
+            "size_color": self.image_size,
+            "size_depth": self.image_size,
+            "color_rate": self.zed.get_camera_information().camera_configuration.fps,
+            "depth_rate": self.zed.get_camera_information().camera_configuration.fps,
+        }
+
+    def init_camera_pipeline(self, camera_type="realsense"):
+        if camera_type == "realsense":
+            self._inti_real_sense()
+        elif camera_type == "zed":
+            self._init_zed(self)
+        else:
+            raise RuntimeError("Camera type not recognize.")
+
+
     @staticmethod
     def _show_images(color_to_show, loop_time):
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(color_to_show, alpha=0.03), cv2.COLORMAP_JET)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(color_to_show, alpha=1), cv2.COLORMAP_JET)
         cv2.addWeighted(depth_colormap, 0.8, color_to_show, 0.8, 0, color_to_show)
         if len(loop_time) > 20:
             cv2.putText(
@@ -115,8 +182,48 @@ class RGBDRecorder:
         cv2.namedWindow("RealSense", cv2.WINDOW_NORMAL)
         cv2.imshow("RealSense", color_to_show)
 
+    def _get_frame_from_realsense(self):
+        aligned_frames = self.pipeline.wait_for_frames()
+        if self.align_color:
+            aligned_frames = self.align.process(aligned_frames)
+        aligned_depth_frame = aligned_frames.get_depth_frame()
+        color_frame = aligned_frames.get_color_frame()
+        depth_image = np.asanyarray(aligned_depth_frame.get_data()).astype(np.uint16)
+        color_image = np.asanyarray(color_frame.get_data())
+        return depth_image, color_image
+
+    def _get_frame_from_zed(self):
+        if self.zed.grab() == sl.ERROR_CODE.SUCCESS:
+            self.zed.retrieve_image(self.zed_image, sl.VIEW.LEFT, sl.MEM.CPU, self.image_size_zed)
+            self.zed.retrieve_measure(self.zed_depth, sl.MEASURE.DEPTH)
+            image_ocv = self.zed_image.get_data()[..., :3]
+
+            depth_image = self.zed_depth.get_data()
+            depth_image[np.isnan(depth_image)] = 0
+            depth_image[np.isinf(depth_image)] = 0
+            return depth_image, image_ocv
+        else:
+            return None, None
+
+    def get_frame(self):
+        if self.camera_type == "realsense":
+            return self._get_frame_from_realsense()
+        elif self.camera_type == "zed":
+             return self._get_frame_from_zed()
+        else:
+            raise RuntimeError("Camera type not recognize.")
+
+    def get_frame_number(self, **kwargs):
+        if self.camera_type == "realsense":
+            return kwargs["color_frame"].frame_number
+        elif self.camera_type == "zed":
+            gap = self.zed.get_frame_dropped_count() - self.dropped_images
+            self.dropped_images = self.zed.get_frame_dropped_count()
+            self.zed_image_count += gap + 1
+            return self.zed_image_count
+
     def get_rgbd(self, keep_image=False):
-        self.init_camera_pipeline()
+        self.init_camera_pipeline(self.camera_type)
         loop_time_list = []
         save_data = False
         self.config_file_name = f"config_camera_files\config_camera_{self.participant}.json"
@@ -127,20 +234,12 @@ class RGBDRecorder:
         tic_init = -1
         while True:
             tic = time.time()
-            aligned_frames = self.pipeline.wait_for_frames()
-            if self.align_color:
-                aligned_frames = self.align.process(aligned_frames)
-            aligned_depth_frame = aligned_frames.get_depth_frame()
-            color_frame = aligned_frames.get_color_frame()
-
-            if not aligned_depth_frame or not color_frame:
+            depth_image, color_image = self.get_frame()
+            if depth_image is None or color_image is None:
                 continue
-            depth_image = np.asanyarray(aligned_depth_frame.get_data()).astype(np.uint16)
-            color_image = np.asanyarray(color_frame.get_data())
-
             depth_image_to_save = depth_image.copy()
             color_image_to_save = color_image.copy()
-            frame_number = color_frame.frame_number
+            frame_number = self.get_frame_number
             if not save_data:
                 if i == 0:
                     print(
@@ -246,8 +345,8 @@ class RGBDRecorder:
 
 
 if __name__ == "__main__":
-    rec = RGBDRecorder(from_rgbd=True)
-    rec.fps = 60
+    rec = RGBDRecorder(from_rgbd=True, camera_type="zed")
+    rec.fps = 30
     rec.file_name = "demo"
     rec.participant = "P0"
     rec.start(keep_image=False)
