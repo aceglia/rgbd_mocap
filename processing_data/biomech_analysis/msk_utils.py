@@ -213,14 +213,15 @@ def run_ik(
         q = q[:, -1]
         # if "P9" in model_path:
         #     q[4, :] = 0.1
+
+    q[-1] = 0.3
     if "P11" in model_path:
         q[-1] = 0.7
     if "P16" in model_path:
         q[5] = -0.1
         q[7] = 0.1
-    q[-1] = 0.3
     noise_factor = 1e-7  # if "depth" in model_path else 1e-5
-    error_factor = 1e-5  # if "depth" in model_path else 1e-6
+    error_factor = 1e-6  # if "depth" in model_path else 1e-6
     # q = q if initial_guess is None else initial_guess
 
     initial_guess = [q, np.zeros_like(q), np.zeros_like(q)] if q is not None else None
@@ -302,6 +303,7 @@ def run_so(
     track_idx = get_tracking_idx(msk_function.model, emg_names) if track_idx is None else track_idx
     if emg is not None:
         emg = map_activation(emg[:, np.newaxis], map_emg_idx)
+    scaling_factor = [10, 1]
     mus_act, res_tau = msk_function.compute_static_optimization(
         # q=q_df[:, -1:], q_dot=q_dot_df[:, -1:], tau=tau[:, -1:],
         scaling_factor=scaling_factor,
@@ -309,7 +311,7 @@ def run_so(
         compile_only_first_call=True,
         emg=emg,
         muscle_track_idx=track_idx,
-        weight={"tau": 1000000000, "act": 1000, "tracking_emg": 1000000000000, "pas_tau": 10000000},
+        weight={"tau": 10000000, "act": 100, "tracking_emg": 10000000000000, "pas_tau": 100},
         print_optimization_status=print_optimization_status,
         torque_tracking_as_objective=True,
         **kwargs,

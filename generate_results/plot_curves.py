@@ -44,6 +44,11 @@ def plot_results(
         # print(f"mean time for source: {key} ", np.mean(all_results[key]["time"]["tot"][1:]))
 
     # if cycle:
+    def map_activation(emg_proc, map_idx):
+        act = np.zeros((len(map_idx), int(emg_proc.shape[1])))
+        for i in range(len(map_idx)):
+            act[i, :] = emg_proc[map_idx[i], :]
+        return act
     results_from_sources_tmp = []
     for result in results_from_sources:
         dic_tmp = {}
@@ -295,18 +300,25 @@ def plot_results(
     # all_names = [name.to_string() for name in model.muscleNames()]
 
     # plot muscle activations
-    # if not isinstance(results_from_sources[0]["mus_act"]["mean"], list):
-    #     plt.figure("muscle torque")
-    #     for i in range(results_from_sources[0]["mus_act"]["mean"].shape[0]):
-    #         plt.subplot(4, ceil(results_from_sources[0]["mus_act"]["mean"].shape[0] / 4), i+1)
-    #         for k in range(len(results_from_sources)):
-    #             plt.plot(results_from_sources[k]["mus_act"]["mean"][i, :], line[k], color=color[k], label=all_names[i])
-    #             # plt.suptitle(all_names[i], fontsize=font_size)
-    #
-    #         if not isinstance(results_from_sources[0]["emg_proc"]["mean"], list):
-    #             if i in track_idx:
-    #                 plt.plot(results_from_sources[0]["emg_proc"]["mean"][track_idx.index(i), :stop_frame])
-    #         plt.legend()
+    emg = all_results["shared"]["emg"]
+    track_idx = [29, 33, 34, 31, 25, 1, 23, 13, 12]
+    map_idx = [0, 1, 1, 2, 3, 4, 5, 6, 7]
+    def map_activation(emg_proc, map_idx):
+        act = np.zeros((len(map_idx), int(emg_proc.shape[1])))
+        for i in range(len(map_idx)):
+            act[i, :] = emg_proc[map_idx[i], :]
+        return act
+    emg = map_activation(emg, map_idx)
+    if not isinstance(results_from_sources[0]["mus_act"]["mean"], list):
+        plt.figure("muscle act")
+        for i in range(results_from_sources[0]["mus_act"]["mean"].shape[0]):
+            plt.subplot(4, ceil(results_from_sources[0]["mus_act"]["mean"].shape[0] / 4), i+1)
+            for k in range(len(results_from_sources)):
+                plt.plot(results_from_sources[k]["mus_act"]["mean"][i, :])
+            if not isinstance(emg, list):
+                if i in track_idx:
+                    plt.plot(emg[track_idx.index(i), :])
+            plt.legend()
     #
     # if not isinstance(results_from_sources[0]["mus_force"], list):
     #     plt.figure("muscle forces")
@@ -337,7 +349,7 @@ def plot_results(
 
 
 if __name__ == "__main__":
-    participants = ["P9"]  # , "P11", "P12", "P13", "P14", "P15", "P16"]
+    participants = ["P11"]  # , "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(
         participants
     )  # , "gear_15", "gear_20"]] * len(participants)
@@ -346,7 +358,7 @@ if __name__ == "__main__":
         participants,
         # "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
         "/mnt/shared/Projet_hand_bike_markerless/process_data",
-        file_name="ma_proc.bio",
+        file_name="kalman_proc_new.bio",
         trials=trials,
         # file_name="seth_new_model.bio", trials=trials,
         recompute_cycles=False,
@@ -357,6 +369,7 @@ if __name__ == "__main__":
     # load_results(participants,
     #                     "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
     #                     file_name="3_crops_seth_full", trials=trials)
+
     count = 0
     all_errors_minimal = []
     all_errors_vicon = []
@@ -370,7 +383,7 @@ if __name__ == "__main__":
                 to_plot=["q", "q_dot", "tau"],
                 # sources=("depth", "minimal_vicon", "vicon"),
                 stop_frame=None,
-                cycle=True,
+                cycle=False,
                 trial_name=trials[0][f],
                 fig_suffix="_" + str(count),
                 n_cycle=None,

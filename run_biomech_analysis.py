@@ -23,9 +23,11 @@ def init_kalman_filter_parameters(biomech_pipeline, source):
         # proc_noise[5:7] = [1e-2] * len(measurement_noise[7:])
     if "depth" in source:
         measurement_noise = [1] * 20
-        proc_noise = [1] * 20
+        proc_noise = [10] * 20
         measurement_noise[:4] = [10] * 4
         proc_noise[:4] = [1] * 4
+        measurement_noise[-3:] = [10] * 3
+        proc_noise[-3:] = [1] * 3
         #measurement_noise[:4] = [20] * 4
         #proc_noise[:4] = [2] * 4
         # compute from cluster :
@@ -83,8 +85,6 @@ def main(
     )
     markers_rate = 120
     for part, file in zip(mapped_part, all_files):
-        if part == "P16" and "gear_20" in file:
-            continue
         trial_short = file.split(os.sep)[-1].split("_")[0] + "_" + file.split(os.sep)[-1].split("_")[1]
         output_file = (
             prefix
@@ -132,16 +132,6 @@ def main(
 
 if __name__ == "__main__":
     participants = [f"P{i}" for i in range(9, 17)]
-    # for part in participants:
-    #     for source in ["depth", "minimal_vicon", "vicon"]:
-    #         for trial in ["gear_5", "gear_10", "gear_15", "gear_20"]:
-    #             if not os.path.exists(prefix + f"/Projet_hand_bike_markerless/process_data/{part}/models/{trial}_processed_3_model_scaled_{source}_seth.bioMod"
-    #                               ):
-    #                 print(f"{part} {trial} {source} not processed")
-    #             try:
-    #                 biorbd.Model(prefix + f"/Projet_hand_bike_markerless/process_data/{part}/models/{trial}_processed_3_model_scaled_{source}_seth.bioMod")
-    #             except:
-    #                 print(f"{part} {trial} {source} not working")
     source = [
         "depth",
         "vicon",

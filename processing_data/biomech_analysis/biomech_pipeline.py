@@ -282,8 +282,8 @@ class BiomechPipeline:
 
             markers_tmp = self.filter_function(markers_tmp[...], compute_from_cluster=compute_from_cluster, **kwargs)
             if compute_from_cluster and self.key == "depth" and self.live_filter_method == FilteringMethod.Kalman:
-                measurement_noise = [100] * 3
-                proc_noise = [0.1] * 3
+                measurement_noise = [50] * 3
+                proc_noise = [0.8] * 3
                 markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :], self.kalman_cluster = (
                     self._get_next_frame_from_kalman(
                         markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :],
@@ -435,7 +435,7 @@ class BiomechPipeline:
             "res_tau": None,
             "jrf": None,
             "time": None,
-            "markers": None,
+            "markers": None
         }
         if self.compute_ik and self.frame_count >= self.moving_window:
             init_ik = True if self.frame_count == self.moving_window else False
@@ -534,6 +534,7 @@ class BiomechPipeline:
             "peaks": self.peaks,
             "rt_matrix": self.rt_matrix,
             "vicon_to_depth": self.vicon_to_depth_idx,
+            "emg_track_idx": self.emg_track_idx
         }
         save(self.results_dict, output_file, safe=False)
         print(f"The file ({output_file}) has been saved.")
@@ -577,7 +578,7 @@ class BiomechPipeline:
         colors = plt.cm.get_cmap("tab10", nb_source)
         count_source = 0
         count_key = 0
-        keys_to_plot = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_force"]
+        keys_to_plot = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_force", "mus_act", "res_tau"]
         for source in self.results_dict.keys():
             if source == "shared":
                 continue
@@ -619,5 +620,8 @@ class BiomechPipeline:
                         )
                     else:
                         plt.plot(self.results_dict[source][key]["mean"][i, :], c=colors(count_source))
+                    if key == "mus_act" and self.results_dict[source]["emg_proc"] is not None and i in self.emg_track_idx:
+                        plt.plot(self.results_dict[source]["emg_proc"]["mean"][self.emg_track_idx.index(i), :], c="r", alpha=0.5)
+
             count_source += 1
         plt.show()
