@@ -21,7 +21,7 @@ prefix = "/mnt/shared" if os.name == "posix" else "Q:"
 
 def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     markers_dic = {} if markers_dic is None else markers_dic
-    data = load(f"{data_path}/{part}/{file}_processed_3_crops_new.bio")
+    data = load(f"{data_path}/{part}/{file}_processed_3_crops.bio")
     rt = None if "rt_matrix" not in data.keys() else data["rt_matrix"]
     markers_depth = data["markers_depth_interpolated"]
     markers_vicon = data["truncated_markers_vicon"]
@@ -42,6 +42,14 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     emg = None if not isinstance(emg, np.ndarray) else emg
     peaks, _ = find_peaks(sensix_data["crank_angle"][0, :])
     peaks = [peak for peak in peaks if sensix_data["crank_angle"][0, peak] > 6]
+    if part == "P11":
+        idx_clav_vicon = vicon_markers_names.index("clavac")
+        idx_clav_depth = depth_markers_names.index("clavac")
+        markers_vicon[:, idx_clav_vicon, :] = markers_depth[:, idx_clav_depth, :]
+        idx_ster_vicon = vicon_markers_names.index("xiph")
+        idx_ster_depth = depth_markers_names.index("xiph")
+        markers_vicon[:, idx_ster_vicon, :] = markers_depth[:, idx_ster_depth, :]
+
     markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
     names_from_source.append(list(np.array(vicon_markers_names)[vicon_to_depth_idx]))
     if filter_depth:
