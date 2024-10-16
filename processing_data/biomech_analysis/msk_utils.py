@@ -220,8 +220,8 @@ def run_ik(
     if "P16" in model_path:
         q[5] = -0.1
         q[7] = 0.1
-    noise_factor = 1e-7  # if "depth" in model_path else 1e-5
-    error_factor = 1e-6  # if "depth" in model_path else 1e-6
+    noise_factor = 1e-6  # if "depth" in model_path else 1e-5
+    error_factor = 1e-8  # if "depth" in model_path else 1e-6
     # q = q if initial_guess is None else initial_guess
 
     initial_guess = [q, np.zeros_like(q), np.zeros_like(q)] if q is not None else None

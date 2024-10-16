@@ -261,7 +261,7 @@ class ProcessData:
         r, T, error, c = [], [], [], 0
         markers_depth_hom = np.ones((4, markers_depth.shape[1], markers_depth.shape[2]))
         markers_depth_hom[:3, :, :] = markers_depth
-        end_range = 2000 if end_range is None else end_range
+        end_range = 200 if end_range is None else end_range
         for i in range(end_range):
             if len(list(np.argwhere(np.isnan(markers_vicon_tmp[:, list_union, i])))) > 1:
                 continue
@@ -853,7 +853,7 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, 
 if __name__ == "__main__":
     participants = ["P9"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
-    participants = [f"P{i}" for i in range(16, 17)]
+    participants = [f"P{i}" for i in range(9, 17)]
 
     #
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
@@ -862,7 +862,7 @@ if __name__ == "__main__":
     # trials[0] = ["gear_5", "gear_20"]
     # trials[1] = ["gear_5", "gear_15", "gear_20"]
     # trials[3] = ["gear_20"]
-    trials[-1] = ["gear_20"]
+    #trials[-1] = ["gear_20"]
     # trials = ["gear_20"]
 
     processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data/"
@@ -876,6 +876,6 @@ if __name__ == "__main__":
         depth_data_files,
         sensix_path,
         trials,
-        plot=True,
+        plot=False,
         save_data=True,
     )

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from biosiglive import load, OfflineProcessing
+from biosiglive import load, OfflineProcessing, save
 from biosiglive.processing.msk_utils import ExternalLoads
 import biorbd
 from scipy.signal import find_peaks
@@ -42,13 +42,13 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     emg = None if not isinstance(emg, np.ndarray) else emg
     peaks, _ = find_peaks(sensix_data["crank_angle"][0, :])
     peaks = [peak for peak in peaks if sensix_data["crank_angle"][0, peak] > 6]
-    if part == "P11":
-        idx_clav_vicon = vicon_markers_names.index("clavac")
-        idx_clav_depth = depth_markers_names.index("clavac")
-        markers_vicon[:, idx_clav_vicon, :] = markers_depth[:, idx_clav_depth, :]
-        idx_ster_vicon = vicon_markers_names.index("xiph")
-        idx_ster_depth = depth_markers_names.index("xiph")
-        markers_vicon[:, idx_ster_vicon, :] = markers_depth[:, idx_ster_depth, :]
+    # if part == "P11":
+    #     idx_clav_vicon = vicon_markers_names.index("clavac")
+    #     idx_clav_depth = depth_markers_names.index("clavac")
+    #     markers_vicon[:, idx_clav_vicon, :] = markers_depth[:, idx_clav_depth, :]
+    #     idx_ster_vicon = vicon_markers_names.index("xiph")
+    #     idx_ster_depth = depth_markers_names.index("xiph")
+    #     markers_vicon[:, idx_ster_vicon, :] = markers_depth[:, idx_ster_depth, :]
 
     markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
     names_from_source.append(list(np.array(vicon_markers_names)[vicon_to_depth_idx]))
@@ -129,6 +129,32 @@ def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exc
         parts.append([part for _ in final_files])
         all_path.append(final_files)
     return sum(all_path, []), sum(parts, [])
+
+
+def _save_tmp_file(participants, all_files, name_to_save="tmp.bio"):
+    dict_data = {}
+    all_data_list = []
+    for part, file in zip(participants, all_files):
+        print(part, file)
+        if part == "P15" and "gear_5" in file:
+            continue
+        data = load(file)
+        all_data_list.append(data)
+    dict_data["data"] = all_data_list
+    dict_data["participants"] = participants
+    save(dict_data, name_to_save, safe=False)
+
+
+def load_all_data(participants, all_files, name_to_load="tmp.bio", reload=False):
+    if os.path.exists(name_to_load) and not reload:
+        print(f"Loading pre-processed data on path {name_to_load}")
+        dict_data = load(name_to_load)
+        all_data_list = dict_data["data"]
+        participants = dict_data["participants"]
+        return all_data_list, participants
+    else:
+        _save_tmp_file(participants, all_files, name_to_save=name_to_load)
+        return load_all_data(participants, all_files, name_to_load=name_to_load)
 
 
 def get_dlc_data(dlc_data_path, markers_dic=None, source="dlc"):
