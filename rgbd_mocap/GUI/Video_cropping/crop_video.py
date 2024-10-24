@@ -12,10 +12,10 @@ from rgbd_mocap.GUI.Video_editing.video_edit_linker import VideoEditLinker
 
 class CropPopUp(QMessageBox):
     """
-        Pop up showing the 'crop_q_pixmap' and
-        two options :
-        'Cancel' which return QMessageBox.Cancel
-        'Ok' which return QMessageBox.Ok
+    Pop up showing the 'crop_q_pixmap' and
+    two options :
+    'Cancel' which return QMessageBox.Cancel
+    'Ok' which return QMessageBox.Ok
     """
 
     def __init__(self, crop_q_pixmap, parent=None):
@@ -23,24 +23,24 @@ class CropPopUp(QMessageBox):
         self.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
         self.focusPreviousChild()
         self.setIconPixmap(crop_q_pixmap)
-        self.setWindowTitle('Do you want to keep this crops ?')
+        self.setWindowTitle("Do you want to keep this crops ?")
 
         self.res = self.exec_() == QMessageBox.Ok
 
 
 class VideoCropper(QLabel):
     """
-        This class allow the mouse tracking on an QLabel
-        containing an image. The : mousePressEvent, mouseMoveEvent,
-        mouseReleaseEvent are modified to set new functionalities.
-        You can select a zone on the image to crops it and add it
-        in another tab.
-        This class also include the set_image and update_image functions
-        which allows to respectively to set the image of the VideoCropper
-        and to update it for resizing purpose
+    This class allow the mouse tracking on an QLabel
+    containing an image. The : mousePressEvent, mouseMoveEvent,
+    mouseReleaseEvent are modified to set new functionalities.
+    You can select a zone on the image to crops it and add it
+    in another tab.
+    This class also include the set_image and update_image functions
+    which allows to respectively to set the image of the VideoCropper
+    and to update it for resizing purpose
     """
 
-    def __init__(self, name='Base Image', video_tab=None, video_crop_window=None):
+    def __init__(self, name="Base Image", video_tab=None, video_crop_window=None):
         super(VideoCropper, self).__init__(video_tab)
         self.setMinimumSize(100, 100)
 
@@ -61,7 +61,7 @@ class VideoCropper(QLabel):
         self.origin_q_point = None
 
     ### Add new Crop
-    def new_crop(self, rect, name='Crop'):
+    def new_crop(self, rect, name="Crop"):
         if self.video_tab is None:
             return
 
@@ -74,8 +74,8 @@ class VideoCropper(QLabel):
     ### Overrided Method to select a zone to crops
     def mousePressEvent(self, eventQMouseEvent):
         """
-            This function is enable only if the image is loaded
-            and init the selection to be cropped
+        This function is enable only if the image is loaded
+        and init the selection to be cropped
         """
         if self.image is not None:
             ### Init selection zone
@@ -97,7 +97,7 @@ class VideoCropper(QLabel):
 
     def mouseMoveEvent(self, eventQMouseEvent):
         """
-            Update the selection size if inited
+        Update the selection size if inited
         """
         if self.mouse_pressed and self.current_q_rubber_band:
             ### Need to try/except because of double click and quick selection that can cause RuntimeErrors
@@ -108,8 +108,8 @@ class VideoCropper(QLabel):
 
     def mouseReleaseEvent(self, eventQMouseEvent):
         """
-            Does nothing if the selection has not been init.
-            Else hide the selection and open a CropPopUp box.
+        Does nothing if the selection has not been init.
+        Else hide the selection and open a CropPopUp box.
         """
         # If the mouse has not been pressed before release the selected area does not exist
         if not self.mouse_pressed:
@@ -126,8 +126,10 @@ class VideoCropper(QLabel):
             current_q_rect = self.adjust_rect(current_q_rect)
 
             # Invalid or too small crops area
-            if (self.resized_image.size() == current_q_rect.size() or
-                    current_q_rect.width() * current_q_rect.height() < 500):
+            if (
+                self.resized_image.size() == current_q_rect.size()
+                or current_q_rect.width() * current_q_rect.height() < 500
+            ):
                 return
 
             # Pop Up to ask if you accept the crops, add it to a new tab (if accepted)
@@ -156,11 +158,9 @@ class VideoCropper(QLabel):
     def adjust_rect(self, rect):
         adjust = self.size() - self.resized_image.size()
 
-        return (rect.adjusted(- adjust.width() // 2,
-                              - adjust.height() // 2,
-                              - adjust.width() // 2,
-                              - adjust.height() // 2).
-                intersected(self.resized_image.rect()))
+        return rect.adjusted(
+            -adjust.width() // 2, -adjust.height() // 2, -adjust.width() // 2, -adjust.height() // 2
+        ).intersected(self.resized_image.rect())
 
     ### Load
     def load_crops_file(self, file):
@@ -174,51 +174,45 @@ class VideoCropper(QLabel):
         if self.image is None:
             return
 
-        with open(file, 'r') as file:
+        with open(file, "r") as file:
             parameters = json.load(file)
             for crop in parameters.keys():
                 self.new_crop(parameters[crop], crop)
 
     def load_project(self, parameters):
-        crops = parameters['crops']
+        crops = parameters["crops"]
 
         for crop in crops:
             ### Add new crops to the CropVideoTab
-            vel = self.new_crop(crop['area'], crop['name'])
+            vel = self.new_crop(crop["area"], crop["name"])
 
             value = None
             ### Set the filters to the newly added VideoEditLinker
             for n, mask in enumerate(parameters["masks"]):
                 if mask is None:
                     continue
-                if mask["name"] == crop['name']:
+                if mask["name"] == crop["name"]:
                     value = parameters["masks"][n]["value"]
                     break
-            vel.filters.image_options.set_params(crop['filters'], value)
+            vel.filters.image_options.set_params(crop["filters"], value)
 
     ### Resizing and updating image
     def resizeEvent(self, a0):
         self.update_image()
 
     def update_image(self):
-        """ This function will resize the image and save it
-            into the 'resized_image' variable this function
-            is only for display purposes.
+        """This function will resize the image and save it
+        into the 'resized_image' variable this function
+        is only for display purposes.
         """
         if self.image is None:
             return
         format = QImage.Format_RGB888 if len(self.image.shape) == 3 else QImage.Format_Grayscale8
-        image = QImage(self.image,
-                       self.image.shape[1],
-                       self.image.shape[0],
-                       self.image.strides[0],
-                       format
-                       )
+        image = QImage(self.image, self.image.shape[1], self.image.shape[0], self.image.strides[0], format)
 
-        self.resized_image = QPixmap.fromImage(image).scaled(self.size().width(),
-                                                             self.size().height(),
-                                                             Qt.KeepAspectRatio,
-                                                             Qt.TransformationMode.SmoothTransformation)
+        self.resized_image = QPixmap.fromImage(image).scaled(
+            self.size().width(), self.size().height(), Qt.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        )
 
         # If successful apply the image to the QLabel
         self.setPixmap(self.resized_image)
@@ -234,18 +228,19 @@ class VideoCropper(QLabel):
         self.update_image()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     main_window = QMainWindow()
     vc = VideoCropper()
-    main_window.resizeEvent = (lambda a: vc.resizeEvent(a))
+    main_window.resizeEvent = lambda a: vc.resizeEvent(a)
     main_window.setCentralWidget(vc)
 
     path = "D:\Documents\Programmation\pose_estimation\data_files\P9\gear_5_11-01-2024_16_59_32/"
 
-    frame_color = cv2.imread(path + 'color_1372.png')
-    frame_depth = cv2.imread(path + 'depth_1372.png', cv2.IMREAD_ANYDEPTH)
+    frame_color = cv2.imread(path + "color_1372.png")
+    frame_depth = cv2.imread(path + "depth_1372.png", cv2.IMREAD_ANYDEPTH)
     import time
+
     time.sleep(1)
     time_flip = []
     time_rotate = []
@@ -258,8 +253,8 @@ if __name__ == '__main__':
         cv2.rotate(frame_color, rot)
         time_rotate.append(time.time() - tic)
 
-    print('Flip:', sum(time_flip) / len(time_flip))
-    print('Rotate:', sum(time_rotate) / len(time_rotate))
+    print("Flip:", sum(time_flip) / len(time_flip))
+    print("Rotate:", sum(time_rotate) / len(time_rotate))
     vc.set_image(frame_color, frame_depth)
     main_window.show()
     sys.exit(app.exec_())

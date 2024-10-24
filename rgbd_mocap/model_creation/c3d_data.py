@@ -1,5 +1,9 @@
 import numpy as np
-import ezc3d
+
+try:
+    import ezc3d
+except ImportError:
+    pass
 
 
 class C3dData:

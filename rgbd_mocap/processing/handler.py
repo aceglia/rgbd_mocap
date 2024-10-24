@@ -42,6 +42,7 @@ class Handler:
 
         if Handler.SHOW_MARKERS and markers is not None:
             image = print_marker(image, markers, use_off_set=False)
+        cv2.namedWindow(crop_name, cv2.WINDOW_NORMAL)
         cv2.imshow(crop_name, image)
         cv2.waitKey(1)
 
@@ -51,7 +52,7 @@ def print_blobs(frame, blobs, size=4, color=(0, 255, 0)):
     if len(img.shape) == 2:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     for blob in blobs:
-        img[int(blob[1]) - size:int(blob[1]) + size, int(blob[0]) - size:int(blob[0]) + size] = color
+        img[int(blob[1]) - size : int(blob[1]) + size, int(blob[0]) - size : int(blob[0]) + size] = color
 
     return img
 
@@ -68,9 +69,15 @@ def print_marker(frame, marker_set: MarkerSet, use_off_set=True):
 
     for marker in marker_set:
         if marker.is_visible:
-            frame = cv2.putText(frame, marker.name,
-                                (marker.pos[0] + 10 + off_set[0], marker.pos[1] + 10 + off_set[1]),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, color_ok, 1)
+            frame = cv2.putText(
+                frame,
+                marker.name,
+                (marker.pos[0] + 10 + off_set[0], marker.pos[1] + 10 + off_set[1]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                color_ok,
+                1,
+            )
             visible.append(marker.pos[:2] + off_set)
 
             # if marker.is_depth_visible:
@@ -79,9 +86,15 @@ def print_marker(frame, marker_set: MarkerSet, use_off_set=True):
             #                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_ok, 1)
 
         else:
-            frame = cv2.putText(frame, marker.name,
-                                (marker.pos[0] + 10 + off_set[0], marker.pos[1] + 10 + off_set[1]),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, color_not_ok, 1)
+            frame = cv2.putText(
+                frame,
+                marker.name,
+                (marker.pos[0] + 10 + off_set[0], marker.pos[1] + 10 + off_set[1]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                color_not_ok,
+                1,
+            )
             not_visible.append(marker.pos[:2] + off_set)
 
     frame = print_blobs(frame, visible, size=2, color=color_ok)

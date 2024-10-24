@@ -7,11 +7,11 @@ from rgbd_mocap.GUI.Video_cropping.crop_video import VideoCropper
 
 class CropVideoTab(QTabWidget):
     """
-        A QTabWidget like Widget with default
-        layout in tab when calling the addTab function.
-        This Tab Widget also has its tab position set
-        to North and all the tabs are closable except
-        for the first one opened
+    A QTabWidget like Widget with default
+    layout in tab when calling the addTab function.
+    This Tab Widget also has its tab position set
+    to North and all the tabs are closable except
+    for the first one opened
     """
 
     def __init__(self, parent=None):
@@ -51,7 +51,7 @@ class CropVideoTab(QTabWidget):
 
         self.tabs.append(widget)
 
-    def add_crop(self, widget, name='Crop'):
+    def add_crop(self, widget, name="Crop"):
         super(CropVideoTab, self).addTab(widget, name)
         widget.name = name
         self.tabs.append(widget)
@@ -60,7 +60,7 @@ class CropVideoTab(QTabWidget):
         """
         Open an input dialog box to put a new name to the tab
         """
-        name, accepted = QInputDialog.getText(self, 'Enter a new tab name', 'Name:')
+        name, accepted = QInputDialog.getText(self, "Enter a new tab name", "Name:")
         if accepted and name:
             self.tabBar().setTabText(index, name)
             if index != 0:
@@ -111,14 +111,14 @@ class CropVideoTab(QTabWidget):
         return crops
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     main_window = QMainWindow()
     main_window.setGeometry(300, 300, 700, 500)
     vt = CropVideoTab(main_window)
     vc = VideoCropper(vt)
     vt.addTab(vc, "main image")
-    main_window.resizeEvent = (lambda a: vc.resizeEvent(a))
+    main_window.resizeEvent = lambda a: vc.resizeEvent(a)
     main_window.setCentralWidget(vt)
 
     # vc.set_image(QPixmap("../color_4179.png"))

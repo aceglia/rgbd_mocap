@@ -26,7 +26,7 @@ class Position:
         return self.position[0] == other.position[0] and self.position[1] == other.position[1]
 
     def __str__(self):
-        return f'{self.position}: Visible {self.visibility}'
+        return f"{self.position}: Visible {self.visibility}"
 
     def get(self):
         return self.position, self.visibility
@@ -36,8 +36,7 @@ class Position:
         self.visibility = visibility
 
     def distance_from_marker(self, marker: Marker):
-        dist = math.sqrt(((self.position[0] - marker.pos[0]) ** 2) +
-                         ((self.position[1] - marker.pos[1]) ** 2))
+        dist = math.sqrt(((self.position[0] - marker.pos[0]) ** 2) + ((self.position[1] - marker.pos[1]) ** 2))
 
         return dist
 

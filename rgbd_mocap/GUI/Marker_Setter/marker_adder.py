@@ -10,7 +10,8 @@ class AddMarkerEntry(QLineEdit):
     Text entry to write the name of the DragMarker to be added.
     Return Key is linked to the AddMarkerButton.
     """
-    def __init__(self, add_marker_button=None, default_text='New maker'):
+
+    def __init__(self, add_marker_button=None, default_text="New maker"):
         """
         Create a AddMarkerEntry to link with an AddMarkerButton
         :param add_marker_button: The AddMarkerButton to be linked with
@@ -60,12 +61,13 @@ class AddMarkerButton(QWidget):
     a MarkerAdder. Pressing the button will add a DragMarker
     in the MarkerList with the name written in the entry.
     """
+
     def __init__(self, marker_list: MarkerList, parent=None):
         super(AddMarkerButton, self).__init__(parent)
         self.marker_list = marker_list
         self.entry = AddMarkerEntry(self)
 
-        self.add_button = QPushButton('Add')
+        self.add_button = QPushButton("Add")
         self.add_button.pressed.connect(self.add_marker)
 
         ### Set layout
@@ -100,6 +102,7 @@ class LoadAndRemoveMarkerButtons(QWidget):
     The right button remove all the DragMarker contained in
     the MarkerList.
     """
+
     def __init__(self, marker_list: MarkerList, parent=None):
         """
         Initialize the RemoveMarkerButtons and link them to
@@ -110,16 +113,16 @@ class LoadAndRemoveMarkerButtons(QWidget):
         :type parent: MarkerSetter
         """
         super(LoadAndRemoveMarkerButtons, self).__init__(parent)
-        self.load_button = QPushButton('Load Marker Set')
+        self.load_button = QPushButton("Load Marker Set")
         self.load_button.pressed.connect(marker_list.load_marker_set)
 
-        self.save_button = QPushButton('Save Marker Set')
+        self.save_button = QPushButton("Save Marker Set")
         self.save_button.pressed.connect(marker_list.save_marker_set)
 
-        self.remove_button = QPushButton('Remove')
+        self.remove_button = QPushButton("Remove")
         self.remove_button.pressed.connect(marker_list.remove_marker)
 
-        self.remove_all_button = QPushButton('Remove All')
+        self.remove_all_button = QPushButton("Remove All")
         self.remove_all_button.pressed.connect(marker_list.remove_all_marker)
 
         ### Set Layout
@@ -149,6 +152,7 @@ class MarkerAdder(QWidget):
     AddMarkerButton at the top and a RemoveMarkerButtons
     at the bottom.
     """
+
     def __init__(self, l=[], parent=None):
         """
         Initialize a MarkerAdder widget.
@@ -249,9 +253,13 @@ class MarkerAdder(QWidget):
         self.list_marker.remove_all_marker()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication([])
-    list = ['Acrom', 'Scapula', 'Arm_l', ]
+    list = [
+        "Acrom",
+        "Scapula",
+        "Arm_l",
+    ]
     w = MarkerAdder(list)
     w.show()
 

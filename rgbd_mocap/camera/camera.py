@@ -16,30 +16,30 @@ class Camera:
     config_file_path = "camera_conf.json"
 
     def __init__(
-            self,
-            color_size: Union[tuple, ColorResolution],
-            depth_size: Union[tuple, DepthResolution],
-            color_fps: Union[int, FrameRate],
-            depth_fps: Union[int, FrameRate],
-            align: bool = False,
+        self,
+        color_size: Union[tuple, ColorResolution],
+        depth_size: Union[tuple, DepthResolution],
+        color_fps: Union[int, FrameRate],
+        depth_fps: Union[int, FrameRate],
+        align: bool = False,
     ):
         """
-            Initialize the camera and the images parameters
+        Initialize the camera and the images parameters
 
-            Parameters:
-            -----------
-            color_size: tuple
-                Size of the color image (width, height)
-            depth_size: tuple
-                Size of the depth image (width, height)
-            color_fps: int
-                Frame per second of the color image
-            depth_fps: int
-                Frame per second of the depth image
-            align: bool
-                If True, the depth and color images will be aligned.
-                This can slow down the process.
-            """
+        Parameters:
+        -----------
+        color_size: tuple
+            Size of the color image (width, height)
+        depth_size: tuple
+            Size of the depth image (width, height)
+        color_fps: int
+            Frame per second of the color image
+        depth_fps: int
+            Frame per second of the depth image
+        align: bool
+            If True, the depth and color images will be aligned.
+            This can slow down the process.
+        """
         # Intialize attributes
         self.pipeline = rs.pipeline()
         self.config = rs.config()
@@ -88,7 +88,7 @@ class Camera:
         self.depth_to_color[:3, 3] = self.conf_data["depth_to_color_trans"]
 
     def _set_scale(self):
-        self.scale = self.conf_data['depth_scale']
+        self.scale = self.conf_data["depth_scale"]
 
     def config_to_dict(self):
         device_product_line = str(self.device.get_info(rs.camera_info.product_line))
@@ -127,5 +127,5 @@ class Camera:
             json.dump(dic, outfile, indent=4)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     camera = Camera(ColorResolution.R_480x270, DepthResolution.R_480x270, FrameRate.FPS_60, FrameRate.FPS_60, True)

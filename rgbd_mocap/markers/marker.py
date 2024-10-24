@@ -31,6 +31,7 @@ class Marker:
         self.depth = -1
         self.last_pos = self.pos.copy()
         self.crop_offset = np.zeros((2,), dtype=np.int32)
+        self.from_dlc = False
 
         # Visibility and reliability
         self.is_visible = False
@@ -64,7 +65,7 @@ class Marker:
 
     def get_global_pos_3d(self):
         pos = self.get_global_pos()
-        return pos[0], pos[1], self.get_depth()
+        return [pos[0], pos[1], self.get_depth()]
         # return np.array([self.pos[:2] + self.crop_offset] + self.pos[2])
 
     # Setter #####
@@ -90,9 +91,13 @@ class Marker:
         if visibility is not None:
             self.set_depth_visibility(visibility)
 
-    def set_bounds(self, bounds):
-        self.x_bounds = Bounds(min=bounds[0][0] + self.pos[0], max=bounds[0][1] + self.pos[0])
-        self.y_bounds = Bounds(min=bounds[1][0] + self.pos[1], max=bounds[1][1] + self.pos[1])
+    def set_bounds(self, bounds, downsample_ratio=1):
+        self.x_bounds = Bounds(
+            min=bounds[0][0] * downsample_ratio + self.pos[0], max=bounds[0][1] * downsample_ratio + self.pos[0]
+        )
+        self.y_bounds = Bounds(
+            min=bounds[1][0] * downsample_ratio + self.pos[1], max=bounds[1][1] * downsample_ratio + self.pos[1]
+        )
         self.is_bounded = True
 
     def get_bounds(self):

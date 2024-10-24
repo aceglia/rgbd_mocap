@@ -60,7 +60,7 @@ class ActivateOptionButton(QToolButton):
         :type parent: OptionBoxLayout
         """
         super(ActivateOptionButton, self).__init__()
-        self.setText('Apply')
+        self.setText("Apply")
         self.setCheckable(True)
         self.parent = parent
         self.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
@@ -89,13 +89,11 @@ class WhiteOption(CollapsibleBox):
         :type parent: QObject
         """
         super(WhiteOption, self).__init__("Adjust white", parent)
-        self.name = 'white_option'
+        self.name = "white_option"
 
-        self.white_range = LabeledRangeSlider('white_range',
-                                              minimum=0, maximum=255,
-                                              default_value=white_range,
-                                              step=41,
-                                              parent=self)
+        self.white_range = LabeledRangeSlider(
+            "white_range", minimum=0, maximum=255, default_value=white_range, step=41, parent=self
+        )
 
         ### Add the Labeled Sliders to the Collapsible Boxes
         self.option_layout = OptionBoxLayout([self.white_range])
@@ -113,36 +111,27 @@ class WhiteOption(CollapsibleBox):
 
 class BlobOption(CollapsibleBox):
     """
-        Blob options class. A CollapsibleBox containing
-        the image options for white parameters.
+    Blob options class. A CollapsibleBox containing
+    the image options for white parameters.
     """
 
-    def __init__(self, parent=None, blob_area=(10, 100), convexity=1,
-                 circularity=1, distance_between_blobs=1, **kwargs):
+    def __init__(
+        self, parent=None, blob_area=(10, 100), convexity=1, circularity=1, distance_between_blobs=1, **kwargs
+    ):
         """
         Initialize a BlobOption widget.
         :param parent: QObject container parent
         :type parent: QObject
         """
         super(BlobOption, self).__init__("Adjust blob detection", parent)
-        self.name = 'blob_option'
+        self.name = "blob_option"
 
-        self.blob_area = LabeledRangeSlider('blob_area',
-                                            minimum=1, maximum=500,
-                                            default_value=blob_area,
-                                            parent=self)
-        self.circularity = LabeledSlider('circularity',
-                                         minimum=1, maximum=100,
-                                         default_value=circularity,
-                                         parent=self)
-        self.convexity = LabeledSlider('convexity',
-                                       minimum=1, maximum=100,
-                                       default_value=convexity,
-                                       parent=self)
-        self.distance = LabeledSlider('distance_between_blobs',
-                                      minimum=1, maximum=100,
-                                      default_value=distance_between_blobs,
-                                      parent=self)
+        self.blob_area = LabeledRangeSlider("blob_area", minimum=1, maximum=500, default_value=blob_area, parent=self)
+        self.circularity = LabeledSlider("circularity", minimum=1, maximum=100, default_value=circularity, parent=self)
+        self.convexity = LabeledSlider("convexity", minimum=1, maximum=100, default_value=convexity, parent=self)
+        self.distance = LabeledSlider(
+            "distance_between_blobs", minimum=1, maximum=100, default_value=distance_between_blobs, parent=self
+        )
 
         ### Add the Labeled Sliders to the Collapsible Boxes
         self.option_layout = OptionBoxLayout([self.blob_area, self.circularity, self.convexity, self.distance])
@@ -163,38 +152,39 @@ class BlobOption(CollapsibleBox):
 
 class ClaheOption(CollapsibleBox):
     """
-        Clahe filters options class. A CollapsibleBox containing
-        the image options for white parameters.
-        """
+    Clahe filters options class. A CollapsibleBox containing
+    the image options for white parameters.
+    """
 
-    def __init__(self, parent=None, clahe_clip_limit=3, clahe_grid_size=1, gaussian_blur=0, **kwargs):
+    def __init__(
+        self, parent=None, clahe_clip_limit=3, clahe_grid_size=1, gaussian_blur=0, use_threshold=True, **kwargs
+    ):
         """
         Initialize a ClaheOption widget.
         :param parent: QObject container parent
         :type parent: QObject
         """
         super(ClaheOption, self).__init__("Adjust AHE", parent)
-        self.name = 'clahe_option'
+        self.name = "clahe_option"
 
-        self.clahe_clip_limit = LabeledSlider("clahe_clip_limit",
-                                              minimum=1, maximum=40,
-                                              default_value=clahe_clip_limit,
-                                              parent=self)
-        self.clahe_clip_grid_size = LabeledSlider('clahe_grid_size',
-                                                  minimum=1, maximum=40,
-                                                  default_value=clahe_grid_size,
-                                                  parent=self)
-        self.clahe_median_blur = LabeledSlider('gaussian_blur',
-                                               minimum=0, maximum=20,
-                                               default_value=gaussian_blur,
-                                               parent=self)
-
+        self.clahe_clip_limit = LabeledSlider(
+            "clahe_clip_limit", minimum=1, maximum=40, default_value=clahe_clip_limit, parent=self
+        )
+        self.clahe_clip_grid_size = LabeledSlider(
+            "clahe_grid_size", minimum=1, maximum=40, default_value=clahe_grid_size, parent=self
+        )
+        self.clahe_median_blur = LabeledSlider(
+            "gaussian_blur", minimum=0, maximum=20, default_value=gaussian_blur, parent=self
+        )
+        self.threshold_clahe = OptionButton("use_threshold", default_value=use_threshold)
         ### Add the Labeled Sliders to the Collapsible Boxes
-        self.option_layout = OptionBoxLayout([self.clahe_clip_limit, self.clahe_clip_grid_size, self.clahe_median_blur])
+        self.option_layout = OptionBoxLayout(
+            [self.clahe_clip_limit, self.clahe_clip_grid_size, self.clahe_median_blur, self.threshold_clahe]
+        )
         self.activate = self.option_layout.activate
         self.setContentLayout(self.option_layout)
 
-    def set_params(self, clahe_option, clahe_clip_limit, clahe_grid_size, gaussian_blur, **kwargs):
+    def set_params(self, clahe_option, clahe_clip_limit, clahe_grid_size, gaussian_blur, use_threshold, **kwargs):
         ### Set activate
         self.option_layout.activate.setChecked(not clahe_option)
         self.option_layout.activate.on_pressed(clahe_option)
@@ -203,13 +193,14 @@ class ClaheOption(CollapsibleBox):
         self.clahe_clip_limit.slider.slider.setValue(clahe_clip_limit)
         self.clahe_clip_grid_size.slider.slider.setValue(clahe_grid_size)
         self.clahe_median_blur.slider.slider.setValue(gaussian_blur)
+        self.threshold_clahe.setChecked(use_threshold)
 
 
 class DistanceOption(CollapsibleBox):
     """
-        Distance options class. A CollapsibleBox containing
-        the image options for white parameters.
-        """
+    Distance options class. A CollapsibleBox containing
+    the image options for white parameters.
+    """
 
     def __init__(self, parent=None, distance_in_centimeters=(0, 7000), **kawrgs):
         """
@@ -218,16 +209,18 @@ class DistanceOption(CollapsibleBox):
         :type parent: QObject
         """
         super(DistanceOption, self).__init__("Adjust distance", parent)
-        self.name = 'distance_option'
+        self.name = "distance_option"
 
-        self.distance = LabeledRangeSlider('distance_in_centimeters',
-                                           minimum=0, maximum=700,
-                                           default_value=distance_in_centimeters,
-                                           step=70,
-                                           parent=self)
+        self.distance = LabeledRangeSlider(
+            "distance_in_centimeters",
+            minimum=0,
+            maximum=700,
+            default_value=distance_in_centimeters,
+            step=70,
+            parent=self,
+        )
 
-        self.contour = OptionButton('use_contour',
-                                    default_value=True)
+        self.contour = OptionButton("use_contour", default_value=True)
 
         ### Add the Labeled Sliders to the Collapsible Boxes
         self.option_layout = OptionBoxLayout([self.distance, self.contour])
@@ -246,9 +239,9 @@ class DistanceOption(CollapsibleBox):
 
 class MaskOption(CollapsibleBox):
     """
-        Distance options class. A CollapsibleBox containing
-        the image options for white parameters.
-        """
+    Distance options class. A CollapsibleBox containing
+    the image options for white parameters.
+    """
 
     def __init__(self, select_area_button=None, parent=None, **kawrgs):
         """
@@ -257,7 +250,7 @@ class MaskOption(CollapsibleBox):
         :type parent: QObject
         """
         super(MaskOption, self).__init__("Masks", parent)
-        self.name = 'masks_option'
+        self.name = "masks_option"
 
         self.select = select_area_button
 
@@ -279,6 +272,6 @@ class OptionButton(QCheckBox):
     def __init__(self, name, default_value, parent=None):
         super(QCheckBox, self).__init__(parent=parent)
         self.param = name
-        self.setText(name.replace('_', ' ').capitalize())
+        self.setText(name.replace("_", " ").capitalize())
         self.setCheckable(True)
         self.setChecked(default_value)

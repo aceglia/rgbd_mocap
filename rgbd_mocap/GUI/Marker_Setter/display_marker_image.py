@@ -24,7 +24,8 @@ class DisplayMarkerImage(QLabel):
     zone, all the markers within it will be removed
     from the DropImage.
     """
-    def __init__(self, marker_tab=None, name='Base Image'):
+
+    def __init__(self, marker_tab=None, name="Base Image"):
         """
         Initialize a DisplayMarkerImage
         :param marker_tab: DropImageTab to link with all the DropImage
@@ -95,8 +96,7 @@ class DisplayMarkerImage(QLabel):
                     delta = 15
                     delta_x = 10
 
-                (w, h), _ = cv2.getTextSize(
-                    marker.text(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                (w, h), _ = cv2.getTextSize(marker.text(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
                 cv2.rectangle(
                     shapes,
                     (x + delta_x, y + delta + 4),
@@ -114,9 +114,7 @@ class DisplayMarkerImage(QLabel):
                     1,
                 )
                 alpha = 0.8
-                self.marked_image = cv2.addWeighted(shapes,
-                     alpha,  self.marked_image, 1 - alpha, 0, self.marked_image)
-
+                self.marked_image = cv2.addWeighted(shapes, alpha, self.marked_image, 1 - alpha, 0, self.marked_image)
 
         ### Update the image to show the difference
         self.update_image()
@@ -152,17 +150,18 @@ class DisplayMarkerImage(QLabel):
 
         # From array to QPixmap
         format = QImage.Format_RGB888 if len(self.marked_image.shape) == 3 else QImage.Format_Grayscale8
-        image = QImage(self.marked_image,
-                       self.marked_image.shape[1],
-                       self.marked_image.shape[0],
-                       self.marked_image.strides[0],
-                       format)
+        image = QImage(
+            self.marked_image,
+            self.marked_image.shape[1],
+            self.marked_image.shape[0],
+            self.marked_image.strides[0],
+            format,
+        )
 
         # Convert frame into image and apply the resize
-        resized_image = (QPixmap.fromImage(image).scaled(self.size().width(),
-                                                         self.size().height(),
-                                                         Qt.KeepAspectRatio,
-                                                         Qt.TransformationMode.SmoothTransformation))
+        resized_image = QPixmap.fromImage(image).scaled(
+            self.size().width(), self.size().height(), Qt.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        )
 
         # If successful apply the image to the QLabel
         self.setPixmap(resized_image)

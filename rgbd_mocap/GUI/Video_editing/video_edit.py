@@ -7,10 +7,10 @@ import cv2
 
 class MaskPopUp(QMessageBox):
     """
-        Pop up showing the 'crop_q_pixmap' and
-        two options :
-        'Cancel' which return QMessageBox.Cancel
-        'Ok' which return QMessageBox.Ok
+    Pop up showing the 'crop_q_pixmap' and
+    two options :
+    'Cancel' which return QMessageBox.Cancel
+    'Ok' which return QMessageBox.Ok
     """
 
     def __init__(self, crop_q_pixmap, value, parent=None):
@@ -19,9 +19,9 @@ class MaskPopUp(QMessageBox):
         self.focusPreviousChild()
         self.setIconPixmap(crop_q_pixmap)
         if value:
-            self.setWindowTitle('Remove mask')
+            self.setWindowTitle("Remove mask")
         else:
-            self.setWindowTitle('Place mask')
+            self.setWindowTitle("Place mask")
 
         self.res = self.exec_() == QMessageBox.Ok
 
@@ -111,13 +111,12 @@ class VideoEdit(QLabel):
             return
 
         blend /= 100
-        img = self.filtered_frame if len(self.filtered_frame.shape) == 3 else cv2.cvtColor(self.filtered_frame,
-                                                                                         cv2.COLOR_GRAY2RGB)
-        self.filtered_frame = cv2.addWeighted(self.color_frame,
-                                              1 - blend,
-                                              img,
-                                              blend,
-                                              0)
+        img = (
+            self.filtered_frame
+            if len(self.filtered_frame.shape) == 3
+            else cv2.cvtColor(self.filtered_frame, cv2.COLOR_GRAY2RGB)
+        )
+        self.filtered_frame = cv2.addWeighted(self.color_frame, 1 - blend, img, blend, 0)
 
     def apply_blob_detect(self, blob_size=3):
         """
@@ -131,11 +130,7 @@ class VideoEdit(QLabel):
             return
 
         for blob in self.blobs:
-            self.filtered_frame = cv2.circle(self.filtered_frame,
-                                                (blob[0], blob[1]),
-                                                blob_size,
-                                                (255, 0, 0),
-                                                -1)
+            self.filtered_frame = cv2.circle(self.filtered_frame, (blob[0], blob[1]), blob_size, (255, 0, 0), -1)
             # self.filtered_frame[blob[1] - blob_size:blob[1] + blob_size,
             #                     blob[0] - blob_size:blob[0] + blob_size] = [255, 0, 0]
 
@@ -193,8 +188,12 @@ class VideoEdit(QLabel):
         if self.current_q_rubber_band is not None:
             try:
                 rect = self.current_q_rubber_band.geometry()
-                rect.adjust(- self.start_x, - self.start_y,
-                            - self.start_x, - self.start_y, )
+                rect.adjust(
+                    -self.start_x,
+                    -self.start_y,
+                    -self.start_x,
+                    -self.start_y,
+                )
 
                 self.current_q_rubber_band.deleteLater()
 
@@ -215,12 +214,14 @@ class VideoEdit(QLabel):
 
     def update_mask(self, rect, value):
         ### Need to recalculate new coords with rescaling
-        rect = ((rect[0] * self.color_frame.shape[1] // self.resized_image.width()) if rect[0] > 0 else 0,
-                (rect[1] * self.color_frame.shape[0] // self.resized_image.height()) if rect[1] > 0 else 0,
-                rect[2] * self.color_frame.shape[1] // self.resized_image.width(),
-                rect[3] * self.color_frame.shape[0] // self.resized_image.height())
+        rect = (
+            (rect[0] * self.color_frame.shape[1] // self.resized_image.width()) if rect[0] > 0 else 0,
+            (rect[1] * self.color_frame.shape[0] // self.resized_image.height()) if rect[1] > 0 else 0,
+            rect[2] * self.color_frame.shape[1] // self.resized_image.width(),
+            rect[3] * self.color_frame.shape[0] // self.resized_image.height(),
+        )
 
-        self.parent().mask[rect[1]:rect[3], rect[0]:rect[2]] = int(value)
+        self.parent().mask[rect[1] : rect[3], rect[0] : rect[2]] = int(value)
         self.parent().update_image()
 
     def resizeEvent(self, a0: QResizeEvent) -> None:
@@ -241,16 +242,17 @@ class VideoEdit(QLabel):
         if self.filtered_frame is None:
             return
         format = QImage.Format_RGB888 if len(self.filtered_frame.shape) == 3 else QImage.Format_Grayscale8
-        image = QImage(self.filtered_frame,
-                       self.filtered_frame.shape[1],
-                       self.filtered_frame.shape[0],
-                       self.filtered_frame.strides[0],
-                       format)
+        image = QImage(
+            self.filtered_frame,
+            self.filtered_frame.shape[1],
+            self.filtered_frame.shape[0],
+            self.filtered_frame.strides[0],
+            format,
+        )
 
-        self.resized_image = QPixmap.fromImage(image).scaled(self.size().width(),
-                                                             self.size().height(),
-                                                             Qt.KeepAspectRatio,
-                                                             Qt.TransformationMode.SmoothTransformation)
+        self.resized_image = QPixmap.fromImage(image).scaled(
+            self.size().width(), self.size().height(), Qt.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        )
 
         self.setPixmap(self.resized_image)
         # Update Margins
@@ -274,13 +276,20 @@ class VideoEdit(QLabel):
         """
         if color is None or depth is None:
             return
-        self.color_frame = color[self.area[1]:self.area[3], self.area[0]:self.area[2]]
-        self.depth_frame = depth[self.area[1]:self.area[3], self.area[0]:self.area[2]]
+        self.color_frame = color[self.area[1] : self.area[3], self.area[0] : self.area[2]]
+        self.depth_frame = depth[self.area[1] : self.area[3], self.area[0] : self.area[2]]
+        # print("WARING --- to remove")
+        # h, w = self.depth_frame.shape
+        # ratio = 1
+        # self.color_frame = cv2.resize(self.color_frame,
+        #                                         (int(w * ratio), int(h * ratio)))
+        # self.depth_frame = cv2.resize(self.depth_frame,
+        #                                         (int(w * ratio), int(h * ratio)))
         self.filtered_frame = self.color_frame.copy()
         self.update_size()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     app = QApplication(sys.argv)
