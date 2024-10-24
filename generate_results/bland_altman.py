@@ -29,15 +29,15 @@ def remove_outliers(data, data_ref, m=3, plot=False):
     final_data = []
     final_ref = []
     for i in range(data.shape[0]):
-        upper_quartile = np.percentile(data[i], 75)
-        lower_quartile = np.percentile(data[i], 25)
-        IQR = (upper_quartile - lower_quartile) * 1.5
-        quartileSet = (lower_quartile - IQR, upper_quartile + IQR)
-        result = data[i][np.where((data[i] >= quartileSet[0]) & (data[i] <= quartileSet[1]))]
-        ref = data_ref[i][np.where((data[i] >= quartileSet[0]) & (data[i] <= quartileSet[1]))]
-        final_data.append(result.tolist())
-        final_ref.append(ref.tolist())
-        # final_data.append(data[i][np.abs(data[i]) < np.abs(np.median(data[i])) + 3 * np.std(data[i], ddof=1)].tolist())
+        # upper_quartile = np.percentile(data[i], 75)
+        # lower_quartile = np.percentile(data[i], 25)
+        # IQR = (upper_quartile - lower_quartile) * 1.5
+        # quartileSet = (lower_quartile - IQR, upper_quartile + IQR)
+        # result = data[i][np.where((data[i] >= quartileSet[0]) & (data[i] <= quartileSet[1]))]
+        # ref = data_ref[i][np.where((data[i] >= quartileSet[0]) & (data[i] <= quartileSet[1]))]
+        # final_data.append(result.tolist())
+        # final_ref.append(ref.tolist())
+        final_data.append(data[i][np.abs(data[i]) < np.abs(np.median(data[i])) + 3 * np.std(data[i], ddof=1)].tolist())
         # if plot:
         # plt.figure()
         # plt.hist(data[i].flatten(), bins=100)
@@ -74,6 +74,7 @@ def _compute_bland_altman(participants, all_data, files, key, factor, unit, sour
     comparison_tab = ["RGBD vs redundant", "minimal vs redundant", "RGBD vs minimal"]
     if key == "q":
         plot = True
+
     for j in range(len(to_compare_source)):
         if plot:
             plt.figure(f"{key}_{comparison_tab[j]}")
@@ -86,7 +87,7 @@ def _compute_bland_altman(participants, all_data, files, key, factor, unit, sour
         p_prev = participants[0]
         count_part = 0
         for part, data in zip(participants, all_data):
-            if part == "P126":
+            if part == "P10":
                 continue
             end_frame = get_end_frame(part, files[file_counter])
             file_counter += 1
@@ -96,7 +97,7 @@ def _compute_bland_altman(participants, all_data, files, key, factor, unit, sour
                 else data[to_compare_source[j]][key]
             )
             ref_data = data[source[j]][key][..., :end_frame] if end_frame is not None else data[source[j]][key]
-            to_compare, ref_data = remove_outliers(to_compare, ref_data, m=6)
+            # to_compare, ref_data = remove_outliers(to_compare, ref_data, m=6)
            # dif_tmp = [np.mean((np.array(ref) - np.array(comp))) for ref, comp in zip(ref_data, to_compare)]
             mean_tmp = [(np.array(ref) + np.array(comp) / 2).tolist() for ref, comp in zip(ref_data, to_compare)]
             dif_tmp = [(np.array(ref) - np.array(comp)).tolist() for ref, comp in zip(ref_data, to_compare)]
@@ -140,6 +141,9 @@ def _save_tmp_file(participants, all_files, name_to_save="tmp.bio"):
     dict_data = {}
     all_data_list = []
     for part, file in zip(participants, all_files):
+        print(part, file)
+        if part == "P15" and "gear_5" in file:
+            continue
         data = load(file)
         all_data_list.append(data)
     dict_data["data"] = all_data_list
@@ -174,6 +178,15 @@ if __name__ == "__main__":
     source = ["vicon", "vicon", "minimal_vicon"]
     to_compare_source = ["depth", "minimal_vicon", "depth"]
     key_for_tab = ["Joint angles (\degree)", "Joint torques (N.m)", "Muscle force (N)"]
+    colors = plt.cm.get_cmap("tab20", len(participants))
+    plt.figure("legend")
+    plotted_parts = []
+    for i, part in enumerate(participants):
+        if part in plotted_parts:
+            continue
+        plt.scatter([], [], color=colors(i), label=part)
+        plotted_parts.append(part)
+    plt.legend()
     print(
         r"""
         \begin{table}[h]

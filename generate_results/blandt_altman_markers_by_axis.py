@@ -1,12 +1,5 @@
-from pathlib import Path
-import os
-
-import matplotlib.pyplot as plt
-import numpy as np
-
-from biosiglive import load
-from utils_old import load_data, _get_vicon_to_depth_idx, _convert_string
 from utils_old import *
+from processing_data.data_processing_helper import compute_blandt_altman
 
 if __name__ == "__main__":
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
@@ -15,6 +8,7 @@ if __name__ == "__main__":
         participants,
         "/mnt/shared/Projet_hand_bike_markerless/process_data",
     )
+
 
     scatter_markers = ["o", "s", "v"]
     title = ["a) Image plane", "b) Depth axis", "c) 3D space"]
@@ -111,14 +105,14 @@ if __name__ == "__main__":
             diffs_file[n_key * p : n_key * (p + 1)] = np.mean(diffs, axis=1)
         all_means_file.append(means_file)
         all_diffs_file.append(diffs_file)
-        bias, lower_loa, upper_loa = compute_blandt_altman(
+        bias, lower_loa, upper_loa, _ = compute_blandt_altman(
             means_file,
             diffs_file,
             units="mm",
             title=title[j],
             color=all_colors,
             show=False,
-            x_axis="Mean on z axis (mm)",
+            x_axis=r"Mean on $z_c$ axis (mm)",
             ax=axes[j],
             threeshold=10,
             no_y_label=(j == 1),

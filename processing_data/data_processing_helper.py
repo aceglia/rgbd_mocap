@@ -94,14 +94,15 @@ def compute_blandt_altman(
     markers = markers if markers is not None else "o"
     if color is not None:
         for i in range(len(color)):
-            mean_tmp = mean_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
-            diff_tmp = diff_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
-            ax.scatter(mean_tmp, diff_tmp, color=color[i][0], s=100, alpha=0.6, marker=markers)
-
-            # for j in range(len(mean_tmp)):
-            #    #if np.abs(diff_tmp[j]) > threeshold:
-            #    #    continue
-            #    ax.scatter(mean_tmp[j], diff_tmp[j], color=color[i][j], s=100, alpha=0.6, marker=markers)
+            # mean_tmp = mean_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
+            # diff_tmp = diff_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
+            mean_tmp = mean_to_plot[i * len(color[i]): (i + 1) * len(color[i])]
+            diff_tmp = diff_to_plot[i * len(color[i]): (i + 1) * len(color[i])]
+            #ax.scatter(mean_tmp, diff_tmp, color=color[i][0], s=100, alpha=0.6, marker=markers)
+            for j in range(len(mean_tmp)):
+               if np.abs(diff_tmp[j]) > threeshold:
+                   continue
+               ax.scatter(mean_tmp[j], diff_tmp[j], color=color[i][j], s=100, alpha=0.6, marker=markers)
 
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
@@ -127,8 +128,27 @@ def compute_blandt_altman(
         ax.set_ylabel("", fontsize=font)
     # ax.xticks(fontsize=font)
     # ax.yticks(fontsize=font)
-    # Get axis limits
+    # Confidence intervals
+    #ax.plot([left] * 2, list(ci_upper_loa), color="grey", ls="--", alpha=0.5)
+    #ax.plot([left] * 2, list(ci_bias), color="grey", ls="--", alpha=0.5)
+    #ax.plot([left] * 2, list(ci_lower_loa), color="grey", ls="--", alpha=0.5)
+    # Confidence intervals' caps
     left, right = ax.get_xlim()
+
+    # Set x-axis limits
+    domain = right - left
+    ax.set_xlim(left, left + domain)
+    x = np.linspace(left, right, 100)
+    #ax.plot(x_range, [ci_upper_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
+    #ax.plot(x_range, [ci_upper_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
+    #ax.plot(x_range, [ci_bias[1]] * 2, color="grey", ls="--", alpha=0.5)
+    #ax.plot(x_range, [ci_bias[0]] * 2, color="grey", ls="--", alpha=0.5)
+    #ax.plot(x_range, [ci_lower_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
+    #ax.plot(x_range, [ci_lower_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
+    # fill between confidence intervals for loa
+    ax.fill_between(x, ci_lower_loa[0], ci_lower_loa[1], color="grey", alpha=0.2)
+    ax.fill_between(x, ci_upper_loa[0], ci_upper_loa[1], color="grey", alpha=0.2)
+    # Get axis limits
     bottom, top = ax.get_ylim()
     # Set y-axis limits
     # max_y = max(abs(bottom), abs(top))
@@ -136,9 +156,6 @@ def compute_blandt_altman(
     min_y = abs(bottom)
 
     ax.set_ylim(-min_y, max_y)
-    # Set x-axis limits
-    domain = right - left
-    ax.set_xlim(left, left + domain)
     # Annotations
     ax.annotate("+LOA", (right, upper_loa), (0, 7), textcoords="offset pixels", fontsize=font)
     ax.annotate(f"{upper_loa:+4.2f}", (right, upper_loa), (0, -25), textcoords="offset pixels", fontsize=font)
@@ -147,23 +164,12 @@ def compute_blandt_altman(
     ax.annotate("-LOA", (right, lower_loa), (0, 7), textcoords="offset pixels", fontsize=font)
     ax.annotate(f"{lower_loa:+4.2f}", (right, lower_loa), (0, -25), textcoords="offset pixels", fontsize=font)
 
-    # Confidence intervals
-    ax.plot([left] * 2, list(ci_upper_loa), color="grey", ls="--", alpha=0.5)
-    ax.plot([left] * 2, list(ci_bias), color="grey", ls="--", alpha=0.5)
-    ax.plot([left] * 2, list(ci_lower_loa), color="grey", ls="--", alpha=0.5)
-    # Confidence intervals' caps
-    x_range = [left - domain * 0.025, left + domain * 0.025]
-    ax.plot(x_range, [ci_upper_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_upper_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_bias[1]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_bias[0]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_lower_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_lower_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
+
 
     if show:
         plt.show()
 
-    return bias, lower_loa, upper_loa
+    return bias, lower_loa, upper_loa, (ci_lower_loa, ci_upper_loa)
 
 
 def process_cycles(all_results, peaks, n_peaks=None, interpolation_size=120, key_to_get_size="q"):

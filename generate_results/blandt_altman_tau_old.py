@@ -95,10 +95,12 @@ if __name__ == "__main__":
     all_std = []
     all_bias = [None] * len(keys)
     all_loa = [None] * len(keys)
+    all_ci = [None] * len(keys)
     outliers = [None] * 3
     for k, key in enumerate(keys):
         all_bias[k] = []
         all_loa[k] = []
+        all_ci[k] = []
         all_colors = []
         shape_idx = 1 if key == "markers" else 0
         n_key = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["depth"][key].shape[shape_idx]
@@ -135,18 +137,18 @@ if __name__ == "__main__":
                     nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
                     sum_minimal = np.delete(sum_minimal, nan_idx, axis=1)
                     dif_minimal = np.delete(dif_minimal, nan_idx, axis=1)
-                    if key == "q":
-                        for m in range(dif_minimal.shape[0]):
-                            dif_minimal_tmp = dif_minimal[m, :] * factors[k]
-                            dif_minimal_tmp_clipped = dif_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
-                            sum_minimal_tmp = sum_minimal[m, :] * factors[k]
-                            sum_minimal_tmp_clipped = sum_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
-                            print(part, file, sum_minimal_tmp_clipped.shape, dif_minimal_tmp_clipped.shape)
-                            means[j, m, f] = np.mean(sum_minimal_tmp_clipped)
-                            diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
-                    else:
-                        means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
-                        diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
+                    # if key == "q":
+                    #     for m in range(dif_minimal.shape[0]):
+                    #         dif_minimal_tmp = dif_minimal[m, :] * factors[k]
+                    #         dif_minimal_tmp_clipped = dif_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
+                    #         sum_minimal_tmp = sum_minimal[m, :] * factors[k]
+                    #         sum_minimal_tmp_clipped = sum_minimal_tmp[np.abs(dif_minimal_tmp) < 30]
+                    #         print(part, file, sum_minimal_tmp_clipped.shape, dif_minimal_tmp_clipped.shape)
+                    #         means[j, m, f] = np.mean(sum_minimal_tmp_clipped)
+                    #         diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
+                    # else:
+                    means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
+                    diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
                     # means[j, :, f] = sum_minimal * factors[k]
                     # diffs[j, :, f] = dif_minimal* factors[k]
 
@@ -158,7 +160,7 @@ if __name__ == "__main__":
                 std[j, n_key * p : n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
         all_rmse.append(rmse.mean(axis=1).round(2))
         all_std.append(std.mean(axis=1).round(2))
-        bias, lower_loa, upper_loa = compute_blandt_altman(
+        bias, lower_loa, upper_loa, ci = compute_blandt_altman(
             means_file[0, :],
             diffs_file[0, :],
             units=units[k],
@@ -166,9 +168,10 @@ if __name__ == "__main__":
             show=False,
             color=all_colors,
         )
+        all_ci[k].append(ci)
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
-        bias, lower_loa, upper_loa = compute_blandt_altman(
+        bias, lower_loa, upper_loa, ci = compute_blandt_altman(
             means_file[1, :],
             diffs_file[1, :],
             units=units[k],
@@ -176,10 +179,10 @@ if __name__ == "__main__":
             show=False,
             color=all_colors,
         )
-
+        all_ci[k].append(ci)
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
-        bias, lower_loa, upper_loa = compute_blandt_altman(
+        bias, lower_loa, upper_loa, ci = compute_blandt_altman(
             means_file[2, :],
             diffs_file[2, :],
             units=units[k],
@@ -187,7 +190,7 @@ if __name__ == "__main__":
             show=False,
             color=all_colors,
         )
-
+        all_ci[k].append(ci)
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
 
@@ -205,15 +208,27 @@ if __name__ == "__main__":
          """
         "\multirow{3}*{Joint angles (\degree~)} "
         "& RGBD vs redundant &"
-        + f" {all_rmse[0][0]}& {all_std[0][0]} & {all_loa[0][0][0]}& {all_loa[0][0][1]}& {all_bias[0][0]}"
+        + f" {all_rmse[0][0]}& {all_std[0][0]} & {all_loa[0][0][0]} "+
+        r" \textit{" + f"({abs(abs(all_ci[0][0][0][1]) - abs(all_ci[0][0][0][0])):.2f})" + r"}"+
+        f"& {all_loa[0][0][1]} "+
+        r" \textit{" + f"({abs(abs(all_ci[0][0][1][1]) - abs(all_ci[0][0][1][0])):.2f})" + r"}" +
+        f"& {all_bias[0][0]}"
         + r"\\"
         + "\n"
         "& minimal vs redundant &"
-        + f" {all_rmse[0][1]}& {all_std[0][1]}  & {all_loa[0][1][0]}& {all_loa[0][1][1]}& {all_bias[0][1]}"
+        + f" {all_rmse[0][1]}& {all_std[0][1]}  & {all_loa[0][1][0]} " +
+        r" \textit{" + f"({abs(abs(all_ci[0][1][0][1]) - abs(all_ci[0][1][0][0])):.2f})" + r"}"+
+        f"& {all_loa[0][1][1]} " +
+        r" \textit{" + f"({abs(abs(all_ci[0][1][1][1]) - abs(all_ci[0][1][1][0])):.2f})" + r"}" +
+        f"& {all_bias[0][1]}"
         + r"\\"
         + "\n"
         "& RGBD vs minimal &"
-        + f" {all_rmse[0][2]}& {all_std[0][2]}  & {all_loa[0][2][0]}& {all_loa[0][2][1]}& {all_bias[0][2]}"
+        + f" {all_rmse[0][2]}& {all_std[0][2]}  & {all_loa[0][2][0]} "+
+        r" \textit{" + f"({abs(abs(all_ci[0][2][0][1]) - abs(all_ci[0][2][0][0])):.2f})" + r"}"+
+        f"& {all_loa[0][2][1]} "+
+        r" \textit{" + f"({abs(abs(all_ci[0][2][1][1]) - abs(all_ci[0][2][1][0])):.2f})" + r"}" +
+        f"& {all_bias[0][2]}"
         + r"\\"
         + "\n"
         + r" \hdashline"
@@ -224,30 +239,54 @@ if __name__ == "__main__":
         # "& RGBD vs minimal &" + f" {all_rmse[1][2]}& {all_std[1][2]}  & {all_loa[1][2][0]}& {all_loa[1][2][1]}& {all_bias[1][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
         "\multirow{3}*{Joint torques (N.m)} "
         "& RGBD vs redundant &"
-        + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]}& {all_loa[3][0][1]}& {all_bias[3][0]}"
+        + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]} "+
+        r" \textit{" + f"({abs(abs(all_ci[3][0][0][1]) - abs(all_ci[3][0][0][0])):.2f})" + r"}"+
+        f"& {all_loa[3][0][1]} "+
+        r" \textit{" + f"({abs(abs(all_ci[3][0][1][1]) - abs(all_ci[3][0][1][0])):.2f})" + r"}" +
+        f"& {all_bias[3][0]}"
         + r"\\"
         + "\n"
         "& minimal vs redundant &"
-        + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]}& {all_loa[3][1][1]}& {all_bias[3][1]}"
+        + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]} "+
+        r" \textit{" + f"({abs(abs(all_ci[3][1][0][1]) - abs(all_ci[3][1][0][0])):.2f})" + r"}"+
+        f"& {all_loa[3][1][1]} "+
+        r" \textit{" + f"({abs(abs(all_ci[3][1][1][1]) - abs(all_ci[3][1][1][0])):.2f})" + r"}" +
+        f"& {all_bias[3][1]}"
         + r"\\"
         + "\n"
         "& RGBD vs minimal &"
-        + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]}& {all_loa[3][2][1]}& {all_bias[3][2]}"
+        + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]} "+
+        r" \textit{" + f"({abs(abs(all_ci[3][2][0][1]) - abs(all_ci[3][2][0][0])):.2f})" + r"}"+
+        f"& {all_loa[3][2][1]} "+
+        r" \textit{" + f"({abs(abs(all_ci[3][2][1][1]) - abs(all_ci[3][2][1][0])):.2f})" + r"}" +
+        f"& {all_bias[3][2]}"
         + r"\\"
         + "\n"
         + r" \hdashline"
         + "\n"
         "\multirow{3}*{Muscle forces (N)} "
         "& RGBD vs redundant &"
-        + f" {all_rmse[4][0]}& {all_std[4][0]} & {all_loa[4][0][0]}& {all_loa[4][0][1]}& {all_bias[4][0]}"
+        + f" {all_rmse[4][0]}& {all_std[4][0]} & {all_loa[4][0][0]} "+
+        r" \textit{" + f"({abs(abs(all_ci[4][0][0][1]) - abs(all_ci[4][0][0][0])):.2f})" + r"}"+
+          f"& {all_loa[4][0][1]} "+
+        r" \textit{" + f"({abs(abs(all_ci[4][0][1][1]) - abs(all_ci[4][0][1][0])):.2f})" + r"}" +
+        f"& {all_bias[4][0]}"
         + r"\\"
         + "\n"
         "& minimal vs redundant &"
-        + f" {all_rmse[4][1]}& {all_std[4][1]}  & {all_loa[4][1][0]}& {all_loa[4][1][1]}& {all_bias[4][1]}"
+        + f" {all_rmse[4][1]}& {all_std[4][1]}  & {all_loa[4][1][0]} " +
+                r" \textit{" + f"({abs(abs(all_ci[4][1][0][1]) - abs(all_ci[4][1][0][0])):.2f})" + r"}"+
+        f"& {all_loa[4][1][1]} "+
+        r" \textit{" + f"({abs(abs(all_ci[4][1][1][1]) - abs(all_ci[4][1][1][0])):.2f})" + r"}" +
+        f"& {all_bias[4][1]}"
         + r"\\"
         + "\n"
         "& RGBD vs minimal &"
-        + f" {all_rmse[4][2]}& {all_std[4][2]}  & {all_loa[4][2][0]}& {all_loa[4][2][1]}& {all_bias[4][2]}"
+        + f" {all_rmse[4][2]}& {all_std[4][2]}  & {all_loa[4][2][0]} "+
+        r" \textit{" + f"({abs(abs(all_ci[4][2][0][1]) - abs(all_ci[4][2][0][0])):.2f})" + r"}"+
+        f"& {all_loa[4][2][1]}"+
+        r" \textit{" + f"({abs(abs(all_ci[4][2][1][1]) - abs(all_ci[4][2][1][0])):.2f})" + r"}" +
+        f"& {all_bias[4][2]}"
         + r"\\"
         + "\n"
         + r"\hline"

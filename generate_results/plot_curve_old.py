@@ -258,18 +258,18 @@ def plot_results(
     plt.xlim(0, 100)
 
     # plot muscle activations
-    # if not isinstance(results_from_sources[0]["mus_act"]["mean"], list):
-    #     plt.figure("muscle torque")
-    #     for i in range(results_from_sources[0]["mus_act"]["mean"].shape[0]):
-    #         plt.subplot(4, ceil(results_from_sources[0]["mus_act"]["mean"].shape[0] / 4), i+1)
-    #         for k in range(len(results_from_sources)):
-    #             plt.plot(results_from_sources[k]["mus_act"]["mean"][i, :], line[k], color=color[k], label=all_names[i])
-    #             # plt.suptitle(all_names[i], fontsize=font_size)
-    #
-    #         if not isinstance(results_from_sources[0]["emg_proc"]["mean"], list):
-    #             if i in track_idx:
-    #                 plt.plot(results_from_sources[0]["emg_proc"]["mean"][track_idx.index(i), :stop_frame])
-    #         plt.legend()
+    if not isinstance(results_from_sources[0]["mus_act"]["mean"], list):
+        plt.figure("muscle torque")
+        for i in range(results_from_sources[0]["mus_act"]["mean"].shape[0]):
+            plt.subplot(4, ceil(results_from_sources[0]["mus_act"]["mean"].shape[0] / 4), i+1)
+            for k in range(len(results_from_sources)):
+                plt.plot(results_from_sources[k]["mus_act"]["mean"][i, :], line[k], color=color[k], label=all_names[i])
+                # plt.suptitle(all_names[i], fontsize=font_size)
+
+            if not isinstance(results_from_sources[0]["emg_proc"]["mean"], list):
+                if i in track_idx:
+                    plt.plot(results_from_sources[0]["emg_proc"]["mean"][track_idx.index(i), :stop_frame])
+            plt.legend()
     #
     # if not isinstance(results_from_sources[0]["mus_force"], list):
     #     plt.figure("muscle forces")
