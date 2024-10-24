@@ -9,7 +9,6 @@ if __name__ == "__main__":
         "/mnt/shared/Projet_hand_bike_markerless/process_data",
     )
 
-
     scatter_markers = ["o", "s", "v"]
     title = ["a) Image plane", "b) Depth axis", "c) 3D space"]
     all_means_file = []

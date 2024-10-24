@@ -49,6 +49,7 @@ def plot_results(
         for i in range(len(map_idx)):
             act[i, :] = emg_proc[map_idx[i], :]
         return act
+
     results_from_sources_tmp = []
     for result in results_from_sources:
         dic_tmp = {}
@@ -255,20 +256,21 @@ def plot_results(
     #     "INFSP_left",
     #     "SUBSC_left",
     #     ]
-    muscle_model_format_names = ["DeltoideusClavicle_A",
-                 'DeltoideusScapula_M',
-                 'DeltoideusScapula_P',
-                 'TrapeziusClavicle_S',
-                 "BIC_long",
-                 "TRI_lat",
-                 "Infraspinatus_S",
-                 "Subscapularis_M",
-                 "Supraspinatus_A",
-                 # "PectoralisMajor",
-                 # "LatissimusDorsi",
-
-                 ]
+    muscle_model_format_names = [
+        "DeltoideusClavicle_A",
+        "DeltoideusScapula_M",
+        "DeltoideusScapula_P",
+        "TrapeziusClavicle_S",
+        "BIC_long",
+        "TRI_lat",
+        "Infraspinatus_S",
+        "Subscapularis_M",
+        "Supraspinatus_A",
+        # "PectoralisMajor",
+        # "LatissimusDorsi",
+    ]
     import biorbd
+
     model = biorbd.Model(models[0])
     muscle_model_names = [model.muscleNames()[i].to_string() for i in range(model.nbMuscles())]
     t = np.linspace(0, 100, results_from_sources[0]["mus_force"]["mean"].shape[1])
@@ -280,22 +282,37 @@ def plot_results(
         for k in range(len(results_from_sources)):
             idx = muscle_model_names.index(muscle_model_format_names[i])
             ax.plot(t, results_from_sources[k]["mus_force"]["mean"][idx, :], line[k], color=color[k], alpha=0.7)
-            ax.fill_between(t, (results_from_sources[k]["mus_force"]["mean"][idx, :] - results_from_sources[k]["mus_force"]["std"][idx, :]),
-                            (results_from_sources[k]["mus_force"]["mean"][idx, :] + results_from_sources[k]["mus_force"]["std"][idx, :]),
-                            color=color[k], alpha=0.3)
+            ax.fill_between(
+                t,
+                (
+                    results_from_sources[k]["mus_force"]["mean"][idx, :]
+                    - results_from_sources[k]["mus_force"]["std"][idx, :]
+                ),
+                (
+                    results_from_sources[k]["mus_force"]["mean"][idx, :]
+                    + results_from_sources[k]["mus_force"]["std"][idx, :]
+                ),
+                color=color[k],
+                alpha=0.3,
+            )
         ax.set_title(muscle_names[i], fontsize=font_size)
-        ax.tick_params(axis='y', labelsize=font_size - 2)
+        ax.tick_params(axis="y", labelsize=font_size - 2)
         if i not in [6, 7, 8]:
             ax.set_xticks([])
             ax.set_xticklabels([])
         else:
             ax.set_xlabel("Mean cycle (%)", fontsize=font_size)
-            ax.tick_params(axis='x', labelsize=font_size - 2)
+            ax.tick_params(axis="x", labelsize=font_size - 2)
         if i in [0, 3, 6]:
             ax.set_ylabel("Muscle force (N)", fontsize=font_size, rotation=90)
-            ax.tick_params(axis='y', labelsize=font_size - 2)
-    fig.legend(["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
-               loc='upper center', fontsize=font_size, frameon=False, ncol=3) #bbox_to_anchor=(0.98, 0.95)
+            ax.tick_params(axis="y", labelsize=font_size - 2)
+    fig.legend(
+        ["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"],
+        loc="upper center",
+        fontsize=font_size,
+        frameon=False,
+        ncol=3,
+    )  # bbox_to_anchor=(0.98, 0.95)
     # fig.align_ylabels(subplots)
     all_names = [name.to_string() for name in model.muscleNames()]
 
@@ -303,16 +320,18 @@ def plot_results(
     emg = all_results["shared"]["emg"]
     track_idx = [29, 33, 34, 31, 25, 1, 23, 13, 12]
     map_idx = [0, 1, 1, 2, 3, 4, 5, 6, 7]
+
     def map_activation(emg_proc, map_idx):
         act = np.zeros((len(map_idx), int(emg_proc.shape[1])))
         for i in range(len(map_idx)):
             act[i, :] = emg_proc[map_idx[i], :]
         return act
+
     emg = map_activation(emg, map_idx)
     if not isinstance(results_from_sources[0]["mus_act"]["mean"], list):
         plt.figure("muscle act")
         for i in range(results_from_sources[0]["mus_act"]["mean"].shape[0]):
-            plt.subplot(4, ceil(results_from_sources[0]["mus_act"]["mean"].shape[0] / 4), i+1)
+            plt.subplot(4, ceil(results_from_sources[0]["mus_act"]["mean"].shape[0] / 4), i + 1)
             for k in range(len(results_from_sources)):
                 plt.plot(results_from_sources[k]["mus_act"]["mean"][i, :])
             if not isinstance(emg, list):

@@ -81,7 +81,7 @@ if __name__ == "__main__":
     )
     from biosiglive import save
 
-    #save(all_data, "_all_data_kalman_proc.bio")
+    # save(all_data, "_all_data_kalman_proc.bio")
     keys = ["q", "q_dot", "q_ddot", "tau", "mus_force"]
     factors = [180 / np.pi, 180 / np.pi, 180 / np.pi, 1, 1]
     units = ["°", "°/s", "°/s²", "N.m", "%", "N"]
@@ -208,27 +208,39 @@ if __name__ == "__main__":
          """
         "\multirow{3}*{Joint angles (\degree~)} "
         "& RGBD vs redundant &"
-        + f" {all_rmse[0][0]}& {all_std[0][0]} & {all_loa[0][0][0]} "+
-        r" \textit{" + f"({abs(abs(all_ci[0][0][0][1]) - abs(all_ci[0][0][0][0])):.2f})" + r"}"+
-        f"& {all_loa[0][0][1]} "+
-        r" \textit{" + f"({abs(abs(all_ci[0][0][1][1]) - abs(all_ci[0][0][1][0])):.2f})" + r"}" +
-        f"& {all_bias[0][0]}"
+        + f" {all_rmse[0][0]}& {all_std[0][0]} & {all_loa[0][0][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[0][0][0][1]) - abs(all_ci[0][0][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[0][0][1]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[0][0][1][1]) - abs(all_ci[0][0][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[0][0]}"
         + r"\\"
         + "\n"
         "& minimal vs redundant &"
-        + f" {all_rmse[0][1]}& {all_std[0][1]}  & {all_loa[0][1][0]} " +
-        r" \textit{" + f"({abs(abs(all_ci[0][1][0][1]) - abs(all_ci[0][1][0][0])):.2f})" + r"}"+
-        f"& {all_loa[0][1][1]} " +
-        r" \textit{" + f"({abs(abs(all_ci[0][1][1][1]) - abs(all_ci[0][1][1][0])):.2f})" + r"}" +
-        f"& {all_bias[0][1]}"
+        + f" {all_rmse[0][1]}& {all_std[0][1]}  & {all_loa[0][1][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[0][1][0][1]) - abs(all_ci[0][1][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[0][1][1]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[0][1][1][1]) - abs(all_ci[0][1][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[0][1]}"
         + r"\\"
         + "\n"
         "& RGBD vs minimal &"
-        + f" {all_rmse[0][2]}& {all_std[0][2]}  & {all_loa[0][2][0]} "+
-        r" \textit{" + f"({abs(abs(all_ci[0][2][0][1]) - abs(all_ci[0][2][0][0])):.2f})" + r"}"+
-        f"& {all_loa[0][2][1]} "+
-        r" \textit{" + f"({abs(abs(all_ci[0][2][1][1]) - abs(all_ci[0][2][1][0])):.2f})" + r"}" +
-        f"& {all_bias[0][2]}"
+        + f" {all_rmse[0][2]}& {all_std[0][2]}  & {all_loa[0][2][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[0][2][0][1]) - abs(all_ci[0][2][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[0][2][1]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[0][2][1][1]) - abs(all_ci[0][2][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[0][2]}"
         + r"\\"
         + "\n"
         + r" \hdashline"
@@ -239,54 +251,78 @@ if __name__ == "__main__":
         # "& RGBD vs minimal &" + f" {all_rmse[1][2]}& {all_std[1][2]}  & {all_loa[1][2][0]}& {all_loa[1][2][1]}& {all_bias[1][2]}"+ r"\\" + "\n" +  r" \hdashline" + "\n"
         "\multirow{3}*{Joint torques (N.m)} "
         "& RGBD vs redundant &"
-        + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]} "+
-        r" \textit{" + f"({abs(abs(all_ci[3][0][0][1]) - abs(all_ci[3][0][0][0])):.2f})" + r"}"+
-        f"& {all_loa[3][0][1]} "+
-        r" \textit{" + f"({abs(abs(all_ci[3][0][1][1]) - abs(all_ci[3][0][1][0])):.2f})" + r"}" +
-        f"& {all_bias[3][0]}"
+        + f" {all_rmse[3][0]}& {all_std[3][0]} & {all_loa[3][0][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[3][0][0][1]) - abs(all_ci[3][0][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[3][0][1]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[3][0][1][1]) - abs(all_ci[3][0][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[3][0]}"
         + r"\\"
         + "\n"
         "& minimal vs redundant &"
-        + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]} "+
-        r" \textit{" + f"({abs(abs(all_ci[3][1][0][1]) - abs(all_ci[3][1][0][0])):.2f})" + r"}"+
-        f"& {all_loa[3][1][1]} "+
-        r" \textit{" + f"({abs(abs(all_ci[3][1][1][1]) - abs(all_ci[3][1][1][0])):.2f})" + r"}" +
-        f"& {all_bias[3][1]}"
+        + f" {all_rmse[3][1]}& {all_std[3][1]}  & {all_loa[3][1][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[3][1][0][1]) - abs(all_ci[3][1][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[3][1][1]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[3][1][1][1]) - abs(all_ci[3][1][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[3][1]}"
         + r"\\"
         + "\n"
         "& RGBD vs minimal &"
-        + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]} "+
-        r" \textit{" + f"({abs(abs(all_ci[3][2][0][1]) - abs(all_ci[3][2][0][0])):.2f})" + r"}"+
-        f"& {all_loa[3][2][1]} "+
-        r" \textit{" + f"({abs(abs(all_ci[3][2][1][1]) - abs(all_ci[3][2][1][0])):.2f})" + r"}" +
-        f"& {all_bias[3][2]}"
+        + f" {all_rmse[3][2]}& {all_std[3][2]}  & {all_loa[3][2][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[3][2][0][1]) - abs(all_ci[3][2][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[3][2][1]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[3][2][1][1]) - abs(all_ci[3][2][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[3][2]}"
         + r"\\"
         + "\n"
         + r" \hdashline"
         + "\n"
         "\multirow{3}*{Muscle forces (N)} "
         "& RGBD vs redundant &"
-        + f" {all_rmse[4][0]}& {all_std[4][0]} & {all_loa[4][0][0]} "+
-        r" \textit{" + f"({abs(abs(all_ci[4][0][0][1]) - abs(all_ci[4][0][0][0])):.2f})" + r"}"+
-          f"& {all_loa[4][0][1]} "+
-        r" \textit{" + f"({abs(abs(all_ci[4][0][1][1]) - abs(all_ci[4][0][1][0])):.2f})" + r"}" +
-        f"& {all_bias[4][0]}"
+        + f" {all_rmse[4][0]}& {all_std[4][0]} & {all_loa[4][0][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[4][0][0][1]) - abs(all_ci[4][0][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[4][0][1]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[4][0][1][1]) - abs(all_ci[4][0][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[4][0]}"
         + r"\\"
         + "\n"
         "& minimal vs redundant &"
-        + f" {all_rmse[4][1]}& {all_std[4][1]}  & {all_loa[4][1][0]} " +
-                r" \textit{" + f"({abs(abs(all_ci[4][1][0][1]) - abs(all_ci[4][1][0][0])):.2f})" + r"}"+
-        f"& {all_loa[4][1][1]} "+
-        r" \textit{" + f"({abs(abs(all_ci[4][1][1][1]) - abs(all_ci[4][1][1][0])):.2f})" + r"}" +
-        f"& {all_bias[4][1]}"
+        + f" {all_rmse[4][1]}& {all_std[4][1]}  & {all_loa[4][1][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[4][1][0][1]) - abs(all_ci[4][1][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[4][1][1]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[4][1][1][1]) - abs(all_ci[4][1][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[4][1]}"
         + r"\\"
         + "\n"
         "& RGBD vs minimal &"
-        + f" {all_rmse[4][2]}& {all_std[4][2]}  & {all_loa[4][2][0]} "+
-        r" \textit{" + f"({abs(abs(all_ci[4][2][0][1]) - abs(all_ci[4][2][0][0])):.2f})" + r"}"+
-        f"& {all_loa[4][2][1]}"+
-        r" \textit{" + f"({abs(abs(all_ci[4][2][1][1]) - abs(all_ci[4][2][1][0])):.2f})" + r"}" +
-        f"& {all_bias[4][2]}"
+        + f" {all_rmse[4][2]}& {all_std[4][2]}  & {all_loa[4][2][0]} "
+        + r" \textit{"
+        + f"({abs(abs(all_ci[4][2][0][1]) - abs(all_ci[4][2][0][0])):.2f})"
+        + r"}"
+        + f"& {all_loa[4][2][1]}"
+        + r" \textit{"
+        + f"({abs(abs(all_ci[4][2][1][1]) - abs(all_ci[4][2][1][0])):.2f})"
+        + r"}"
+        + f"& {all_bias[4][2]}"
         + r"\\"
         + "\n"
         + r"\hline"

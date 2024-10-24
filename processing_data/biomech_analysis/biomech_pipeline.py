@@ -294,7 +294,6 @@ class BiomechPipeline:
                         measurement_noise=measurement_noise,
                         proc_noise=proc_noise,
                         compute_from_cluster=False,
-
                     )
                 )
 
@@ -435,7 +434,7 @@ class BiomechPipeline:
             "res_tau": None,
             "jrf": None,
             "time": None,
-            "markers": None
+            "markers": None,
         }
         if self.compute_ik and self.frame_count >= self.moving_window:
             init_ik = True if self.frame_count == self.moving_window else False
@@ -534,7 +533,7 @@ class BiomechPipeline:
             "peaks": self.peaks,
             "rt_matrix": self.rt_matrix,
             "vicon_to_depth": self.vicon_to_depth_idx,
-            "emg_track_idx": self.emg_track_idx
+            "emg_track_idx": self.emg_track_idx,
         }
         save(self.results_dict, output_file, safe=False)
         print(f"The file ({output_file}) has been saved.")
@@ -620,8 +619,16 @@ class BiomechPipeline:
                         )
                     else:
                         plt.plot(self.results_dict[source][key]["mean"][i, :], c=colors(count_source))
-                    if key == "mus_act" and self.results_dict[source]["emg_proc"] is not None and i in self.emg_track_idx:
-                        plt.plot(self.results_dict[source]["emg_proc"]["mean"][self.emg_track_idx.index(i), :], c="r", alpha=0.5)
+                    if (
+                        key == "mus_act"
+                        and self.results_dict[source]["emg_proc"] is not None
+                        and i in self.emg_track_idx
+                    ):
+                        plt.plot(
+                            self.results_dict[source]["emg_proc"]["mean"][self.emg_track_idx.index(i), :],
+                            c="r",
+                            alpha=0.5,
+                        )
 
             count_source += 1
         plt.show()

@@ -2,6 +2,7 @@ from datetime import datetime
 
 import os
 import cv2
+
 try:
     import pyrealsense2 as rs
 except ModuleNotFoundError:
@@ -152,7 +153,6 @@ class RGBDRecorder:
         else:
             raise RuntimeError("Camera type not recognize.")
 
-
     @staticmethod
     def _show_images(color_to_show, loop_time):
         depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(color_to_show, alpha=1), cv2.COLORMAP_JET)
@@ -209,7 +209,7 @@ class RGBDRecorder:
         if self.camera_type == "realsense":
             return self._get_frame_from_realsense()
         elif self.camera_type == "zed":
-             return self._get_frame_from_zed()
+            return self._get_frame_from_zed()
         else:
             raise RuntimeError("Camera type not recognize.")
 

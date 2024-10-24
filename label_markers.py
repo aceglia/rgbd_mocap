@@ -11,7 +11,6 @@ import os
 prefix = "/media/amedeo/Disque Jeux/" if os.name == "posix" else r"Q:\\"
 
 
-
 def get_crop_from_last_config(path):
     with open(path, "r") as f:
         data = json.load(f)
@@ -110,9 +109,7 @@ def main():
                 for a, al in enumerate(alone):
                     print(f"working on participant {part} for trial {file[:7]}")
                     # path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_dlc.json"
-                    path = (
-                        f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_cropsnew.json"
-                    )
+                    path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_cropsnew.json"
                     if not os.path.exists(path):
                         raise FileNotFoundError(f"No tracking config file found for {part} in {file}")
                         last_config = (

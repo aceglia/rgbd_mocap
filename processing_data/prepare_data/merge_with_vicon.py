@@ -5,7 +5,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import ceil
 import pandas as pd
-from processing_data.data_processing_helper import fill_and_interpolate, interpolate_data, reorder_markers_from_names, convert_string
+from processing_data.data_processing_helper import (
+    fill_and_interpolate,
+    interpolate_data,
+    reorder_markers_from_names,
+    convert_string,
+)
 from pyomeca import Analogs, Markers
 import glob
 from scapula_cluster.from_cluster_to_anato import ScapulaCluster
@@ -304,7 +309,9 @@ class ProcessData:
 
     def _load_depth_markers(self, file):
         corresponding_depth_file = self._find_corresponding_depth_file(file)
-        depth_markers_data = load(corresponding_depth_file + os.sep + "marker_pos_multi_proc_3_crops_normal_times_three_new_pp.bio")
+        depth_markers_data = load(
+            corresponding_depth_file + os.sep + "marker_pos_multi_proc_3_crops_normal_times_three_new_pp.bio"
+        )
         self.img_idx = depth_markers_data["frame_idx"]
         self.time_to_process = depth_markers_data["time_to_process"]
         self.delay_from_depth_image = (
@@ -320,10 +327,10 @@ class ProcessData:
         nan_depth_markers[nan_depth_markers == 0] = np.nan
 
         reordered_markers_depth, _ = reorder_markers_from_names(
-            depth_markers, self.depth_markers_names , depth_markers_names
+            depth_markers, self.depth_markers_names, depth_markers_names
         )
         reordered_nan_markers_depth, _ = reorder_markers_from_names(
-            nan_depth_markers, self.depth_markers_names , depth_markers_names
+            nan_depth_markers, self.depth_markers_names, depth_markers_names
         )
         return reordered_markers_depth, reordered_nan_markers_depth
 
@@ -857,12 +864,12 @@ if __name__ == "__main__":
 
     #
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    #trials = [["anat"]] * len(participants)
+    # trials = [["anat"]] * len(participants)
     # trials[0] = ["gear_10"]
     # trials[0] = ["gear_5", "gear_20"]
     # trials[1] = ["gear_5", "gear_15", "gear_20"]
     # trials[3] = ["gear_20"]
-    #trials[-1] = ["gear_20"]
+    # trials[-1] = ["gear_20"]
     # trials = ["gear_20"]
 
     processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data/"

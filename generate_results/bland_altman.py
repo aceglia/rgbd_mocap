@@ -55,10 +55,10 @@ def get_confidence_interval(bias, s, n, ci_level=0.95):
     # Critical z-score, calculated using the percent-point function (aka the
     # quantile function) of the normal distribution
     z_star = st.norm.ppf(q)
-    #print(f"95% of normally distributed data lies within {z_star}σ of the mean")
+    # print(f"95% of normally distributed data lies within {z_star}σ of the mean")
     # Limits of agreement (LOAs)
     loas = st.norm.interval(ci_level, bias, s)
-    #print(np.round(loas, 2))
+    # print(np.round(loas, 2))
     # Degrees of freedom
     dof = n - 1
     # Standard error of the bias
@@ -98,15 +98,15 @@ def _compute_bland_altman(participants, all_data, files, key, factor, unit, sour
             )
             ref_data = data[source[j]][key][..., :end_frame] if end_frame is not None else data[source[j]][key]
             # to_compare, ref_data = remove_outliers(to_compare, ref_data, m=6)
-           # dif_tmp = [np.mean((np.array(ref) - np.array(comp))) for ref, comp in zip(ref_data, to_compare)]
+            # dif_tmp = [np.mean((np.array(ref) - np.array(comp))) for ref, comp in zip(ref_data, to_compare)]
             mean_tmp = [(np.array(ref) + np.array(comp) / 2).tolist() for ref, comp in zip(ref_data, to_compare)]
             dif_tmp = [(np.array(ref) - np.array(comp)).tolist() for ref, comp in zip(ref_data, to_compare)]
             all_rmse.append(np.mean([np.sqrt(np.mean(np.array(d) ** 2)) for d in dif_tmp]))
             all_std.append(np.mean([np.std(np.array(d), ddof=1) for d in dif_tmp]))
             all_diff.append(sum(dif_tmp, []))
             all_mean.append(sum(mean_tmp, []))
-            #all_diff.append(dif_tmp)
-            #all_mean.append(mean_tmp)
+            # all_diff.append(dif_tmp)
+            # all_mean.append(mean_tmp)
             count_part = count_part + 1 if p_prev != part else count_part
             p_prev = part
             if plot:
@@ -120,13 +120,15 @@ def _compute_bland_altman(participants, all_data, files, key, factor, unit, sour
 
         # compute Bland-Altman
         bias = np.mean(diff) * factor
-        #low_limit = (np.mean(diff) - 1.96 * np.std(diff)) * factor
-        #high_limit = (np.mean(diff) + 1.96 * np.std(diff)) * factor
+        # low_limit = (np.mean(diff) - 1.96 * np.std(diff)) * factor
+        # high_limit = (np.mean(diff) + 1.96 * np.std(diff)) * factor
         # compute confidence interval
-        ci_bias, ci_lower_loa, ci_upper_loa, loas = get_confidence_interval(bias, np.std(diff * factor, ddof=1) , len(dif),  ci_level=0.95)
-        low_limit =  loas[0]
+        ci_bias, ci_lower_loa, ci_upper_loa, loas = get_confidence_interval(
+            bias, np.std(diff * factor, ddof=1), len(dif), ci_level=0.95
+        )
+        low_limit = loas[0]
         high_limit = loas[1]
-        #print(f"Confidence interval for the bias: {ci_bias}"
+        # print(f"Confidence interval for the bias: {ci_bias}"
         #      f"\nConfidence interval for the lower LOA: {ci_lower_loa}"
         #      f"\nConfidence interval for the upper LOA: {ci_upper_loa}"
         #      )

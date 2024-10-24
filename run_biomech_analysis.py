@@ -28,11 +28,11 @@ def init_kalman_filter_parameters(biomech_pipeline, source):
         proc_noise[:4] = [1] * 4
         measurement_noise[-3:] = [10] * 3
         proc_noise[-3:] = [1] * 3
-        #measurement_noise[:4] = [20] * 4
-        #proc_noise[:4] = [2] * 4
+        # measurement_noise[:4] = [20] * 4
+        # proc_noise[:4] = [2] * 4
         # compute from cluster :
-        #measurement_noise[10:13] = [1] * 3
-        #proc_noise[10:13] = [1] * 3
+        # measurement_noise[10:13] = [1] * 3
+        # proc_noise[10:13] = [1] * 3
         # measurement_noise[7:] = [5] * len(measurement_noise[7:])
         # proc_noise[7:] = [1] * len(measurement_noise[7:])
         # measurement_noise[5:7] = [10] * 2

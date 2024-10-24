@@ -7,7 +7,9 @@ from processing_data.file_io import get_all_file
 prefix = "/mnt/shared" if os.name == "posix" else "Q:"
 
 
-def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, participant=None, file=None, start_idx = None):
+def merge_files(
+    data, data_1_gap=None, data_2_gap=None, final_end_idx=None, participant=None, file=None, start_idx=None
+):
     first_idx = data_1_gap["frame_idx"][0] if data_1_gap else None
     second_idx = data_2_gap["frame_idx"][0] if data_2_gap else None
     idxs = [start_idx, first_idx, second_idx, final_end_idx]
@@ -51,7 +53,6 @@ def merge_files(data, data_1_gap=None, data_2_gap=None, final_end_idx=None, part
                 data_tmp[key] = data[key][start_idx_tmp:]
     else:
         data_tmp = data
-
 
     if data_1_gap is not None:
         data_tmp_1 = {}
@@ -149,7 +150,9 @@ if __name__ == "__main__":
         # #     final_end_idx = 8535
         # # elif part == "P12" and "only" in file:
         # #     final_end_idx = 5382
-        data = merge_files(data, data_1_gap, data_2_gap, final_end_idx=final_end_idx, participant=part, file=file, start_idx=start_idx)
+        data = merge_files(
+            data, data_1_gap, data_2_gap, final_end_idx=final_end_idx, participant=part, file=file, start_idx=start_idx
+        )
         #
         markers = data["markers_in_meters"]
         x = data["frame_idx"]

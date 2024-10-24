@@ -116,7 +116,8 @@ def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exc
             all_files = [file for file in all_files if not any(ext in file for ext in to_exclude)]
 
         all_files = [
-            f"{data_dir}{os.sep}{part}{os.sep}{file}" for file in all_files
+            f"{data_dir}{os.sep}{part}{os.sep}{file}"
+            for file in all_files
             if os.path.isfile(f"{data_dir}{os.sep}{part}{os.sep}{file}") != is_dir
         ]  # if "gear" in file and "less" not in file and "more" not in file and "result" not in file]
         final_files = all_files if not trial_names else []
