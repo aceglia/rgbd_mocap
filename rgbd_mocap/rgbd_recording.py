@@ -87,9 +87,10 @@ class RGBDRecorder:
             self.align = rs.align(align_to)
 
     @staticmethod
-    def _show_images(color_to_show, loop_time):
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(color_to_show, alpha=0.03), cv2.COLORMAP_JET)
+    def _show_images(color_to_show, depth_image, loop_time):
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
         cv2.addWeighted(depth_colormap, 0.8, color_to_show, 0.8, 0, color_to_show)
+        cv2.imshow("depth", depth_colormap)
         if len(loop_time) > 20:
             cv2.putText(
                 color_to_show,
@@ -150,7 +151,7 @@ class RGBDRecorder:
                 if cv2.waitKey(1) & 0xFF == ord("s"):
                     save_data = True
                 color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
-                self._show_images(color_image, loop_time_list)
+                self._show_images(color_image, depth_image, loop_time_list)
                 if save_data:
                     tic_init = time.time()
                     print("start recording...")
@@ -161,7 +162,7 @@ class RGBDRecorder:
                     print("time: ", time.time() - tic_init)
                 if keep_image:
                     color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
-                    self._show_images(color_image, loop_time_list)
+                    self._show_images(color_image, depth_image, loop_time_list)
                 self.queue_depth[nb_process].put_nowait(depth_image_to_save)
                 self.queue_color[nb_process].put_nowait(color_image_to_save)
                 self.queue_frame[nb_process].put_nowait(frame_number)

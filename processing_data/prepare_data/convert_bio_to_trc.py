@@ -5,7 +5,7 @@ import biorbd
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-from utils import _reorder_markers_from_names
+from processing_data.data_processing_helper import reorder_markers_from_names
 
 
 def _convert_string(string):
@@ -37,15 +37,14 @@ def get_model_markers_names(model, names=None):
 
 
 if __name__ == "__main__":
-    participants = [f"P{i}" for i in range(10, 11)]
+    participants = [f"P{i}" for i in range(11, 12)]
     # participants.pop(participants.index("P14"))
-
     data_path = "Q://Projet_hand_bike_markerless/RGBD"
     model_source = ["dlc_ribs", "vicon"]
     sources = ["dlc_1"]  # , "vicon"]
     for participant in participants:
         all_files = os.listdir(rf"{data_path}\{participant}")
-        all_files = [file for file in all_files if "gear" in file]
+        all_files = [file for file in all_files if "gear_20" in file]
         for file in all_files:
             model = "normal_500_down_b1"
             filt = "filtered"
@@ -58,10 +57,11 @@ if __name__ == "__main__":
             for s, source in enumerate(sources):
                 if source not in data.keys():
                     raise ValueError(f"source {source} not in data keys")
-                model_path = f"Q://Projet_hand_bike_markerless/RGBD/P10/model_scaled_{model_source[s]}.bioMod"
+                model_path = f"Q://Projet_hand_bike_markerless/RGBD/P12/model_scaled_{model_source[s]}_new_seth.bioMod"
                 import numpy as np
 
                 markers = data[source]["tracked_markers"][..., :1000]
+
                 if source == "vicon":
                     markers = np.nan_to_num(markers, nan=0.0)
                 model = biorbd.Model(model_path)
@@ -70,8 +70,8 @@ if __name__ == "__main__":
                 if os.path.exists(output_path):
                     os.remove(output_path)
                 ordered_names = [_convert_string(name) for name in marker_names]
-                markers_ordered = _reorder_markers_from_names(markers, ordered_names, data[source]["marker_names"])
-
+                markers_ordered, _ = reorder_markers_from_names(markers, ordered_names, data[source]["marker_names"])
+                # markers_ordered[:, marker_names.index("XIPH"), :] = np.repeat(np.array([[-0.0161163], [-0.81886482],[ 0.80121875]]), markers.shape[2], axis=1)
                 C3DtoTRC.WriteTrcFromMarkersData(
                     output_file_path=output_path,
                     markers=markers_ordered,
