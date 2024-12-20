@@ -42,6 +42,7 @@ class Handler:
 
         if Handler.SHOW_MARKERS and markers is not None:
             image = print_marker(image, markers, use_off_set=False)
+        cv2.namedWindow(crop_name, cv2.WINDOW_NORMAL)
         cv2.imshow(crop_name, image)
         cv2.waitKey(1)
 

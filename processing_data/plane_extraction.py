@@ -69,7 +69,7 @@ def get_label_image(participant, camera):
     main_path = f"{prefix}/RGBD"
     files = os.listdir(f"{main_path}{os.sep}{participant}")
     # file_gear_5 = [file for file in files if "gear_5" in file and "less" not in file and "more" not in file]
-    files = [file for file in files if "gear" in file and "less" not in file and "more" not in file]
+    files = [file for file in files if "gear_5" in file and "less" not in file and "more" not in file]
     for file in files:
         tracking_config_path = (
             f"{main_path}{os.sep}{participant}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
@@ -102,10 +102,13 @@ def get_label_image(participant, camera):
         markers_in_meter_augmented = np.zeros((3, markers_in_meter.shape[1] + 1, markers_in_meter.shape[2]))
         markers_in_meter_augmented[:, :-1, :] = markers_in_meter
         markers_names_augmented = marker_names + ["technical_marker"]
+        markers_names_augmented = np.repeat(np.array([markers_names_augmented])[:, None],
+                  markers_in_meter_augmented.shape[2], axis=1)
+        idx_ster = marker_names.index("ster")
+        time_list = []
         for i in range(len(frame_idx)):
             depth = cv2.imread(path + f"/depth_{frame_idx[i]}.png", cv2.IMREAD_ANYDEPTH)
             tic = time.time()
-            idx_ster = marker_names.index("ster")
             bb = np.array(
                 [
                     [
@@ -145,10 +148,10 @@ def get_label_image(participant, camera):
             ster = markers_in_meter[:, idx_ster, i]
 
             # new 3d point at a distance d from the ster markers along the normal direction
-            d = 0.145
+            d = 0.230
             new_point = ster + normal * d
-            print("time to compute technical marker: ", time.time() - tic)
             markers_in_meter_augmented[:, -1, i] = new_point
+            time_list.append(time.time() - tic)
 
             # plot the new point
             # fig = plt.figure("3d")
@@ -171,12 +174,15 @@ def get_label_image(participant, camera):
             # ax = plot_points(points_in_meters, rt, ax, origin=markers_in_meter[:, idx_ster, i])
             # if i == 50:
             #     plt.show()
+            if i!= 0 and i % 500 == 0:
+                print(f"{i} iterations done for participant {participant}")
         new_path = path + "/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_1_with_model_pp_full.bio"
         new_path = new_path.replace("pp_full", "pp_full_technical_marker")
         markers_data["markers_in_meters"] = markers_in_meter_augmented
-        markers_data["markers_names"] = np.repeate(np.array([markers_names_augmented])[:, None],
-                                                   markers_in_meter_augmented.shape[2], axis=1)
-        save(markers_data, new_path)
+        markers_data["markers_names"] = markers_names_augmented
+        markers_data["time_to_add_technical_marker"] = time_list
+        save(markers_data, new_path, safe=False)
+        print(f"Data augmentation done for {file}")
     return
 
 
@@ -268,9 +274,8 @@ def set_axes_equal(ax):
 if __name__ == '__main__':
     prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/shared/Projet_hand_bike_markerless"
     np.random.seed(40)
-    participants = ["P9"]
+    participants = [f"P{i}" for i in range(9, 17)]
     for p, part in enumerate(participants):
-        print(f"Processing data augmentation excluding {part}...")
         camera_config_path = f"{prefix}/RGBD/config_camera_files/config_camera_{part}.json"
         camera = CameraConverter()
         camera.set_intrinsics(camera_config_path)

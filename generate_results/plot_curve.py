@@ -261,7 +261,7 @@ def plot_results(
     # if not isinstance(results_from_sources[0]["mus_act"]["mean"], list):
     #     plt.figure("muscle torque")
     #     for i in range(results_from_sources[0]["mus_act"]["mean"].shape[0]):
-    #         plt.subplot(4, ceil(results_from_sources[0]["mus_act"]["mean"].shape[0] / 4), i+1)
+    #         plt.subplot(4, ceil(results_from_sources[0]["mus_act"]["mean"].shape[0] / 4), i + 1)
     #         for k in range(len(results_from_sources)):
     #             plt.plot(results_from_sources[k]["mus_act"]["mean"][i, :], line[k], color=color[k], label=all_names[i])
     #             # plt.suptitle(all_names[i], fontsize=font_size)
@@ -300,17 +300,17 @@ def plot_results(
 
 
 if __name__ == "__main__":
-    participants = ["P9"]  # , "P11", "P12", "P13", "P14", "P15", "P16"]
+    participants = ["P13"]  # , "P11", "P12", "P13", "P14", "P15", "P16"]
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(
         participants
     )  # , "gear_15", "gear_20"]] * len(participants)
-    trials = [["gear_15"]] * len(participants)
+    trials = [["gear_10"]] * len(participants)
     all_data, _ = load_results(
         participants,
         # "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files/process_data",
         "/mnt/shared/Projet_hand_bike_markerless/process_data",
         # file_name="3_crops_seth_new_model", trials=trials,
-        file_name="kalman_proc.bio",
+        file_name="kalman_proc_new.bio",
         trials=trials,
         recompute_cycles=False,
     )
@@ -333,7 +333,7 @@ if __name__ == "__main__":
                 all_data[part][file]["shared"]["vicon_to_depth"],
                 sources=("depth", "vicon", "minimal_vicon"),
                 stop_frame=None,
-                cycle=False,
+                cycle=True,
                 trial_name=trials[0][f],
                 fig_suffix="_" + str(count),
                 n_cycle=70,

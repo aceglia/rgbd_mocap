@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from biosiglive import load, OfflineProcessing
+from biosiglive import load, OfflineProcessing, save
 from biosiglive.processing.msk_utils import ExternalLoads
 import biorbd
 from scipy.signal import find_peaks
@@ -21,8 +21,11 @@ prefix = "/mnt/shared" if os.name == "posix" else "Q:"
 
 def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     markers_dic = {} if markers_dic is None else markers_dic
-    data = load(f"{data_path}/{part}/{file}_processed_3_crops.bio")
+    # data = load(f"{data_path}/{part}/{file}_processed_3_crops_new_mvc.bio")
+    data = load(f"{data_path}/{part}/{file}_processed_3_crops_rt.bio")
     rt = None if "rt_matrix" not in data.keys() else data["rt_matrix"]
+    # rt = data_old["rt_matrix"]
+
     markers_depth = data["markers_depth_interpolated"]
     markers_vicon = data["truncated_markers_vicon"]
     names_from_source = [data["depth_markers_names"], data["vicon_markers_names"]]
@@ -38,10 +41,18 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     vicon_markers_names[idx_ts] = "scapia"
     vicon_markers_names[idx_ai] = "scapts"
     vicon_to_depth_idx = get_vicon_to_depth_idx(depth_markers_names, vicon_markers_names)
-    emg = data["emg_proc_interpolated"]
+    emg = np.clip(data["emg_proc_interpolated"], 0, 1)
     emg = None if not isinstance(emg, np.ndarray) else emg
     peaks, _ = find_peaks(sensix_data["crank_angle"][0, :])
     peaks = [peak for peak in peaks if sensix_data["crank_angle"][0, peak] > 6]
+    # if part == "P11":
+    #     idx_clav_vicon = vicon_markers_names.index("clavac")
+    #     idx_clav_depth = depth_markers_names.index("clavac")
+    #     markers_vicon[:, idx_clav_vicon, :] = markers_depth[:, idx_clav_depth, :]
+    #     idx_ster_vicon = vicon_markers_names.index("xiph")
+    #     idx_ster_depth = depth_markers_names.index("xiph")
+    #     markers_vicon[:, idx_ster_vicon, :] = markers_depth[:, idx_ster_depth, :]
+
     markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
     names_from_source.append(list(np.array(vicon_markers_names)[vicon_to_depth_idx]))
     if filter_depth:
@@ -124,12 +135,40 @@ def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exc
     return sum(all_path, []), sum(parts, [])
 
 
+def _save_tmp_file(participants, all_files, name_to_save="tmp.bio"):
+    dict_data = {}
+    all_data_list = []
+    for part, file in zip(participants, all_files):
+        print(part, file)
+        if part == "P15" and "gear_5" in file:
+            continue
+        data = load(file)
+        all_data_list.append(data)
+    dict_data["data"] = all_data_list
+    dict_data["participants"] = participants
+    save(dict_data, name_to_save, safe=False)
+
+
+def load_all_data(participants, all_files, name_to_load="tmp.bio", reload=False):
+    if os.path.exists(name_to_load) and not reload:
+        print(f"Loading pre-processed data on path {name_to_load}")
+        dict_data = load(name_to_load)
+        all_data_list = dict_data["data"]
+        participants = dict_data["participants"]
+        return all_data_list, participants
+    else:
+        _save_tmp_file(participants, all_files, name_to_save=name_to_load)
+        return load_all_data(participants, all_files, name_to_load=name_to_load)
+
+
 def get_dlc_data(dlc_data_path, markers_dic=None, source="dlc"):
     markers_dic = {} if markers_dic is None else markers_dic
     ordered_markers_names = [
-        "ribs",
+        # "ribs",
         "ster",
         "xiph",
+        "technical_marker",
+        # "marker_tec_2",
         "clavsc",
         "clavac",
         "delt",
@@ -144,7 +183,7 @@ def get_dlc_data(dlc_data_path, markers_dic=None, source="dlc"):
     ]
     data = load(dlc_data_path)
     reordered_markers_dlc, idx = reorder_markers_from_names(
-        data["markers_in_meters"], ordered_markers_names, list(data["markers_names"][:, 0])
+        data["markers_in_meters"][:3, ...], ordered_markers_names, list(data["markers_names"][0, 0])
     )
     markers_dic[source] = [ordered_markers_names, reordered_markers_dlc]
     return markers_dic, data["frame_idx"]
@@ -259,11 +298,12 @@ def get_data_from_sources(
             continue
         elif ("vicon" in source or "depth" in source) and not once_loaded:
             print(f"Processing participant {participant}, trial : {trial_name}")
+            filter_depth =  True if "depth" in source_list and live_filter[source_list.index("depth")].value == 4 else False
             markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
                 prefix + "/Projet_hand_bike_markerless/process_data",
                 participant,
                 f"{trial_name}",
-                live_filter[source_list.index("depth")].value == 4,
+                filter_depth,
                 markers_dic,
             )
             markers_dic = {key: markers_dic[key] for key in source_list if "dlc" not in key}
@@ -271,7 +311,9 @@ def get_data_from_sources(
         elif "dlc" in source:
             is_dlc = True
             ratio = "0_" + source.split("_")[-1] if source.split("_")[-1] != "1" else source.split("_")[-1]
-            dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_{ratio}_with_model_pp_full.bio"
+            dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_{ratio}_with_model_pp_full_technical_marker.bio"
+            #dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_model_0_5_pp.bio"
+
             markers_dic, dlc_frames_idx = get_dlc_data(dlc_data_path, markers_dic, source)
 
     if os.path.isfile(labeled_data_path) and is_dlc:

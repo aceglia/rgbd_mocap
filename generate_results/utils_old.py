@@ -507,10 +507,12 @@ def compute_blandt_altman(
         for i in range(len(color)):
             mean_tmp = mean_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
             diff_tmp = diff_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
+            color_markers = plt.cm.viridis(np.linspace(0, 1, diff_tmp.shape[0]))
+            color_tmp = color_markers if "marker" in title else color[i]
             for j in range(len(mean_tmp)):
-                if np.abs(diff_tmp[j]) > threeshold:
-                    continue
-                ax.scatter(mean_tmp[j], diff_tmp[j], c=color[i][j], s=100, alpha=0.6, marker=markers)
+                #if np.abs(diff_tmp[j]) > threeshold:
+                #    continue
+                ax.scatter(mean_tmp[j], diff_tmp[j], c=color_tmp[j], s=100, alpha=0.6, marker=markers)
 
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line

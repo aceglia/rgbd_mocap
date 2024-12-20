@@ -4,7 +4,6 @@ import os
 import biorbd
 from pathlib import Path
 import matplotlib.pyplot as plt
-
 from processing_data.data_processing_helper import reorder_markers_from_names
 
 
@@ -37,18 +36,19 @@ def get_model_markers_names(model, names=None):
 
 
 if __name__ == "__main__":
-    participants = [f"P{i}" for i in range(11, 12)]
+    participants = [f"P{i}" for i in range(9, 10)]
     # participants.pop(participants.index("P14"))
-    data_path = "Q://Projet_hand_bike_markerless/RGBD"
-    model_source = ["dlc_ribs", "vicon"]
+    prefix = "/mnt/shared/"
+    data_path = f"{prefix}/Projet_hand_bike_markerless/RGBD"
+    model_source = ["dlc", "vicon"]
     sources = ["dlc_1"]  # , "vicon"]
     for participant in participants:
-        all_files = os.listdir(rf"{data_path}\{participant}")
-        all_files = [file for file in all_files if "gear_20" in file]
+        all_files = os.listdir(rf"{data_path}/{participant}")
+        all_files = [file for file in all_files if "gear_5" in file]
         for file in all_files:
             model = "normal_500_down_b1"
             filt = "filtered"
-            file_tmp = f"Q://Projet_hand_bike_markerless/process_data/{participant}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}_{model}_no_root.bio"
+            file_tmp = f"{prefix}Projet_hand_bike_markerless/process_data/{participant}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}_with_technical_marker.bio"
             if not os.path.isfile(file_tmp):
                 continue
             print("processing file : ", file_tmp)
@@ -57,21 +57,20 @@ if __name__ == "__main__":
             for s, source in enumerate(sources):
                 if source not in data.keys():
                     raise ValueError(f"source {source} not in data keys")
-                model_path = f"Q://Projet_hand_bike_markerless/RGBD/P12/model_scaled_{model_source[s]}_new_seth.bioMod"
+                model_path = f"{prefix}Projet_hand_bike_markerless/RGBD/P9/model_scaled_{model_source[s]}_with_technical_marker.bioMod"
                 import numpy as np
 
-                markers = data[source]["tracked_markers"][..., :1000]
-
+                markers = data[source]["markers"][..., :1000]
                 if source == "vicon":
                     markers = np.nan_to_num(markers, nan=0.0)
                 model = biorbd.Model(model_path)
                 marker_names = get_model_markers_names(model)
-                output_path = f"Q://Projet_hand_bike_markerless/RGBD\{participant}/{file}/{Path(file).stem}_{source}_ribs_and_cluster.trc"
+                output_path = rf"{prefix}Projet_hand_bike_markerless/RGBD/{participant}/{file}/{Path(file).stem}_{source}_with_technical_marker.trc"
                 if os.path.exists(output_path):
                     os.remove(output_path)
                 ordered_names = [_convert_string(name) for name in marker_names]
                 markers_ordered, _ = reorder_markers_from_names(markers, ordered_names, data[source]["marker_names"])
-                # markers_ordered[:, marker_names.index("XIPH"), :] = np.repeat(np.array([[-0.0161163], [-0.81886482],[ 0.80121875]]), markers.shape[2], axis=1)
+
                 C3DtoTRC.WriteTrcFromMarkersData(
                     output_file_path=output_path,
                     markers=markers_ordered,

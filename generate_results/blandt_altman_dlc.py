@@ -1,11 +1,13 @@
 from pathlib import Path
 import os
+import numpy as np
 
 import matplotlib.pyplot as plt
 
 from biosiglive import load, save
-from utils_old import load_data, _get_vicon_to_depth_idx, _convert_string
-from utils_old import *
+from utils_old import load_results #, compute_blandt_altman
+from processing_data.data_processing_helper import compute_blandt_altman
+
 
 
 def compute_error(data, ref):
@@ -69,10 +71,15 @@ if __name__ == "__main__":
     # participants.pop(participants.index("P11"))
     # trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
     # trials[-1] = ["gear_10"]
+    n_mark = 13
     colors = plt.cm.tab10(np.linspace(0, 1, len(participants)))
+    colors_markers = plt.cm.tab10(np.linspace(0, 1, n_mark))
+    # colormap veridis
+    colors_markers = plt.cm.viridis(np.linspace(0, 1, n_mark))
+
 
     # plt.show()
-    reload_data = True
+    reload_data = False
     if reload_data:
         all_data, trials = load_results(
             participants,
@@ -104,11 +111,17 @@ if __name__ == "__main__":
     for i in range(len(participants)):
         plt.scatter(i, i, color=colors[i], s=200, alpha=0.5)
     plt.legend(participants)
+    markers_names = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["minimal_vicon"]["marker_names"]
+
+    plt.figure("colors_mark")
+    for i in range(n_mark):
+        plt.scatter(i, i, color=colors_markers[i], s=200, alpha=0.5)
+    plt.legend(markers_names)
 
     keys = ["tracked_markers", "q_raw", "q_dot", "center_of_rot"]  # "q_ddot", "tau", "mus_act", "mus_force"]
     factors = [1000, 180 / np.pi, 180 / np.pi, 1000]  # , 180 / np.pi, 1, 100, 1]
     units = ["mm", "°", "°/s", "mm"]
-    # source = ["minimal_vicon", "minimal_vicon", "minimal_vicon"]
+    source = ["minimal_vicon", "minimal_vicon", "minimal_vicon"]
     source = ["vicon", "vicon", "vicon"]
 
     to_compare_source = ["dlc_0_8", "dlc_0_9", "dlc_1"]
@@ -150,17 +163,25 @@ if __name__ == "__main__":
                             if end_frame is not None
                             else all_data[part][file][to_compare_source[j]][key]
                         )
-                        from utils_old import _reorder_markers_from_names
+                        from utils_old import reorder_markers_from_names
 
-                        idx_scap_ia = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_IA")
-                        idx_scap_ts = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_TS")
-                        all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ia] = "SCAP_TS"
-                        all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ts] = "SCAP_IA"
-                        to_compare, _ = _reorder_markers_from_names(
+                        #idx_scap_ia = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_IA")
+                        #idx_scap_ts = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_TS")
+                        #all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ia] = "SCAP_TS"
+                        #all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ts] = "SCAP_IA"
+                        to_compare, _ = reorder_markers_from_names(
                             to_compare,
                             ordered_markers_names=all_data[part][file][source_tmp]["marker_names"],
                             markers_names=all_data[part][file][to_compare_source[j]]["marker_names"],
                         )
+                        #plt.figure(f"P{part}_{file}_{key}_{to_compare_source[j]}")
+                        #for i in range(to_compare.shape[1]):
+                        #    plt.subplot(4, 4, i + 1)
+                        #    for j in range(to_compare.shape[0]):
+                        #        plt.plot(to_compare[j, i, :], label=f"{j}")
+                        #        plt.plot(all_data[part][file][source_tmp][key][j, i, :], label="ref")
+                        #plt.show()
+
                         # exchange _IA and _TS
                     else:
                         to_compare = (
@@ -213,7 +234,7 @@ if __name__ == "__main__":
                 std[j, n_key * p : n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
         all_rmse.append(rmse.mean(axis=1).round(2))
         all_std.append(std.mean(axis=1).round(2))
-        bias, lower_loa, upper_loa = compute_blandt_altman(
+        bias, lower_loa, upper_loa, _ = compute_blandt_altman(
             means_file[0, :],
             diffs_file[0, :],
             units=units[k],
@@ -223,7 +244,7 @@ if __name__ == "__main__":
         )
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
-        bias, lower_loa, upper_loa = compute_blandt_altman(
+        bias, lower_loa, upper_loa, _ = compute_blandt_altman(
             means_file[1, :],
             diffs_file[1, :],
             units=units[k],
@@ -234,7 +255,7 @@ if __name__ == "__main__":
 
         all_bias[k].append(np.round(bias, 2))
         all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
-        bias, lower_loa, upper_loa = compute_blandt_altman(
+        bias, lower_loa, upper_loa, _ = compute_blandt_altman(
             means_file[2, :],
             diffs_file[2, :],
             units=units[k],

@@ -1,6 +1,7 @@
 import os
 from math import ceil
 
+import matplotlib.pyplot as plt
 import numpy as np
 import json
 
@@ -31,7 +32,9 @@ prefix = "/mnt/shared" if os.name == "posix" else "Q:/"
 
 
 class BiomechPipeline:
-    def __init__(self, stop_frame=None):
+    def __init__(self):
+        self.init_emg = None
+        self.init_f_ext = None
         self.cycles_computed = False
         self.model_dir = None
         self.markers_rate = None
@@ -50,7 +53,6 @@ class BiomechPipeline:
         self.kalman_instance = None
         self.n_markers = None
         self.processed_markers = None
-        self.stop_frame = stop_frame
         self.range_frame = None
         self.msk_function = None
         self.forces = None
@@ -99,23 +101,26 @@ class BiomechPipeline:
     def set_stop_frame(self, stop_frame, frame_idx, key, live_filter, data_shape=None):
         self.frame_idx = frame_idx
         self.key = key
-        if stop_frame is None and data_shape:
-            stop_frame = data_shape
-
+        factor = 2 if "dlc" not in key else 1
+        if stop_frame is not None:
+            if "dlc" in key:
+                stop_frame /= 2
         if frame_idx is not None:
             if stop_frame is None:
-                stop_frame = (frame_idx[-1] - frame_idx[0]) * 2
-            if (frame_idx[-1] - frame_idx[0]) * 2 < stop_frame:
-                stop_frame = (frame_idx[-1] - frame_idx[0]) * 2
-            if stop_frame % 2 != 0:
-                stop_frame -= 1
-        stop_frame_tmp = int(stop_frame // 2) if live_filter and "dlc" in key else stop_frame
-        if "dlc" not in key or not live_filter:
-            range_frame = range(stop_frame_tmp)
+                stop_frame = (frame_idx[-1] - frame_idx[0]) * factor
+            if (frame_idx[-1] - frame_idx[0]) * factor < stop_frame:
+                stop_frame = (frame_idx[-1] - frame_idx[0]) * factor
+
+        if stop_frame is None and data_shape:
+            stop_frame = data_shape
+        if "dlc" not in key:
+            range_frame = range(stop_frame)
         else:
             range_frame = range(frame_idx[0], frame_idx[-1])
+        if "dlc" in key :
+            pass
         self.range_frame = range_frame
-        self.stop_frame = stop_frame_tmp
+        self.stop_frame = stop_frame
 
     def init_scapula_cluster(
         self, participant, measurements_dir_path=None, calibration_matrix_dir=None, config="with_depth"
@@ -170,7 +175,7 @@ class BiomechPipeline:
                     markers_data[:, k, 0],
                     n_measures=3,
                     n_diff=2,
-                    fps=self.markers_rate,
+                    fps=self.fps,
                     measurement_noise_factor=measurement_noise[k],
                     process_noise_factor=proc_noise[k],
                     error_cov_post_factor=0,
@@ -232,7 +237,7 @@ class BiomechPipeline:
         return markers_tmp
 
     def get_filter_function(self, **kwargs):
-        if self.live_filter_method == FilteringMethod.NONE:
+        if self.live_filter_method == FilteringMethod.NONE or self.live_filter_method == FilteringMethod.OffLine:
             self.moving_window = 0
             return lambda x: x
 
@@ -282,8 +287,8 @@ class BiomechPipeline:
 
             markers_tmp = self.filter_function(markers_tmp[...], compute_from_cluster=compute_from_cluster, **kwargs)
             if compute_from_cluster and self.key == "depth" and self.live_filter_method == FilteringMethod.Kalman:
-                measurement_noise = [1e3] * 3
-                proc_noise = [10] * 3
+                measurement_noise = [50] * 3
+                proc_noise = [0.8] * 3
                 markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :], self.kalman_cluster = (
                     self._get_next_frame_from_kalman(
                         markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :],
@@ -340,7 +345,26 @@ class BiomechPipeline:
                     markers_tmp[:, :-3, None], model_names, self.marker_names[:-3]
                 )
                 self.marker_names = model_names
-            markers_tmp = markers_tmp[:, :, 0]
+            if compute_from_cluster and self.live_filter_method == FilteringMethod.Kalman:
+                if self.frame_count == 0:
+                    # self.idx_cluster = self.marker_names.index("clavac")
+                    self.kalman_cluster = [None] * 3
+                measurement_noise = [50] * 3
+                proc_noise = [5] * 3
+                markers_tmp = markers_tmp[:, :, 0]
+
+                markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :], self.kalman_cluster = (
+                    self._get_next_frame_from_kalman(
+                        markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :],
+                        forward=0,
+                        rotate=False,
+                        kalman_instance=self.kalman_cluster,
+                        return_kalman=True,
+                        measurement_noise=measurement_noise,
+                        proc_noise=proc_noise,
+                        compute_from_cluster=False,
+                    )
+                )
             return markers_tmp
 
     def process_all_frames(
@@ -364,7 +388,7 @@ class BiomechPipeline:
         self.compute_id = compute_id
         self.compute_ik = compute_ik
         self.print_optimization_status = print_optimization_status
-        self.msk_function = MskFunctions(model=model_path, data_buffer_size=20, system_rate=self.markers_rate)
+        self.msk_function = MskFunctions(model=model_path, data_buffer_size=20, system_rate=self.fps)
         self.live_filter_method = live_filter_method
         self.marker_names = marker_names
         final_dic = {}
@@ -412,9 +436,9 @@ class BiomechPipeline:
         # plt.show()
 
         final_dic["center_of_rot"] = compute_cor(final_dic["q"], self.msk_function.model)
-        if self.key == "minimal":
-            import bioviz
 
+        if self.key == "dlc_1dd":# in self.key:
+            import bioviz
             b = bioviz.Viz(loaded_model=self.msk_function.model)
             b.load_movement(final_dic["q"])
             b.load_experimental_markers(final_dic["markers"][:, :, :])
@@ -438,20 +462,16 @@ class BiomechPipeline:
         }
         if self.compute_ik and self.frame_count >= self.moving_window:
             init_ik = True if self.frame_count == self.moving_window else False
-            if self.key == "vicon":
-                pass
-            initial_guess = None
-            if self.key == "minimal_vicon" and self.current_frame < 30:
-                initial_guess = self.results_dict["depth"]["q"][:, self.current_frame]
+            #if self.key == "vicon":
+            #    print(markers[:, self.marker_names.index("XIPH"), :])
             times, dic_to_save, self.msk_function = run_ik(
                 self.msk_function,
                 markers,
                 times=times,
                 dic_to_save=dic_to_save,
                 init_ik=init_ik,
-                kalman_freq=self.markers_rate,
-                model_prefix=self.trial_name,
-                initial_guess=initial_guess,
+                kalman_freq=self.fps,
+                model_prefix=self.trial_name
             )
             if self.compute_id:
                 if not self.compute_ik:
@@ -496,18 +516,30 @@ class BiomechPipeline:
         for key in self.results_dict.keys():
             data_dic_tmp = self.results_dict[key]
             if "dlc" in key:
-                tmp1 = data_dic_tmp["markers"][:, 7, :].copy()
-                tmp2 = data_dic_tmp["markers"][:, 6, :].copy()
-                data_dic_tmp["markers"][:, 6, :] = tmp1
-                data_dic_tmp["markers"][:, 7, :] = tmp2
-                data_dic_tmp["marker_names"][6], data_dic_tmp["marker_names"][7] = (
-                    data_dic_tmp["marker_names"][7],
-                    data_dic_tmp["marker_names"][6],
-                )
+                #tmp1 = data_dic_tmp["markers"][:, 7, :].copy()
+                #tmp2 = data_dic_tmp["markers"][:, 6, :].copy()
+                #data_dic_tmp["markers"][:, 6, :] = tmp1
+                #data_dic_tmp["markers"][:, 7, :] = tmp2
+                #data_dic_tmp["marker_names"][6], data_dic_tmp["marker_names"][7] = (
+                #    data_dic_tmp["marker_names"][7],
+                #    data_dic_tmp["marker_names"][6],
+                #)
                 dlc_mark_tmp = data_dic_tmp["markers"][:, :, :].copy()
-                dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("ribs"), axis=1)
+                dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("technical_marker"), axis=1)
+                #dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("marker_tec_2") - 1, axis=1)
+
+                #dlc_mark, idx = refine_synchro(#
+                #     self.results_dict["minimal_vicon"]["markers"][:, :, :], dlc_mark_tmp, plot_fig=False
+                #)
+                idx  = [0,1,4,5, 6, 7,8,9,10,12,14,15,16]
+                plt.figure("markers_test")
+                for m in range(dlc_mark_tmp.shape[1]):
+                    plt.subplot(ceil(dlc_mark_tmp.shape[1] / 4), 4, m + 1)
+                    for i in range(3):
+                        plt.plot(dlc_mark_tmp[i, m, :], label=f"marker {m}")
+                        plt.plot(self.results_dict["vicon"]["markers"][:, idx, :][i, m, :])
                 dlc_mark, idx = refine_synchro(
-                    self.results_dict["minimal_vicon"]["markers"][:, :, :], dlc_mark_tmp, plot_fig=False
+                    self.results_dict["vicon"]["markers"][:, idx, :], dlc_mark_tmp, plot_fig=True
                 )
                 for key_2 in data_dic_tmp.keys():
                     data_dic_tmp_2 = data_dic_tmp[key_2]
@@ -515,7 +547,7 @@ class BiomechPipeline:
                         data_dic_tmp_2 = data_dic_tmp_2[..., :-idx] if idx != 0 else data_dic_tmp_2[..., :]
                         if interpolate_dlc and self.live_filter_method != 0:
                             data_dic_tmp_2 = fill_and_interpolate(
-                                data_dic_tmp_2, fill=False, shape=self.results_dict["depth"]["q"].shape[1]
+                                data_dic_tmp_2, fill=False, shape=self.results_dict["vicon"]["q"].shape[1]
                             )
                     data_dic_tmp[key_2] = data_dic_tmp_2
                 self.results_dict[key] = data_dic_tmp
@@ -528,11 +560,12 @@ class BiomechPipeline:
         self.results_dict = process_cycles(self.results_dict, self.peaks, n_peaks=None)
         self.cycles_computed = True
         self.results_dict["shared"] = {
-            "emg": self.emg,
-            "f_ext": self.f_ext,
+            "emg": self.init_emg,
+            "f_ext": self.init_f_ext,
             "peaks": self.peaks,
             "rt_matrix": self.rt_matrix,
             "vicon_to_depth": self.vicon_to_depth_idx,
+            "emg_track_idx": self.emg_track_idx,
         }
         save(self.results_dict, output_file, safe=False)
         print(f"The file ({output_file}) has been saved.")
@@ -576,7 +609,7 @@ class BiomechPipeline:
         colors = plt.cm.get_cmap("tab10", nb_source)
         count_source = 0
         count_key = 0
-        keys_to_plot = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_force"]
+        keys_to_plot = ["markers", "q", "q_dot", "q_ddot", "tau", "mus_force", "mus_act", "res_tau"]
         for source in self.results_dict.keys():
             if source == "shared":
                 continue
@@ -589,34 +622,55 @@ class BiomechPipeline:
                 if key not in keys_to_plot or isinstance(self.results_dict[source][key], list):
                     continue
                 if key == "markers":
-                    if source == "vicon":
+                    if source == "minimal_vicon" or source == "depth":
                         continue
                     plt.figure("markers")
                     count = 0
-                    for i in range(13):
-                        plt.subplot(ceil(13 / 4), 4, i + 1)
-                        if self.results_dict[source]["marker_names"][i] == "ribs":
-                            count += 1
+                    idx = [0, 1,  4, 5, 6, 7,  8, 9, 10, 12, 14, 15, 16]
+                    if source == "vicon":
+                        mark_tmp = self.results_dict[source][key]["mean"][:, idx, :]
+                    else:
+                        mark_tmp = self.results_dict[source][key]["mean"]
+                    if "dlc" in source:
+                        # idx_bis = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+                        # mark_tmp = self.results_dict[source][key]["mean"][:, idx_bis, :]
+                        mark_tmp = self.results_dict[source][key]["mean"]
+
+                    for i in range(len(idx)):
+                        plt.subplot(ceil(len(idx) / 4), 4, i + 1)
+                        if self.results_dict[source]["marker_names"][i] == "clav_tec":
+                            pass
                         for j in range(3):
-                            plt.plot(self.results_dict[source][key]["mean"][j, count, :], c=colors(count_source))
+                            plt.plot(mark_tmp[j, count, :], c=colors(count_source))
                         count += 1
                     continue
-
+                factor = 1 if key not in ["q", "q_dot", "q_ddot"] else 180 / np.pi
                 plt.figure(key)
                 for i in range(self.results_dict[source][key]["mean"].shape[0]):
                     plt.subplot(ceil(self.results_dict[source][key]["mean"].shape[0] / 4), 4, i + 1)
                     if plot_by_cycle:
-                        plt.plot(self.results_dict[source][key]["mean"][i, :n_cycle], c=colors(count_source))
+                        plt.plot(self.results_dict[source][key]["mean"][i, :n_cycle] * factor, c=colors(count_source))
                         plt.fill_between(
                             np.arange(n_cycle),
-                            self.results_dict[source][key]["mean"][i, :n_cycle]
-                            - self.results_dict[source][key]["std"][i, :n_cycle],
-                            self.results_dict[source][key]["mean"][i, :n_cycle]
-                            + self.results_dict[source][key]["std"][i, :n_cycle],
+                            self.results_dict[source][key]["mean"][i, :n_cycle] * factor
+                            - self.results_dict[source][key]["std"][i, :n_cycle] * factor,
+                            self.results_dict[source][key]["mean"][i, :n_cycle] * factor
+                            + self.results_dict[source][key]["std"][i, :n_cycle] * factor,
                             alpha=0.2,
                             color=colors(count_source),
                         )
                     else:
-                        plt.plot(self.results_dict[source][key]["mean"][i, :], c=colors(count_source))
+                        plt.plot(self.results_dict[source][key]["mean"][i, :] * factor, c=colors(count_source))
+                    if (
+                        key == "mus_act"
+                        and self.results_dict[source]["emg_proc"] is not None
+                        and i in self.emg_track_idx
+                    ):
+                        plt.plot(
+                            self.results_dict[source]["emg_proc"]["mean"][self.emg_track_idx.index(i), :],
+                            c="r",
+                            alpha=0.5,
+                        )
+
             count_source += 1
         plt.show()

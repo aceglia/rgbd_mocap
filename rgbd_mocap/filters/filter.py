@@ -10,6 +10,7 @@ class Filter:
         self.frame = None
         self.filtered_frame = None
         self.filtered_depth = None
+        self.mask = None
 
         self.options = options
         ### Clahe options
@@ -51,7 +52,8 @@ class Filter:
         mask_color = 20
         from ..crops.crop import DepthCheck
 
-        mask = np.ones(self.frame.depth.shape, dtype=np.uint8)
+        mask = np.ones(self.frame.depth.shape, dtype=np.uint8) if self.mask is None else self.mask
+        self.mask = mask if self.mask is None else self.mask
         min_dist = self.options["distance_in_centimeters"][0] / 100 / DepthCheck.DEPTH_SCALE
         max_dist = self.options["distance_in_centimeters"][1] / 100 / DepthCheck.DEPTH_SCALE
         mask[self.frame.depth < min_dist] = 0
@@ -60,6 +62,7 @@ class Filter:
 
         if not self.options["use_contour"]:
             self.filtered_frame[mask == 0] = mask_color
+            self.mask[:] = 1
             return
 
         thresh = cv2.threshold(mask, 0, 1, cv2.THRESH_BINARY)[1]
@@ -68,6 +71,7 @@ class Filter:
             c = sorted(contours, key=cv2.contourArea)
         except ValueError:
             self.filtered_frame[mask == 0] = mask_color
+            self.mask[:] = 1
             return
 
         if len(c) > 0:
@@ -76,9 +80,13 @@ class Filter:
             if len(c) > 1:
                 cv2.drawContours(mask, [c[-2]], contourIdx=-1, color=1, thickness=-1)
             self.filtered_frame[mask == 0] = mask_color
+            self.mask[:] = 1
+
             return
 
         self.filtered_frame[mask == 0] = mask_color
+        self.mask[:] = 1
+
         return
 
         # return mask
@@ -88,7 +96,7 @@ class Filter:
         if len(self.filtered_frame.shape) == 3:
             self.filtered_frame = cv2.cvtColor(self.filtered_frame, cv2.COLOR_RGB2GRAY)
 
-        # self.filtered_frame = cv2.GaussianBlur(self.filtered_frame, (3, 3), 0)
+        # self.filtered_frame = cv2.GaussianBlur(self.filtered_frame, (5, 5), 0)
 
         self.filtered_frame = self.clahe.apply(self.filtered_frame)
         if self.use_threshold:
@@ -113,13 +121,6 @@ class Filter:
         return centers
 
     ##### Main functions ####################################
-    def _apply_masks(self, masks):
-        mask = np.ones(self.frame.depth.shape, dtype=np.uint8)
-
-        for m in masks:
-            mask[:] *= m[:]
-
-        self.filtered_frame[mask == 0] = 20
 
     def apply_filters(self, frame):
         self.frame = frame

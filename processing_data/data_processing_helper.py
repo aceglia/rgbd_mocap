@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from casadi import interp1d
 import pandas as pd
@@ -94,14 +96,17 @@ def compute_blandt_altman(
     markers = markers if markers is not None else "o"
     if color is not None:
         for i in range(len(color)):
-            mean_tmp = mean_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
-            diff_tmp = diff_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
-            ax.scatter(mean_tmp, diff_tmp, color=color[i][0], s=100, alpha=0.6, marker=markers)
-
-            # for j in range(len(mean_tmp)):
-            #    #if np.abs(diff_tmp[j]) > threeshold:
-            #    #    continue
-            #    ax.scatter(mean_tmp[j], diff_tmp[j], color=color[i][j], s=100, alpha=0.6, marker=markers)
+            # mean_tmp = mean_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
+            # diff_tmp = diff_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
+            mean_tmp = mean_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
+            diff_tmp = diff_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
+            # ax.scatter(mean_tmp, diff_tmp, color=color[i][0], s=100, alpha=0.6, marker=markers)
+            color_markers = plt.cm.viridis(np.linspace(0, 1, diff_tmp.shape[0]))
+            color_tmp = color_markers if "marker" in title else color[i]
+            for j in range(len(mean_tmp)):
+                #if np.abs(diff_tmp[j]) > threeshold:
+                #    continue
+                ax.scatter(mean_tmp[j], diff_tmp[j], c=color_tmp[j], s=100, alpha=0.6, marker=markers)
 
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
@@ -127,8 +132,27 @@ def compute_blandt_altman(
         ax.set_ylabel("", fontsize=font)
     # ax.xticks(fontsize=font)
     # ax.yticks(fontsize=font)
-    # Get axis limits
+    # Confidence intervals
+    # ax.plot([left] * 2, list(ci_upper_loa), color="grey", ls="--", alpha=0.5)
+    # ax.plot([left] * 2, list(ci_bias), color="grey", ls="--", alpha=0.5)
+    # ax.plot([left] * 2, list(ci_lower_loa), color="grey", ls="--", alpha=0.5)
+    # Confidence intervals' caps
     left, right = ax.get_xlim()
+
+    # Set x-axis limits
+    domain = right - left
+    ax.set_xlim(left, left + domain)
+    x = np.linspace(left, right, 100)
+    # ax.plot(x_range, [ci_upper_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
+    # ax.plot(x_range, [ci_upper_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
+    # ax.plot(x_range, [ci_bias[1]] * 2, color="grey", ls="--", alpha=0.5)
+    # ax.plot(x_range, [ci_bias[0]] * 2, color="grey", ls="--", alpha=0.5)
+    # ax.plot(x_range, [ci_lower_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
+    # ax.plot(x_range, [ci_lower_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
+    # fill between confidence intervals for loa
+    ax.fill_between(x, ci_lower_loa[0], ci_lower_loa[1], color="grey", alpha=0.2)
+    ax.fill_between(x, ci_upper_loa[0], ci_upper_loa[1], color="grey", alpha=0.2)
+    # Get axis limits
     bottom, top = ax.get_ylim()
     # Set y-axis limits
     # max_y = max(abs(bottom), abs(top))
@@ -136,9 +160,6 @@ def compute_blandt_altman(
     min_y = abs(bottom)
 
     ax.set_ylim(-min_y, max_y)
-    # Set x-axis limits
-    domain = right - left
-    ax.set_xlim(left, left + domain)
     # Annotations
     ax.annotate("+LOA", (right, upper_loa), (0, 7), textcoords="offset pixels", fontsize=font)
     ax.annotate(f"{upper_loa:+4.2f}", (right, upper_loa), (0, -25), textcoords="offset pixels", fontsize=font)
@@ -147,23 +168,10 @@ def compute_blandt_altman(
     ax.annotate("-LOA", (right, lower_loa), (0, 7), textcoords="offset pixels", fontsize=font)
     ax.annotate(f"{lower_loa:+4.2f}", (right, lower_loa), (0, -25), textcoords="offset pixels", fontsize=font)
 
-    # Confidence intervals
-    ax.plot([left] * 2, list(ci_upper_loa), color="grey", ls="--", alpha=0.5)
-    ax.plot([left] * 2, list(ci_bias), color="grey", ls="--", alpha=0.5)
-    ax.plot([left] * 2, list(ci_lower_loa), color="grey", ls="--", alpha=0.5)
-    # Confidence intervals' caps
-    x_range = [left - domain * 0.025, left + domain * 0.025]
-    ax.plot(x_range, [ci_upper_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_upper_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_bias[1]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_bias[0]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_lower_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
-    ax.plot(x_range, [ci_lower_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
-
     if show:
         plt.show()
 
-    return bias, lower_loa, upper_loa
+    return bias, lower_loa, upper_loa, (ci_lower_loa, ci_upper_loa)
 
 
 def process_cycles(all_results, peaks, n_peaks=None, interpolation_size=120, key_to_get_size="q"):
@@ -202,6 +210,7 @@ def process_cycles(all_results, peaks, n_peaks=None, interpolation_size=120, key
 
 def compute_error_mark(ref_mark, mark):
     err_markers = np.zeros((ref_mark.shape[1], 1))
+    list_err = []
     for i in range(ref_mark.shape[1]):
         nan_index = np.argwhere(np.isnan(ref_mark[:, i, :]))
         new_markers_depth_tmp = np.delete(mark[:, i, :], nan_index, axis=1)
@@ -209,10 +218,14 @@ def compute_error_mark(ref_mark, mark):
         nan_index = np.argwhere(np.isnan(new_markers_depth_tmp))
         new_markers_depth_tmp = np.delete(new_markers_depth_tmp, nan_index, axis=1)
         new_markers_vicon_int_tmp = np.delete(new_markers_vicon_int_tmp, nan_index, axis=1)
-        err_markers[i, 0] = np.median(
-            np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
-        )
-    return list(err_markers[:, 0])
+        #err_markers[i, 0] = np.median(
+        #    np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
+        #)
+        if new_markers_vicon_int_tmp.shape[1] != 0:
+            list_err.append(np.median(
+                np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
+            ))
+    return list_err
 
 
 def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=200):
@@ -228,7 +241,6 @@ def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=200):
     marker_to_refine_tmp = interpolate_data(marker_to_refine_tmp, marker_full.shape[2])
     if plot_fig:
         import matplotlib.pyplot as plt
-
         plt.figure("refine synchro")
         for i in range(marker_to_refine_tmp.shape[1]):
             plt.subplot(4, 4, i + 1)
@@ -314,9 +326,10 @@ def fill_and_interpolate(data, shape, idx=None, names=None, fill=True):
 def reorder_markers_from_names(markers_data, ordered_markers_names, markers_names):
     idx = []
     markers_names = [convert_string(name) for name in markers_names]
+    if "elb" in markers_names:
+        markers_names[markers_names.index("elb")] = "elbow"
+
     for i in range(len(ordered_markers_names)):
-        if markers_names[i] == "elb":
-            markers_names[i] = "elbow"
         if convert_string(ordered_markers_names[i]) in markers_names:
             idx.append(markers_names.index(convert_string(ordered_markers_names[i])))
     return markers_data[:, idx], idx
@@ -398,3 +411,63 @@ def adjust_idx(data, idx_start, idx_end):
         else:
             data_tmp[key] = data[key]
     return data_tmp
+
+def _euler_to_rotation_matrix(angles):
+    """Convert Euler angles to a rotation matrix."""
+    phi, theta, psi = angles
+    R_x = np.array([[1, 0, 0],
+                    [0, np.cos(phi), -np.sin(phi)],
+                    [0, np.sin(phi), np.cos(phi)]])
+
+    R_y = np.array([[np.cos(theta), 0, np.sin(theta)],
+                    [0, 1, 0],
+                    [-np.sin(theta), 0, np.cos(theta)]])
+
+    R_z = np.array([[np.cos(psi), -np.sin(psi), 0],
+                    [np.sin(psi), np.cos(psi), 0],
+                    [0, 0, 1]])
+
+    return np.dot(R_z, np.dot( R_y, R_x ))
+
+# Checks if a matrix is a valid rotation matrix.
+def isRotationMatrix(R):
+    Rt = np.transpose(R)
+    shouldBeIdentity = np.dot(Rt, R)
+    I = np.identity(3, dtype=R.dtype)
+    n = np.linalg.norm(I - shouldBeIdentity)
+    return n < 1e-6
+
+
+# Calculates rotation matrix to euler angles
+# The result is the same as MATLAB except the order
+# of the euler angles ( x and z are swapped ).
+def rotationMatrixToEulerAngles(R):
+    assert (isRotationMatrix(R))
+
+    sy = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
+
+    singular = sy < 1e-6
+
+    if not singular:
+        x = math.atan2(R[2, 1], R[2, 2])
+        y = math.atan2(-R[2, 0], sy)
+        z = math.atan2(R[1, 0], R[0, 0])
+    else:
+        x = math.atan2(-R[1, 2], R[1, 1])
+        y = math.atan2(-R[2, 0], sy)
+        z = 0
+
+    return np.array([x, y, z])
+
+def calculate_euler_error(euler1, euler2):
+    """Calculate the error between two orientations in Euler angles."""
+    R1 = _euler_to_rotation_matrix(euler1)
+    R2 = _euler_to_rotation_matrix(euler2)
+
+    # Calculate the relative rotation matrix
+    R_relative = R1.T @ R2
+
+    # Calculate the angle of rotation
+    angle_error = rotationMatrixToEulerAngles(R_relative)
+
+    return np.degrees(angle_error)

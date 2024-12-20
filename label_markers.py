@@ -76,7 +76,6 @@ def main():
     participants = [f"P{i}" for i in range(10, 17)]
     # participants.pop(participants.index("P14"))
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
 
     # trials = [[ "only", "random"]] * len(participants)
     # data_files = "Q:\Projet_hand_bike_markerless\RGBD"
@@ -94,7 +93,7 @@ def main():
                         final_files.append(file)
         files = final_files
         path_to_camera_config_file = (
-            f"{prefix}Projet_hand_bike_markerless/RGBD/config_camera_files/config_camera_{part}.json"
+            f"{prefix}Documents/Programmation/pose_estimation/config_camera_files/config_camera_{part}.json"
         )
         path_to_camera_config_file = f"D:\Documents\Programmation\pose_estimation\config_camera_files/config_camera_{part}.json"
         path_to_dlc_model = [

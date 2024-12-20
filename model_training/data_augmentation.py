@@ -139,7 +139,7 @@ def apply_crop_and_ratio(markers, ratio, area):
 def get_label_image(participant_to_exclude=None):
     import json
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
-    main_path = "Q:\Projet_hand_bike_markerless\RGBD"
+    main_path = f"{prefix}/RGBD"
     # main_path = "data_files"
     nb_frame = 500
     nb_cycle = 20
@@ -341,12 +341,12 @@ def compute_surface_normals_k_nearest(depth_map, k=9):
 
 
 if __name__ == "__main__":
-    prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/Projet_hand_bike_markerless"
+    prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/shared/Projet_hand_bike_markerless"
     np.random.seed(40)
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     for p, part in enumerate(participants):
         print(f"Processing data augmentation excluding {part}...")
-        training_path = f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\{part}_excluded_normal_500"
+        training_path = f"{prefix}/RGBD/Training_data/{part}_excluded_normal_500"
         if os.path.exists(training_path):
             shutil.rmtree(training_path, ignore_errors=True)
         os.makedirs(training_path)
