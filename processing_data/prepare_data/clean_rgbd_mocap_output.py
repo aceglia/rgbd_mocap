@@ -92,16 +92,16 @@ def merge_files(
 
 
 if __name__ == "__main__":
-    file_name = f"marker_pos_multi_proc_3_crops_normal_times_three_new.bio"
+    file_name = f"marker_pos_multi_proc_3_crops_normal_500_model_0_5.bio"
     # file_name = "marker_pos_multi_proc_3_crops_normal_filtered.bio"
-    participants = [f"P{i}" for i in range(9, 17)]
+    participants = [f"P{i}" for i in range(9, 15)]
     trials = ["gear_5", "gear_10", "gear_15", "gear_20"]
-    data_files = f"{prefix}\Projet_hand_bike_markerless\RGBD"
-    data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
+    data_files = f"{prefix}/Projet_hand_bike_markerless/RGBD"
+    #data_files = "/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_files"
     files, parts = get_all_file(participants, data_files, trial_names=trials, to_include="gear")
     for part, file in zip(parts, files):
         path = file
-        path_to_camera_config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files/config_camera_{part}.json"
+        #path_to_camera_config_file = f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/config_camera_files/config_camera_{part}.json"
         data_1_gap = None
         data_2_gap = None
         if not os.path.isfile(path + os.sep + file_name):
@@ -110,11 +110,11 @@ if __name__ == "__main__":
         data = load(path + os.sep + file_name, merge=True)
         data["occlusions"] = np.array(data["occlusions"]).reshape(-1, 13).transpose()
         data["markers_names"] = np.array(data["markers_names"]).reshape(-1, 13).transpose()
-        if os.path.isfile(path + os.sep + file_name[:-4] + "_1er_gap.bio"):
-            print(f"file {file} has 1er gap")
-            data_1_gap = load(path + os.sep + file_name[:-4] + "_1er_gap.bio", merge=True)
-            data_1_gap["occlusions"] = np.array(data_1_gap["occlusions"]).reshape(-1, 13).transpose()
-            data_1_gap["markers_names"] = np.array(data_1_gap["markers_names"]).reshape(-1, 13).transpose()
+        # if os.path.isfile(path + os.sep + file_name[:-4] + "_1er_gap.bio"):
+        #     print(f"file {file} has 1er gap")
+        #     data_1_gap = load(path + os.sep + file_name[:-4] + "_1er_gap.bio", merge=True)
+        #     data_1_gap["occlusions"] = np.array(data_1_gap["occlusions"]).reshape(-1, 13).transpose()
+        #     data_1_gap["markers_names"] = np.array(data_1_gap["markers_names"]).reshape(-1, 13).transpose()
         # # if os.path.isfile(path + os.sep + "marker_pos_multi_proc_3_crops_2eme_gap.bio"):
         # #     data_2_gap = load(path + os.sep + "marker_pos_multi_proc_3_crops_2eme_gap.bio", merge=True)
         # #     data_2_gap["occlusions"] = np.array(data_2_gap["occlusions"]).reshape(-1, 13).transpose()
@@ -153,14 +153,18 @@ if __name__ == "__main__":
         data = merge_files(
             data, data_1_gap, data_2_gap, final_end_idx=final_end_idx, participant=part, file=file, start_idx=start_idx
         )
+        #previous_data = "marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_1_with_model_pp_full.bio"
+        #data_previous = load(path + os.sep + previous_data, merge=True)
         #
-        markers = data["markers_in_meters"]
+        #previous_markers = data_previous["markers_in_meters"][:, 1:, :]
+        markers = data["dlc_in_meters"]
         x = data["frame_idx"]
         plt.figure()
         for j in range(markers.shape[1]):
             plt.subplot(4, 4, j + 1)
             for i in range(3):
-                plt.plot(x, markers[i, j, :], "r")
-        plt.show()
+                plt.plot(markers[i, j, :], "r")
+                #plt.plot(previous_markers[i, j, :], "b")
+        #plt.show()
         save(data, path + os.sep + file_name[:-4] + "_pp.bio", safe=False)
         print(f"file {file} processed")

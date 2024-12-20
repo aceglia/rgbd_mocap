@@ -3,7 +3,7 @@ import os
 import csv
 from pathlib import Path
 import shutil
-import imgaug.augmenters as iaa
+# import imgaug.augmenters as iaa
 import cv2
 
 # from numba import jit
@@ -138,10 +138,8 @@ def apply_crop_and_ratio(markers, ratio, area):
 
 def get_label_image(participant_to_exclude=None):
     import json
-
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
-    main_path = "Q:\Projet_hand_bike_markerless\RGBD"
-
+    main_path = f"{prefix}/RGBD"
     # main_path = "data_files"
     nb_frame = 500
     nb_cycle = 20
@@ -153,27 +151,25 @@ def get_label_image(participant_to_exclude=None):
         if participant == participant_to_exclude:
             continue
         files = os.listdir(f"{main_path}{os.sep}{participant}")
-        file_gear_5 = [file for file in files if "gear_5" in file and "less" not in file and "more" not in file]
+        # file_gear_5 = [file for file in files if "gear_5" in file and "less" not in file and "more" not in file]
         files = [file for file in files if "only" in file and "less" not in file and "more" not in file]
         for file in files:
             tracking_config_path = (
-                f"{main_path}{os.sep}{participant}{os.sep}" + file_gear_5[0] + f"{os.sep}tracking_config_dlc.json"
+                f"{main_path}{os.sep}{participant}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
             )
+            if not os.path.isfile(tracking_config_path):
+                continue
             with open(tracking_config_path) as json_file:
                 tracking_config = json.load(json_file)
-            area = tracking_config["crops"][0]["area"]
-            for a in range(len(area)):
-                if a in [0, 1, 2]:
-                    if a == 0 or a == 1:
-                        value = area[a] - 50
-                        area[a] = value if value >= 0 else 0
-                    else:
-                        value = area[a] + 50
-                        area[a] = value if value <= 848 else 848
-                if a == 3:
-                    value = area[a] + 50
-                    area[a] = value if value <= 460 else 460
 
+            area = [0,0,0,0]
+            area[0] = min([tracking_config["crops"][i]["area"][0] for i in range(len(tracking_config["crops"]))]) - 50
+            area[2] = max([tracking_config["crops"][i]["area"][2] for i in range(len(tracking_config["crops"]))]) + 50
+            area = np.array(area)
+            area = np.clip(area, 0, 848)
+            area[1] = min([tracking_config["crops"][i]["area"][1] for i in range(len(tracking_config["crops"]))]) - 50
+            area[3] = max([tracking_config["crops"][i]["area"][3] for i in range(len(tracking_config["crops"]))]) + 50
+            area[[1, 3]] = np.clip(area[[1, 3]], 0, 460)
             path = f"{main_path}{os.sep}{participant}{os.sep}{file}"
             if not os.path.isfile(path + "/marker_pos_multi_proc_3_crops_pp.bio"):
                 continue
@@ -213,13 +209,17 @@ def get_label_image(participant_to_exclude=None):
                 depth_init = depth.copy()
                 depth = depth[area[1] : area[3], area[0] : area[2]]
                 # cv2.imshow("depth", depth)
+                # cv2.imshow("depth_init", depth_init)
+                #
+                # cv2.waitKey(0)
                 key_point_list = []
-                if count % 3 == 0:
-                    ratio = 0.8
-                elif count % 2 == 0:
-                    ratio = 0.9
-                else:
-                    ratio = 1
+                ratio = 1
+                # if count % 3 == 0:
+                #     ratio = 0.8
+                # elif count % 2 == 0:
+                #     ratio = 0.9
+                # else:
+                #     ratio = 1
                 markers_tmp = apply_crop_and_ratio(markers[:, :, i], area=area, ratio=ratio)
                 depht_value_xiph = (
                     depth[markers_tmp[1, 0].astype(int), markers_tmp[0, 0].astype(int)] * 0.0010000000474974513
@@ -341,12 +341,12 @@ def compute_surface_normals_k_nearest(depth_map, k=9):
 
 
 if __name__ == "__main__":
-    prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/Projet_hand_bike_markerless"
+    prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/shared/Projet_hand_bike_markerless"
     np.random.seed(40)
-    participants = ["P16"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
+    participants = ["P13"]
     for p, part in enumerate(participants):
         print(f"Processing data augmentation excluding {part}...")
-        training_path = f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\{part}_excluded_normal_500_down"
+        training_path = f"{prefix}/RGBD/Training_data/{part}_excluded_normal_500"
         if os.path.exists(training_path):
             shutil.rmtree(training_path, ignore_errors=True)
         os.makedirs(training_path)

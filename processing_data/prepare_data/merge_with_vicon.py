@@ -294,6 +294,7 @@ class ProcessData:
                 :3, ...
             ]  # + np.array(T)
             count += 1
+        self.rt_matrix  = r
         self.optimal_r = np.linalg.inv(r)
         if self.plot_fig:
             plt.figure("rotate")
@@ -559,7 +560,18 @@ class ProcessData:
             return
         mvc_data = [Analogs.from_c3d(filename=file, usecols=self.emg_names).values for file in self.mvc_files]
         mvc_mat = np.append(mvc_data[0], mvc_data[1], axis=1)
-        mvc = list(OfflineProcessing.compute_mvc(mvc_data[0].shape[0], mvc_trials=mvc_mat, window_size=2160))
+        mvc_mat_proc = OfflineProcessing(data_rate=2160).process_emg(
+            mvc_mat, moving_average=False, low_pass_filter=True, normalization=False, mvc_list=self.mvc
+        )
+        plt.figure("mvc")
+        for i in range(mvc_mat_proc.shape[0]):
+            plt.subplot(mvc_mat_proc.shape[0]//3+1, 3, i + 1)
+            plt.plot(mvc_mat[i, :])
+            plt.plot(mvc_mat_proc[i, :])
+
+        #mvc = list(OfflineProcessing.compute_mvc(mvc_data[0].shape[0], mvc_trials=mvc_mat, window_size=2160))
+
+        mvc = list(OfflineProcessing.compute_mvc(mvc_data[0].shape[0], mvc_trials=mvc_mat_proc, window_size=2160))
         self.mvc = mvc
 
     def _check_for_trials(self, files, trials):
@@ -798,18 +810,19 @@ class ProcessData:
             "trigger_idx": self.trigger_idx,
             "process_time_depth": self.time_to_process,
             "is_visible": self.is_depth_visible,
+            "rt_matrix": self.rt_matrix,
         }
 
-        if os.path.isfile(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new.bio"):
-            os.remove(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new.bio")
+        if os.path.isfile(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new_mvc.bio"):
+            os.remove(f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new_mvc.bio")
         if not os.path.isdir(f"{processed_data_path}/{self.participant}"):
             os.mkdir(f"{processed_data_path}/{self.participant}")
         save(
             dic_to_save,
-            f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new.bio",
+            f"{processed_data_path}/{self.participant}/{Path(file).stem}_processed_3_crops_new_mvc.bio",
             add_data=False,
         )
-        print(f"file {self.participant}/{Path(file).stem}_processed_3_crops_new.bio saved")
+        print(f"file {self.participant}/{Path(file).stem}_processed_3_crops_new_mvc.bio saved")
 
     def process(
         self,
@@ -858,12 +871,14 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, 
 
 
 if __name__ == "__main__":
-    participants = ["P9"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
+    participants = ["P"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
-    participants = [f"P{i}" for i in range(9, 17)]
+    participants = [f"P{i}" for i in range(10, 17)]
 
     #
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
+    trials = [["gear_20"]] * len(participants)
+
     # trials = [["anat"]] * len(participants)
     # trials[0] = ["gear_10"]
     # trials[0] = ["gear_5", "gear_20"]
@@ -883,6 +898,6 @@ if __name__ == "__main__":
         depth_data_files,
         sensix_path,
         trials,
-        plot=False,
+        plot=True,
         save_data=True,
     )

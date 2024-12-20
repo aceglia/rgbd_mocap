@@ -6,7 +6,6 @@ import numpy as np
 from proxsuite.proxsuite_pywrap_avx2.proxqp.dense import model
 
 from rgbd_mocap.GUI.Utils.file_dialog import kwargs
-from utils_old import _convert_string
 import time
 from biosiglive import InverseKinematicsMethods
 
@@ -37,23 +36,6 @@ def get_tracking_idx(model, emg_names=None):
             if emg_names[i] in muscle_list[j]:
                 muscle_track_idx.append(j)
     return muscle_track_idx
-
-
-def reorder_markers(markers, model, names):
-    model_marker_names = [_convert_string(model.markerNames()[i].to_string()) for i in range(model.nbMarkers())]
-    assert len(model_marker_names) == len(names)
-    assert len(model_marker_names) == markers.shape[1]
-    count = 0
-    reordered_markers = np.zeros((markers.shape[0], len(model_marker_names), markers.shape[2]))
-    final_names = []
-    for i in range(len(names)):
-        if names[i] == "elb":
-            names[i] = "elbow"
-        if _convert_string(names[i]) in model_marker_names:
-            reordered_markers[:, model_marker_names.index(_convert_string(names[i])), :] = markers[:, count, :]
-            final_names.append(model.markerNames()[i].to_string())
-            count += 1
-    return reordered_markers, final_names
 
 
 def _comment_markers(data):
@@ -144,12 +126,7 @@ def run_ik(
         # print(new_model_path)
         # # q=None
         # q, q_dot, _ = msk_function.compute_inverse_kinematics(markers, InverseKinematicsMethods.BiorbdLeastSquare)
-        # if "minimal_viconlkdv" in model_path:
-        #     import bioviz
-        #     b = bioviz.Viz(model_path=new_model_path)
-        #     b.load_movement(np.repeat(q, 5, axis=1))
-        #     b.load_experimental_markers(np.repeat(markers, 5, axis=2))
-        #     b.exec()
+
         model_path = msk_function.model.path().absolutePath().to_string()
         with open(model_path, "r") as file:
             data = file.read()
@@ -159,13 +136,21 @@ def run_ik(
         if part == "P12":
             data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n"
         else:
-            data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n\t\t-0.1 0.1\n"
+            data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.15 0.15\n\t\t-0.15 0.15\n\t\t-0.15 0.15\n"
+            # data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax"
+
         data = data[:init_idx] + data_to_insert + data[end_idx:]
         new_model_path = compute_new_model_path(model_path, model_prefix=model_prefix)
         with open(new_model_path, "w") as file:
             file.write(data)
         msk_function.model = biorbd.Model(new_model_path)
-        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers, InverseKinematicsMethods.BiorbdLeastSquare)
+        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers, InverseKinematicsMethods.BiorbdLeastSquare, kalman_freq=kalman_freq)
+        if "dlcf" in model_path:
+            import bioviz
+            b = bioviz.Viz(loaded_model=msk_function.model)
+            b.load_movement(np.repeat(q, 5, axis=1))
+            b.load_experimental_markers(np.repeat(markers, 5, axis=2))
+            b.exec()
         # from biosiglive import save, load
         # if "minimal_vicon" in new_model_path:
         #     q = load("init_guess_tmp.bio")["q"][:, -1]
@@ -185,12 +170,12 @@ def run_ik(
             f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax",
         )
         data = data.replace(
-            "rotations xyz // thorax",
-            f"//rotations xyz // thorax",
+           "rotations xyz // thorax",
+           f"//rotations xyz // thorax",
         )
         data = data.replace(
-            "translations xyz // thorax",
-            f"// translations xyz // thorax",
+           "translations xyz // thorax",
+           f"// translations xyz // thorax",
         )
         with open(new_model_path, "w") as file:
             file.write(data)
@@ -214,7 +199,7 @@ def run_ik(
         # if "P9" in model_path:
         #     q[4, :] = 0.1
 
-    q[-1] = 0.3
+    # q[-1] = 0.3
     if "P11" in model_path:
         q[-1] = 0.7
     if "P16" in model_path:
@@ -311,7 +296,7 @@ def run_so(
         compile_only_first_call=True,
         emg=emg,
         muscle_track_idx=track_idx,
-        weight={"tau": 10000000, "act": 100, "tracking_emg": 10000000000000, "pas_tau": 100},
+        weight={"tau": 10000000, "act": 10, "tracking_emg": 100000000000, "pas_tau": 100000000},
         print_optimization_status=print_optimization_status,
         torque_tracking_as_objective=True,
         **kwargs,
@@ -361,6 +346,7 @@ def run_jrf(msk_function, times, dic_to_save, external_loads=None):
         act_from_static_optimisation=False,
     )
     time_jrf = time.time() - tic
+    print("time_jrf", time_jrf)
     times["jrf"] = time_jrf
     dic_to_save["jrf"] = jrf[:, :, -1:]
     return times, dic_to_save
