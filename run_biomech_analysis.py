@@ -16,12 +16,20 @@ def init_kalman_filter_parameters(biomech_pipeline, source):
         #proc_noise[:8] = [1e-1] * 8
         #measurement_noise[11:14] = [1] * 3
         #proc_noise[11:14] = [1] * 3
+
         measurement_noise = [1] * 20
-        proc_noise = [5] * 20
-        measurement_noise[:6] = [5] * 4
-        proc_noise[:6] = [1e-1] * 4
+        proc_noise = [10] * 20
+        measurement_noise[:5] = [10] * 5
+        proc_noise[:5] = [1] * 5
         measurement_noise[-3:] = [10] * 3
-        proc_noise[-3:] = [0.2] * 3
+        proc_noise[-3:] = [1] * 3
+
+        #measurement_noise = [1] * 20
+        #proc_noise = [5] * 20
+        #measurement_noise[:6] = [5] * 4
+        #proc_noise[:6] = [1e-1] * 4
+        #measurement_noise[-3:] = [10] * 3
+        #proc_noise[-3:] = [0.2] * 3
     if "minimal_vicon" in source:
         measurement_noise = [5] * 20
         proc_noise = [1] * 20
@@ -91,7 +99,7 @@ def main(
     )
     biomech_pipeline = BiomechPipeline()
     all_files, mapped_part = get_all_file(
-        participants, processed_data_path, to_include=["gear_5"], to_exclude=["result", "less", "more"]
+        participants, processed_data_path, to_include=["gear"], to_exclude=["result", "less", "more"]
     )
     markers_rate = 120
     for part, file in zip(mapped_part, all_files):
@@ -107,13 +115,14 @@ def main(
         init_participant(biomech_pipeline, part, forces, f_ext, emg, vicon_to_depth, peaks, rt, trial_short, model_dir)
         key_counter = 0
         for key in markers_dic.keys():
-            if "dlc" in key:
-                model_path = f"{model_dir}/{part}/model_scaled_{model_source[key_counter]}_with_technical_marker.bioMod"
-            elif key == "vicon":
-                # model_path = f"{model_dir}/{part}/model_scaled_vicon_markerless.bioMod"
-                model_path = f"{model_dir}/{part}/model_scaled_{model_source[key_counter]}_new_seth.bioMod"
-            else:
-                model_path = f"{model_dir}/{part}/model_scaled_{model_source[key_counter]}_new_seth.bioMod"
+            model_path = f"{model_dir}/{part}/model_scaled_{model_source[key_counter]}.bioMod"
+            # if "dlc" in key:
+            #     model_path = f"{model_dir}/{part}/model_scaled_{model_source[key_counter]}_with_technical_marker.bioMod"
+            # elif key == "vicon":
+            #     # model_path = f"{model_dir}/{part}/model_scaled_vicon_markerless.bioMod"
+            #     model_path = f"{model_dir}/{part}/model_scaled_{model_source[key_counter]}_new_seth.bioMod"
+            # else:
+            #     model_path = f"{model_dir}/{part}/model_scaled_{model_source[key_counter]}_new_seth.bioMod"
             # if not os.path.exists(model_path):
             #     shutil.copy(f"{model_dir}/{part}/model_scaled_{model_source[key_counter]}_new_seth.bioMod", model_path)
             biomech_pipeline.set_stop_frame(
@@ -155,7 +164,7 @@ def main(
 
 
 if __name__ == "__main__":
-    participants = [f"P{i}" for i in range(9, 15)]
+    participants = [f"P{i}" for i in range(9, 17)]
     #participants.pop(participants.index("P12"))
     source = [
         # "depth",
@@ -166,11 +175,11 @@ if __name__ == "__main__":
     ]
     model_source = [
         # "depth",
-        "vicon",
+        "vicon_markerless",
         # "minimal_vicon",
         # , "dlc_ribs", "dlc_ribs",
         #"minimal_vicon",
-        "dlc"
+        "dlc_technical_marker"
     ]
     filter_method = [
         FilteringMethod.Kalman,
@@ -187,7 +196,7 @@ if __name__ == "__main__":
         participants,
         processed_data_path,
         save_data=True,
-        stop_frame=5000,
+        stop_frame=10000,
         plot=False,
         source=source,
         model_source=model_source,

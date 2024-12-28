@@ -350,7 +350,7 @@ class BiomechPipeline:
                     # self.idx_cluster = self.marker_names.index("clavac")
                     self.kalman_cluster = [None] * 3
                 measurement_noise = [50] * 3
-                proc_noise = [5] * 3
+                proc_noise = [0.8] * 3
                 markers_tmp = markers_tmp[:, :, 0]
 
                 markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :], self.kalman_cluster = (

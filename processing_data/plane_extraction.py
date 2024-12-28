@@ -69,8 +69,12 @@ def get_label_image(participant, camera):
     main_path = f"{prefix}/RGBD"
     files = os.listdir(f"{main_path}{os.sep}{participant}")
     # file_gear_5 = [file for file in files if "gear_5" in file and "less" not in file and "more" not in file]
-    files = [file for file in files if "gear_5" in file and "less" not in file and "more" not in file]
+    files = [file for file in files if "gear" in file and "less" not in file and "more" not in file]
     for file in files:
+        if participant == "P12" and "gear_15" not in file:
+            continue
+        if "gear_5" in file:
+            continue
         tracking_config_path = (
             f"{main_path}{os.sep}{participant}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_crops.json"
         )
@@ -108,6 +112,8 @@ def get_label_image(participant, camera):
         time_list = []
         for i in range(len(frame_idx)):
             depth = cv2.imread(path + f"/depth_{frame_idx[i]}.png", cv2.IMREAD_ANYDEPTH)
+            if depth is None:
+                continue
             tic = time.time()
             bb = np.array(
                 [
@@ -274,7 +280,7 @@ def set_axes_equal(ax):
 if __name__ == '__main__':
     prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/shared/Projet_hand_bike_markerless"
     np.random.seed(40)
-    participants = [f"P{i}" for i in range(9, 17)]
+    participants = [f"P{i}" for i in range(12, 17)]
     for p, part in enumerate(participants):
         camera_config_path = f"{prefix}/RGBD/config_camera_files/config_camera_{part}.json"
         camera = CameraConverter()
