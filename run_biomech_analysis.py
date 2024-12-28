@@ -126,7 +126,7 @@ def main(
     )
     biomech_pipeline = BiomechPipeline()
     all_files, mapped_part = get_all_file(
-        participants, processed_data_path, to_include=["gear_5"], to_exclude=["result", "less", "more"]
+        participants, processed_data_path, to_include=["gear"], to_exclude=["result", "less", "more"]
     )
     markers_rate = 120
     for part, file in zip(mapped_part, all_files):

@@ -46,7 +46,6 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     peaks, _ = find_peaks(sensix_data["crank_angle"][0, :])
     peaks = [peak for peak in peaks if sensix_data["crank_angle"][0, peak] > 6]
 
-    markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
     names_from_source.append(list(np.array(vicon_markers_names)[vicon_to_depth_idx]))
     markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
     for i in range(3):
@@ -59,27 +58,31 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     if filter_depth:
         markers_depth = markers_depth_filtered
     if part == "P11":
-        idx_clav_vicon = vicon_markers_names.index("clavac")
-        idx_clav_depth = depth_markers_names.index("clavac")
-        markers_vicon[:, idx_clav_vicon, :] = markers_depth_filtered[:, idx_clav_depth, :]
-        idx_ster_vicon = vicon_markers_names.index("xiph")
-        idx_ster_depth = depth_markers_names.index("xiph")
-        markers_vicon[:, idx_ster_vicon, :] = markers_depth_filtered[:, idx_ster_depth, :]
+       idx_clav_vicon = vicon_markers_names.index("clavac")
+       idx_clav_depth = depth_markers_names.index("clavac")
+       markers_vicon[:, idx_clav_vicon, :] = markers_depth_filtered[:, idx_clav_depth, :]
+       idx_ster_vicon = vicon_markers_names.index("xiph")
+       idx_ster_depth = depth_markers_names.index("xiph")
+       markers_vicon[:, idx_ster_vicon, :] = markers_depth_filtered[:, idx_ster_depth, :]
+    if part == "P12":
+       idx_ster_vicon = vicon_markers_names.index("xiph")
+       idx_ster_depth = depth_markers_names.index("xiph")
+       markers_vicon[:, idx_ster_vicon, :] = markers_depth_filtered[:, idx_ster_depth, :]
     if part == "P16":
         idx_clav_vicon = vicon_markers_names.index("clavac")
         idx_clav_depth = depth_markers_names.index("clavac")
         markers_vicon[:, idx_clav_vicon, :] = markers_depth_filtered[:, idx_clav_depth, :]
-    if part == "P12":
-        idx_ster_vicon = vicon_markers_names.index("xiph")
-        idx_ster_depth = depth_markers_names.index("xiph")
-        markers_vicon[:, idx_ster_vicon, :] = markers_depth_filtered[:, idx_ster_depth, :]
     if part == "P13":
         idx_xiph = vicon_markers_names.index("xiph")
-        markers_tmp = np.repeat(markers_vicon[:, idx_xiph, 0:1], markers_vicon.shape[2], axis=1)
-        markers_vicon[:, idx_xiph, :] = markers_tmp
+        markers_vicon[:, idx_xiph, :] = markers_depth_filtered[:, idx_xiph, :]
         idx_clav_vicon = vicon_markers_names.index("clavac")
         idx_clav_depth = depth_markers_names.index("clavac")
         markers_vicon[:, idx_clav_vicon, :] = markers_depth_filtered[:, idx_clav_depth, :]
+    if part == "P15":
+        idx_xiph = vicon_markers_names.index("xiph")
+        markers_vicon[:, idx_xiph, :] = markers_depth_filtered[:, idx_xiph, :]
+
+    markers_minimal_vicon = markers_vicon[:, vicon_to_depth_idx, :]
     markers_dic["depth"] = [names_from_source[0], markers_depth]
     markers_dic["vicon"] = [names_from_source[1], markers_vicon]
     markers_dic["minimal_vicon"] = [names_from_source[2], markers_minimal_vicon]

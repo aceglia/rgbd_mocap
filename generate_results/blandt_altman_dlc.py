@@ -15,17 +15,21 @@ def compute_error(data, ref):
     n_data = data.shape[shape_idx]
     err = np.zeros((n_data))
     for i in range(n_data):
-        # remove nan values
         if len(data.shape) == 3:
-            nan_index = np.argwhere(np.isnan(ref[:, i, :]))
-            data_tmp = np.delete(data[:, i, :], nan_index, axis=1)
-            ref_tmp = np.delete(ref[:, i, :], nan_index, axis=1)
-            err[i] = np.mean(np.sqrt(np.median(((data_tmp - ref_tmp) ** 2), axis=0)))
+            err[i] = np.nanmean(np.sqrt(np.nanmedian(((data[:, i, :] - ref[:, i, :]) ** 2), axis=0)))
         else:
-            nan_index = np.argwhere(np.isnan(ref[i, :]))
-            data_tmp = np.delete(data[i, :], nan_index, axis=0)
-            ref_tmp = np.delete(ref[i, :], nan_index, axis=0)
-            err[i] = np.mean(np.sqrt(np.median(((data_tmp - ref_tmp) ** 2), axis=0)))
+            err[i] = np.nanmean(np.sqrt(np.nanmedian(((data[i, :] - ref[i, :]) ** 2), axis=0)))
+        # remove nan values
+        #if len(data.shape) == 3:
+        #    #nan_index = np.argwhere(np.isnan(ref[:, i, :]))
+        #    #data_tmp = np.delete(data[:, i, :], nan_index, axis=1)
+        #    #ref_tmp = np.delete(ref[:, i, :], nan_index, axis=1)
+        #    err[i] = np.mean(np.sqrt(np.nanmedian(((data - ref) ** 2), axis=0)))
+        #else:
+        #    #nan_index = np.argwhere(np.isnan(ref[i, :]))
+        #    #data_tmp = np.delete(data[i, :], nan_index, axis=0)
+        #    #ref_tmp = np.delete(ref[i, :], nan_index, axis=0)
+        #    err[i] = np.mean(np.sqrt(np.median(((data - ref) ** 2), axis=0)))
     return err
 
 
@@ -34,17 +38,22 @@ def compute_std(data, ref):
     n_data = data.shape[shape_idx]
     err = np.zeros((n_data))
     for i in range(n_data):
-        # remove nan values
         if len(data.shape) == 3:
-            nan_index = np.argwhere(np.isnan(ref[:, i, :]))
-            data_tmp = np.delete(data[:, i, :], nan_index, axis=1)
-            ref_tmp = np.delete(ref[:, i, :], nan_index, axis=1)
-            err[i] = np.mean(np.std(data_tmp - ref_tmp, axis=1))
+            err[i] = np.nanmean(np.nanstd(data[:, i, :] - ref[:, i, :], axis=1))
         else:
-            nan_index = np.argwhere(np.isnan(data[i, :]))
-            data_tmp = np.delete(data[i, :], nan_index, axis=0)
-            ref_tmp = np.delete(ref[i, :], nan_index, axis=0)
-            err[i] = np.mean(np.std(data_tmp - ref_tmp, axis=0))
+            err[i] = np.nanmean(np.nanstd(data[i, :] - ref[i, :], axis=0))
+
+    #    # remove nan values
+    #    if len(data.shape) == 3:
+    #        nan_index = np.argwhere(np.isnan(ref[:, i, :]))
+    #        data_tmp = np.delete(data[:, i, :], nan_index, axis=1)
+    #        ref_tmp = np.delete(ref[:, i, :], nan_index, axis=1)
+    #        err[i] = np.mean(np.std(data_tmp - ref_tmp, axis=1))
+    #    else:
+    #        nan_index = np.argwhere(np.isnan(data[i, :]))
+    #        data_tmp = np.delete(data[i, :], nan_index, axis=0)
+    #        ref_tmp = np.delete(ref[i, :], nan_index, axis=0)
+    #        err[i] = np.mean(np.std(data_tmp - ref_tmp, axis=0))
     return err
 
 
@@ -103,28 +112,25 @@ if __name__ == "__main__":
     # participants.pop(participants.index("P14"))
     # # participants.pop(participants.index("P11"))
 
-    all_data = {}
-    for p in participants:
-        all_data[p] = all_data_tmp[p]
 
     plt.figure("colors")
     for i in range(len(participants)):
         plt.scatter(i, i, color=colors[i], s=200, alpha=0.5)
     plt.legend(participants)
-    markers_names = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["minimal_vicon"]["marker_names"]
+    #markers_names = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["minimal_vicon"]["marker_names"]
 
-    plt.figure("colors_mark")
-    for i in range(n_mark):
-        plt.scatter(i, i, color=colors_markers[i], s=200, alpha=0.5)
-    plt.legend(markers_names)
+    # plt.figure("colors_mark")
+    # for i in range(n_mark):
+    #     plt.scatter(i, i, color=colors_markers[i], s=200, alpha=0.5)
+    # plt.legend(markers_names)
 
-    keys = ["tracked_markers", "q_raw", "q_dot", "center_of_rot"]  # "q_ddot", "tau", "mus_act", "mus_force"]
+    keys = ["markers", "q", "q_dot"]  # "q_ddot", "tau", "mus_act", "mus_force"]
     factors = [1000, 180 / np.pi, 180 / np.pi, 1000]  # , 180 / np.pi, 1, 100, 1]
     units = ["mm", "°", "°/s", "mm"]
     source = ["minimal_vicon", "minimal_vicon", "minimal_vicon"]
-    source = ["vicon", "vicon", "vicon"]
+    source = ["vicon"]
 
-    to_compare_source = ["dlc_0_8", "dlc_0_9", "dlc_1"]
+    to_compare_source = ["dlc_1"]
     # plot the colors
     n_comparison = len(to_compare_source)
     # colors = ["b", "orange", "g"]
@@ -139,9 +145,11 @@ if __name__ == "__main__":
         all_loa[k] = []
         all_colors = []
         shape_idx = 1 if ("markers" in key or "center" in key) else 0
-        n_key = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["depth"][key].shape[shape_idx]
-        # if key =="q_dot":
-        #     n_key -= 1
+        n_key = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["dlc_1"][key].shape[shape_idx]
+        if key == "markers":
+            n_key -= 1
+        if key == "q" or key =="q_dot":
+            n_key -= 2
         means_file = np.ndarray((n_comparison, len(participants) * n_key))
         diffs_file = np.ndarray((n_comparison, len(participants) * n_key))
         rmse = np.ndarray((n_comparison, len(participants) * n_key))
@@ -153,34 +161,51 @@ if __name__ == "__main__":
             rmse_file = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
             std_file = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
             for f, file in enumerate(all_data[part].keys()):
+
+
                 for j in range(n_comparison):
                     end_frame = get_end_frame(part, file)
-                    source_tmp = "minimal_vicon" if "markers" in key and "vicon" in source[j] else source[j]
-                    if key == "tracked_markers" and "dlc" in to_compare_source[j]:
-                        markers_names = all_data[part][file][to_compare_source[j]]["marker_names"]
+                    source_tmp = "vicon" if "markers" in key and "vicon" in source[j] else source[j]
+                    if key == "markers" and "dlc" in to_compare_source[j]:
+                        dlc_mark_tmp = all_data[part][file][to_compare_source[j]]["markers"][:, :, :].copy()
+                        dlc_mark_tmp = np.delete(dlc_mark_tmp, all_data[part][file][to_compare_source[j]]["marker_names"].index("technical_marker"),
+                                                 axis=1)
+                        # dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("marker_tec_2") - 1, axis=1)
+
+                        # dlc_mark, idx = refine_synchro(#
+                        #     self.results_dict["minimal_vicon"]["markers"][:, :, :], dlc_mark_tmp, plot_fig=False
+                        # )
+                        idx = [0, 1, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16]
+                        #markers_names = all_data[part][file][to_compare_source[j]]["marker_names"]
                         to_compare = (
-                            all_data[part][file][to_compare_source[j]][key][..., :end_frame]
+                            dlc_mark_tmp[..., :end_frame]
                             if end_frame is not None
-                            else all_data[part][file][to_compare_source[j]][key]
+                            else dlc_mark_tmp
                         )
-                        from utils_old import reorder_markers_from_names
+                        ref_data = all_data[part][file][source[j]]["markers"][:, idx, :]
+                        ref_data =  (
+                            ref_data[..., :end_frame]
+                            if end_frame is not None
+                            else ref_data
+                        )
+                        #from utils_old import reorder_markers_from_names
 
                         #idx_scap_ia = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_IA")
                         #idx_scap_ts = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_TS")
                         #all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ia] = "SCAP_TS"
                         #all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ts] = "SCAP_IA"
-                        to_compare, _ = reorder_markers_from_names(
-                            to_compare,
-                            ordered_markers_names=all_data[part][file][source_tmp]["marker_names"],
-                            markers_names=all_data[part][file][to_compare_source[j]]["marker_names"],
-                        )
-                        #plt.figure(f"P{part}_{file}_{key}_{to_compare_source[j]}")
-                        #for i in range(to_compare.shape[1]):
-                        #    plt.subplot(4, 4, i + 1)
-                        #    for j in range(to_compare.shape[0]):
-                        #        plt.plot(to_compare[j, i, :], label=f"{j}")
-                        #        plt.plot(all_data[part][file][source_tmp][key][j, i, :], label="ref")
-                        #plt.show()
+                        #to_compare, _ = reorder_markers_from_names(
+                        #    to_compare,
+                        #    ordered_markers_names=all_data[part][file][source_tmp]["marker_names"],
+                        #    markers_names=all_data[part][file][to_compare_source[j]]["marker_names"],
+                        #)
+                        # plt.figure(f"P{part}_{file}_{key}_{to_compare_source[j]}")
+                        # for i in range(to_compare.shape[1]):
+                        #     plt.subplot(4, 4, i + 1)
+                        #     for j in range(to_compare.shape[0]):
+                        #         plt.plot(to_compare[j, i, :], label=f"{j}", color="b")
+                        #         plt.plot(ref_data[j, i, :], label="ref", color="r")
+                        # plt.show()
 
                         # exchange _IA and _TS
                     else:
@@ -189,27 +214,27 @@ if __name__ == "__main__":
                             if end_frame is not None
                             else all_data[part][file][to_compare_source[j]][key]
                         )
-                    ref_data = (
-                        all_data[part][file][source_tmp][key][..., :end_frame]
-                        if end_frame is not None
-                        else all_data[part][file][source_tmp][key]
-                    )
-                    # if key =="q_dot":
-                    #     to_compare = to_compare[:-1, :]
-                    #     ref_data = ref_data[:-1, :]
+                        ref_data = (
+                            all_data[part][file][source_tmp][key][..., :end_frame]
+                            if end_frame is not None
+                            else all_data[part][file][source_tmp][key]
+                        )
+                    if key =="q" or key == "q_dot":
+                        to_compare = to_compare[:16, :]
+                        ref_data = ref_data[:16, :]
                     rmse_file[j, :, f] = compute_error(to_compare * factors[k], ref_data * factors[k])
                     std_file[j, :, f] = compute_std(to_compare * factors[k], ref_data * factors[k])
                     # if key == "q_dot":
                     #     print(part, file, np.mean(rmse_file[j, :, f]))
                     sum_minimal = (to_compare + ref_data) / 2
                     dif_minimal = to_compare - ref_data
-                    nan_idx = np.argwhere(np.isnan(sum_minimal))
-                    # print(part, file, nan_idx.shape)
-                    nan_idx_bis = np.argwhere(np.isnan(dif_minimal))
-                    axis = 2 if ("markers" in key or "center" in key) else 1
-                    nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
-                    sum_minimal = np.delete(sum_minimal, nan_idx, axis=axis)
-                    dif_minimal = np.delete(dif_minimal, nan_idx, axis=axis)
+                    #nan_idx = np.argwhere(np.isnan(sum_minimal))
+                    ## print(part, file, nan_idx.shape)
+                    #nan_idx_bis = np.argwhere(np.isnan(dif_minimal))
+                    #axis = 2 if ("markers" in key or "center" in key) else 1
+                    #nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
+                    #sum_minimal = np.delete(sum_minimal, nan_idx, axis=axis)
+                    #dif_minimal = np.delete(dif_minimal, nan_idx, axis=axis)
                     # if key == "q":
                     #     for m in range(dif_minimal.shape[0]):
                     #         dif_minimal_tmp = dif_minimal[m, :] * factors[k]
@@ -221,10 +246,11 @@ if __name__ == "__main__":
                     #         diffs[j, m, f] = np.mean(dif_minimal_tmp_clipped)
                     # else:
                     if "markers" in key or "center" in key:
-                        sum_minimal = np.mean(sum_minimal, axis=0)
-                        dif_minimal = np.mean(dif_minimal, axis=0)
+                        sum_minimal = np.nanmean(sum_minimal, axis=0)
+                        dif_minimal = np.nanmean(dif_minimal, axis=0)
                     means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
                     diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
+                    #diffs = np.clip(diffs, -10, 10)
                     # print("part:", part, "trial", file, "mean", diffs[j, :, f])
 
             for j in range(n_comparison):
@@ -234,30 +260,30 @@ if __name__ == "__main__":
                 std[j, n_key * p : n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
         all_rmse.append(rmse.mean(axis=1).round(2))
         all_std.append(std.mean(axis=1).round(2))
+        # bias, lower_loa, upper_loa, _ = compute_blandt_altman(
+        #     means_file[0, :],
+        #     diffs_file[0, :],
+        #     units=units[k],
+        #     title="Bland-Altman Plot for " + key + " 0.8",
+        #     show=False,
+        #     color=all_colors,
+        # )
+        # all_bias[k].append(np.round(bias, 2))
+        # all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
+        # bias, lower_loa, upper_loa, _ = compute_blandt_altman(
+        #     means_file[1, :],
+        #     diffs_file[1, :],
+        #     units=units[k],
+        #     title="Bland-Altman Plot for " + key + " 0.9",
+        #     show=False,
+        #     color=all_colors,
+        # )
+
+        # all_bias[k].append(np.round(bias, 2))
+        # all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
         bias, lower_loa, upper_loa, _ = compute_blandt_altman(
             means_file[0, :],
             diffs_file[0, :],
-            units=units[k],
-            title="Bland-Altman Plot for " + key + " 0.8",
-            show=False,
-            color=all_colors,
-        )
-        all_bias[k].append(np.round(bias, 2))
-        all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
-        bias, lower_loa, upper_loa, _ = compute_blandt_altman(
-            means_file[1, :],
-            diffs_file[1, :],
-            units=units[k],
-            title="Bland-Altman Plot for " + key + " 0.9",
-            show=False,
-            color=all_colors,
-        )
-
-        all_bias[k].append(np.round(bias, 2))
-        all_loa[k].append([np.round(lower_loa, 2), np.round(upper_loa, 2)])
-        bias, lower_loa, upper_loa, _ = compute_blandt_altman(
-            means_file[2, :],
-            diffs_file[2, :],
             units=units[k],
             title="Bland-Altman Plot for " + key + "1.0",
             show=False,
@@ -280,63 +306,63 @@ if __name__ == "__main__":
          \hline
          """
         "\multirow{3}*{Markers (mm)} "
-        "&0.8&"
-        + f" {all_rmse[0][0]: .2f}& {all_std[0][0]: .2f} & {all_loa[0][0][0]: .2f}& {all_loa[0][0][1]: .2f}& {all_bias[0][0]: .2f}"
-        + r"\\"
-        + "\n"
-        "&0.9&"
-        + f" {all_rmse[0][1]: .2f}& {all_std[0][1]: .2f}  & {all_loa[0][1][0]: .2f}& {all_loa[0][1][1]: .2f}& {all_bias[0][1]: .2f}"
-        + r"\\"
-        + "\n"
+        # "&0.8&"
+        # + f" {all_rmse[0][0]: .2f}& {all_std[0][0]: .2f} & {all_loa[0][0][0]: .2f}& {all_loa[0][0][1]: .2f}& {all_bias[0][0]: .2f}"
+        # + r"\\"
+        # + "\n"
+        # "&0.9&"
+        # + f" {all_rmse[0][1]: .2f}& {all_std[0][1]: .2f}  & {all_loa[0][1][0]: .2f}& {all_loa[0][1][1]: .2f}& {all_bias[0][1]: .2f}"
+        # + r"\\"
+        # + "\n"
         "&1.0   &"
-        + f" {all_rmse[0][2]: .2f}& {all_std[0][2]: .2f}  & {all_loa[0][2][0]: .2f}& {all_loa[0][2][1]: .2f}& {all_bias[0][2]: .2f}"
+        + f" {all_rmse[0][0]: .2f}& {all_std[0][0]: .2f}  & {all_loa[0][0][0]: .2f}& {all_loa[0][0][1]: .2f}& {all_bias[0][0]: .2f}"
         + r"\\"
         + "\n"
         + r" \hdashline"
         + "\n"
         "\multirow{3}*{Joint angles (\degree)} "
-        "& 0.8&"
-        + f" {all_rmse[1][0]: .2f}& {all_std[1][0]: .2f} & {all_loa[1][0][0]: .2f}& {all_loa[1][0][1]: .2f}& {all_bias[1][0]: .2f}"
-        + r"\\"
-        + "\n"
-        "& 0.9 &"
-        + f" {all_rmse[1][1]: .2f}& {all_std[1][1]: .2f}  & {all_loa[1][1][0]: .2f}& {all_loa[1][1][1]: .2f}& {all_bias[1][1]: .2f}"
-        + r"\\"
-        + "\n"
+        # "& 0.8&"
+        # + f" {all_rmse[1][0]: .2f}& {all_std[1][0]: .2f} & {all_loa[1][0][0]: .2f}& {all_loa[1][0][1]: .2f}& {all_bias[1][0]: .2f}"
+        # + r"\\"
+        # + "\n"
+        # "& 0.9 &"
+        # + f" {all_rmse[1][1]: .2f}& {all_std[1][1]: .2f}  & {all_loa[1][1][0]: .2f}& {all_loa[1][1][1]: .2f}& {all_bias[1][1]: .2f}"
+        # + r"\\"
+        # + "\n"
         "& 1.0    &"
-        + f" {all_rmse[1][2]: .2f}& {all_std[1][2]: .2f}  & {all_loa[1][2][0]: .2f}& {all_loa[1][2][1]: .2f}& {all_bias[1][2]: .2f}"
+        + f" {all_rmse[1][0]: .2f}& {all_std[1][0]: .2f}  & {all_loa[1][0][0]: .2f}& {all_loa[1][0][1]: .2f}& {all_bias[1][0]: .2f}"
         + r"\\"
         + "\n"
         + r" \hdashline"
         + "\n"
         "\multirow{3}*{Joint velocity (\degree/s)} "
-        "& 0.8&"
-        + f" {all_rmse[2][0]: .2f}& {all_std[2][0]: .2f} & {all_loa[2][0][0]: .2f}& {all_loa[2][0][1]: .2f}& {all_bias[2][0]: .2f}"
-        + r"\\"
-        + "\n"
-        "& 0.9  &"
-        + f" {all_rmse[2][1]: .2f}& {all_std[2][1]: .2f}  & {all_loa[2][1][0]: .2f}& {all_loa[2][1][1]: .2f}& {all_bias[2][1]: .2f}"
-        + r"\\"
-        + "\n"
+        # "& 0.8&"
+        # + f" {all_rmse[2][0]: .2f}& {all_std[2][0]: .2f} & {all_loa[2][0][0]: .2f}& {all_loa[2][0][1]: .2f}& {all_bias[2][0]: .2f}"
+        # + r"\\"
+        # + "\n"
+        # "& 0.9  &"
+        # + f" {all_rmse[2][1]: .2f}& {all_std[2][1]: .2f}  & {all_loa[2][1][0]: .2f}& {all_loa[2][1][1]: .2f}& {all_bias[2][1]: .2f}"
+        # + r"\\"
+        # + "\n"
         "& 1.0    &"
-        + f" {all_rmse[2][2]: .2f}& {all_std[2][2]: .2f}  & {all_loa[2][2][0]: .2f}& {all_loa[2][2][1]: .2f}& {all_bias[2][2]: .2f}"
+        + f" {all_rmse[2][0]: .2f}& {all_std[2][0]: .2f}  & {all_loa[2][0][0]: .2f}& {all_loa[2][0][1]: .2f}& {all_bias[2][0]: .2f}"
         + r"\\"
         + "\n"
         + r" \hdashline"
         + "\n"
-        "\multirow{3}*{Center of rotation (mm)} "
-        "&   0.8 &"
-        + f" {all_rmse[3][0]: .2f}& {all_std[3][0]: .2f} & {all_loa[3][0][0]: .2f}& {all_loa[3][0][1]: .2f}& {all_bias[3][0]: .2f}"
-        + r"\\"
-        + "\n"
-        "&0.9 &"
-        + f" {all_rmse[3][1]: .2f}& {all_std[3][1]: .2f}  & {all_loa[3][1][0]: .2f}& {all_loa[3][1][1]: .2f}& {all_bias[3][1]: .2f}"
-        + r"\\"
-        + "\n"
-        "&1.0   &"
-        + f" {all_rmse[3][2]: .2f}& {all_std[3][2]: .2f}  & {all_loa[3][2][0]: .2f}& {all_loa[3][2][1]: .2f}& {all_bias[3][2]: .2f}"
-        + r"\\"
-        + "\n"
+        # "\multirow{3}*{Center of rotation (mm)} "
+        # "&   0.8 &"
+        # + f" {all_rmse[3][0]: .2f}& {all_std[3][0]: .2f} & {all_loa[3][0][0]: .2f}& {all_loa[3][0][1]: .2f}& {all_bias[3][0]: .2f}"
+        # + r"\\"
+        # + "\n"
+        # "&0.9 &"
+        # + f" {all_rmse[3][1]: .2f}& {all_std[3][1]: .2f}  & {all_loa[3][1][0]: .2f}& {all_loa[3][1][1]: .2f}& {all_bias[3][1]: .2f}"
+        # + r"\\"
+        # + "\n"
+        # "&1.0   &"
+        # + f" {all_rmse[3][2]: .2f}& {all_std[3][2]: .2f}  & {all_loa[3][2][0]: .2f}& {all_loa[3][2][1]: .2f}& {all_bias[3][2]: .2f}"
+        # + r"\\"
+        # + "\n"
         + r" \hdashline"
         + "\n"
         r"""\end{tabular}
