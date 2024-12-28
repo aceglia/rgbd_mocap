@@ -33,6 +33,7 @@ prefix = "/mnt/shared" if os.name == "posix" else "Q:/"
 
 class BiomechPipeline:
     def __init__(self):
+        self.rerun_viz = None
         self.init_emg = None
         self.init_f_ext = None
         self.cycles_computed = False
@@ -125,8 +126,8 @@ class BiomechPipeline:
     def init_scapula_cluster(
         self, participant, measurements_dir_path=None, calibration_matrix_dir=None, config="with_depth"
     ):
-        measurements_dir_path = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement"
-        calibration_matrix_dir = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix"
+        # measurements_dir_path = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement"
+        # calibration_matrix_dir = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix"
         measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{participant}.json"))
         measurements = measurement_data[config]["measure"]
         calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[config]["calibration_matrix_name"]
@@ -278,7 +279,7 @@ class BiomechPipeline:
             # self.marker_names = self.marker_names[:self.idx_cluster + 1] + ["scapaa", "scapts", "scapia"] + self.marker_names[self.idx_cluster + 4:]
             markers_tmp = markers[..., self.frame_count : self.frame_count + 1]
             if compute_from_cluster:
-                if self.frame_count == 0:
+                if self.frame_count == self.moving_window:
                     self.idx_cluster = self.marker_names.index("clavac")
                     self.kalman_cluster = [None] * 3
                 markers_tmp = np.delete(
@@ -346,13 +347,12 @@ class BiomechPipeline:
                 )
                 self.marker_names = model_names
             if compute_from_cluster and self.live_filter_method == FilteringMethod.Kalman:
-                if self.frame_count == 0:
+                if self.frame_count == self.moving_window:
                     # self.idx_cluster = self.marker_names.index("clavac")
                     self.kalman_cluster = [None] * 3
                 measurement_noise = [50] * 3
-                proc_noise = [5] * 3
+                proc_noise = [0.8] * 3
                 markers_tmp = markers_tmp[:, :, 0]
-
                 markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :], self.kalman_cluster = (
                     self._get_next_frame_from_kalman(
                         markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :],
@@ -437,12 +437,17 @@ class BiomechPipeline:
 
         final_dic["center_of_rot"] = compute_cor(final_dic["q"], self.msk_function.model)
 
-        if self.key == "dlc_1dd":# in self.key:
+        if self.key == "viconrr":
             import bioviz
             b = bioviz.Viz(loaded_model=self.msk_function.model)
             b.load_movement(final_dic["q"])
             b.load_experimental_markers(final_dic["markers"][:, :, :])
             b.exec()
+        # self.rerun_viz.add_xp_markers(
+        #     name=f"markers_{self.key}",
+        #     markers=markers,
+        #     phase=0,
+        # )
         self.results_dict[self.key] = final_dic
         return self.results_dict[self.key]
 
@@ -462,8 +467,6 @@ class BiomechPipeline:
         }
         if self.compute_ik and self.frame_count >= self.moving_window:
             init_ik = True if self.frame_count == self.moving_window else False
-            #if self.key == "vicon":
-            #    print(markers[:, self.marker_names.index("XIPH"), :])
             times, dic_to_save, self.msk_function = run_ik(
                 self.msk_function,
                 markers,
@@ -516,14 +519,14 @@ class BiomechPipeline:
         for key in self.results_dict.keys():
             data_dic_tmp = self.results_dict[key]
             if "dlc" in key:
-                #tmp1 = data_dic_tmp["markers"][:, 7, :].copy()
-                #tmp2 = data_dic_tmp["markers"][:, 6, :].copy()
-                #data_dic_tmp["markers"][:, 6, :] = tmp1
-                #data_dic_tmp["markers"][:, 7, :] = tmp2
-                #data_dic_tmp["marker_names"][6], data_dic_tmp["marker_names"][7] = (
+                # tmp1 = data_dic_tmp["markers"][:, 7, :].copy()
+                # tmp2 = data_dic_tmp["markers"][:, 6, :].copy()
+                # data_dic_tmp["markers"][:, 6, :] = tmp1
+                # data_dic_tmp["markers"][:, 7, :] = tmp2
+                # data_dic_tmp["marker_names"][6], data_dic_tmp["marker_names"][7] = (
                 #    data_dic_tmp["marker_names"][7],
                 #    data_dic_tmp["marker_names"][6],
-                #)
+                # )
                 dlc_mark_tmp = data_dic_tmp["markers"][:, :, :].copy()
                 dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("technical_marker"), axis=1)
                 #dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("marker_tec_2") - 1, axis=1)
@@ -531,7 +534,7 @@ class BiomechPipeline:
                 #dlc_mark, idx = refine_synchro(#
                 #     self.results_dict["minimal_vicon"]["markers"][:, :, :], dlc_mark_tmp, plot_fig=False
                 #)
-                idx  = [0,1,4,5, 6, 7,8,9,10,12,14,15,16]
+                idx  = [0,1,4,5, 6, 7, 8,9,10,12,14,15,16]
                 plt.figure("markers_test")
                 for m in range(dlc_mark_tmp.shape[1]):
                     plt.subplot(ceil(dlc_mark_tmp.shape[1] / 4), 4, m + 1)
@@ -584,12 +587,14 @@ class BiomechPipeline:
             if not isinstance(self.results_dict[key], dict):
                 continue
             for key_2 in self.results_dict[key].keys():
+                if key_2 == "cycles":
+                    continue
                 dic_tmp[key_2] = {}
                 if isinstance(self.results_dict[key][key_2], np.ndarray):
                     if plot_by_cycle:
                         if n_cycle:
-                            dic_tmp[key_2]["mean"] = np.mean(self.results_dict[key][key_2][:n_cycle, ...], axis=0)
-                            dic_tmp[key_2]["std"] = np.std(self.results_dict[key][key_2][:n_cycle, ...], axis=0)
+                            dic_tmp[key_2]["mean"] = np.mean(self.results_dict[key]["cycles"][key_2][:n_cycle, ...], axis=0)
+                            dic_tmp[key_2]["std"] = np.std(self.results_dict[key]["cycles"][key_2][:n_cycle, ...], axis=0)
                         else:
                             dic_tmp[key_2]["mean"] = np.mean(self.results_dict[key][key_2][:, ...], axis=0)
                             dic_tmp[key_2]["std"] = np.std(self.results_dict[key][key_2][:, ...], axis=0)

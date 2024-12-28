@@ -36,19 +36,20 @@ def get_model_markers_names(model, names=None):
 
 
 if __name__ == "__main__":
-    participants = [f"P{i}" for i in range(9, 10)]
+    participants = [f"P{i}" for i in range(9, 12)]
     # participants.pop(participants.index("P14"))
     prefix = "/mnt/shared/"
+    prefix = "Q:/"
     data_path = f"{prefix}/Projet_hand_bike_markerless/RGBD"
-    model_source = ["dlc", "vicon"]
-    sources = ["dlc_1"]  # , "vicon"]
+    model_source = ["vicon"]
+    sources = ["vicon"]  #, "vicon"]
     for participant in participants:
         all_files = os.listdir(rf"{data_path}/{participant}")
         all_files = [file for file in all_files if "gear_5" in file]
         for file in all_files:
             model = "normal_500_down_b1"
             filt = "filtered"
-            file_tmp = f"{prefix}Projet_hand_bike_markerless/process_data/{participant}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}_with_technical_marker.bio"
+            file_tmp = f"{prefix}Projet_hand_bike_markerless/process_data/{participant}/result_biomech_{file.split('_')[0]}_{file.split('_')[1]}_normal_500_down_b1_no_root.bio"
             if not os.path.isfile(file_tmp):
                 continue
             print("processing file : ", file_tmp)
@@ -57,24 +58,25 @@ if __name__ == "__main__":
             for s, source in enumerate(sources):
                 if source not in data.keys():
                     raise ValueError(f"source {source} not in data keys")
-                model_path = f"{prefix}Projet_hand_bike_markerless/RGBD/P9/model_scaled_{model_source[s]}_with_technical_marker.bioMod"
+                model_path = f"{prefix}Projet_hand_bike_markerless/RGBD/{participant}/model_scaled_{model_source[s]}_new_seth.bioMod"
                 import numpy as np
 
-                markers = data[source]["markers"][..., :1000]
+                markers = data[source]["tracked_markers"][..., :1000]
                 if source == "vicon":
                     markers = np.nan_to_num(markers, nan=0.0)
+                    # markers = markers[:, :-3, :]
                 model = biorbd.Model(model_path)
-                marker_names = get_model_markers_names(model)
-                output_path = rf"{prefix}Projet_hand_bike_markerless/RGBD/{participant}/{file}/{Path(file).stem}_{source}_with_technical_marker.trc"
+                # marker_names = get_model_markers_names(model)
+                output_path = rf"{prefix}Projet_hand_bike_markerless/RGBD/{participant}/{file}/{Path(file).stem}_{source}.trc"
                 if os.path.exists(output_path):
                     os.remove(output_path)
-                ordered_names = [_convert_string(name) for name in marker_names]
-                markers_ordered, _ = reorder_markers_from_names(markers, ordered_names, data[source]["marker_names"])
+                # ordered_names = [_convert_string(name) for name in marker_names]
+                # markers_ordered, _ = reorder_markers_from_names(markers, ordered_names, data[source]["marker_names"])
 
                 C3DtoTRC.WriteTrcFromMarkersData(
                     output_file_path=output_path,
-                    markers=markers_ordered,
-                    marker_names=marker_names,
+                    markers=markers,
+                    marker_names=data[source]["marker_names"],
                     data_rate=rate,
                     cam_rate=rate,
                     n_frames=markers.shape[2],

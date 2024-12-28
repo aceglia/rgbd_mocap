@@ -3,9 +3,6 @@ from pathlib import Path
 import shutil
 import biorbd
 import numpy as np
-from proxsuite.proxsuite_pywrap_avx2.proxqp.dense import model
-
-from rgbd_mocap.GUI.Utils.file_dialog import kwargs
 import time
 from biosiglive import InverseKinematicsMethods
 
@@ -133,19 +130,27 @@ def run_ik(
         rt = f"1.57 -1.57 0 xyz 0 0 0"
         init_idx = data.find("SEGMENT DEFINITION")
         end_idx = data.find("translations xyz // thorax") + len("translations xyz // thorax") + 1
-        if part == "P12":
-            data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n"
-        else:
-            data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.15 0.15\n\t\t-0.15 0.15\n\t\t-0.15 0.15\n"
-            # data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax"
+        # if part == "P12":
+        #     data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n"
+        # else:
+        #     # data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.15 0.15\n\t\t-0.15 0.15\n\t\t-0.15 0.15\n"
+        data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n"
 
         data = data[:init_idx] + data_to_insert + data[end_idx:]
         new_model_path = compute_new_model_path(model_path, model_prefix=model_prefix)
         with open(new_model_path, "w") as file:
             file.write(data)
         msk_function.model = biorbd.Model(new_model_path)
-        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers, InverseKinematicsMethods.BiorbdLeastSquare, kalman_freq=kalman_freq)
-        if "dlcf" in model_path:
+        noise_factor = 1e-6  # if "depth" in model_path else 1e-5
+        error_factor = 1e-8  # if "depth" in model_path else 1e-6
+        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers,
+                                                              InverseKinematicsMethods.BiorbdLeastSquare,
+                                                              kalman_freq=kalman_freq,
+                                                               # initial_guess=initial_guess,
+                                                               # noise_factor=noise_factor,
+                                                               # error_factor=error_factor
+                                                              )
+        if "viconddd" in model_path:
             import bioviz
             b = bioviz.Viz(loaded_model=msk_function.model)
             b.load_movement(np.repeat(q, 5, axis=1))
@@ -169,20 +174,23 @@ def run_ik(
             "RT 0 0 0 xyz 0 0 0 // thorax",
             f"RT {q[3, 0]} {q[4, 0]} {q[5, 0]} xyz {q[0, 0]} {q[1, 0]} {q[2, 0]} // thorax",
         )
-        data = data.replace(
-           "rotations xyz // thorax",
-           f"//rotations xyz // thorax",
-        )
-        data = data.replace(
-           "translations xyz // thorax",
-           f"// translations xyz // thorax",
-        )
+        # data = data.replace(
+        #    "rotations xyz // thorax",
+        #    f"//rotations xyz // thorax",
+        # )
+        # data = data.replace(
+        #    "translations xyz // thorax",
+        #    f"// translations xyz // thorax",
+        # )
         with open(new_model_path, "w") as file:
             file.write(data)
-        q = q[6:, :]
+        # q = q[6:, :]
+        q[:6, :] = 0
+
         msk_function.model = biorbd.Model(new_model_path)
         msk_function.clean_all_buffers()
         msk_function.kalman = None
+
         # else:
         #     q = msk_function.kin_buffer[0].copy()
         # if "P11" in model_path:
@@ -200,11 +208,11 @@ def run_ik(
         #     q[4, :] = 0.1
 
     # q[-1] = 0.3
-    if "P11" in model_path:
-        q[-1] = 0.7
-    if "P16" in model_path:
-        q[5] = -0.1
-        q[7] = 0.1
+    # if "P11" in model_path:
+    #     q[-1] = 0.7
+    # if "P16" in model_path:
+    #     q[5] = -0.1
+    #     q[7] = 0.1
     noise_factor = 1e-6  # if "depth" in model_path else 1e-5
     error_factor = 1e-8  # if "depth" in model_path else 1e-6
     # q = q if initial_guess is None else initial_guess
