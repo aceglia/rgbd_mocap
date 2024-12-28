@@ -43,7 +43,7 @@ if __name__ == "__main__":
     muscle = False
     thorax = True
     fix_model = True
-    participants = [f"P{i}" for i in range(10, 11)]
+    participants = [f"P{i}" for i in range(9, 10)]
     seth_model = "D:\Documents\Programmation\pose_estimation\data_files\P10\model_scaled_depth_new_seth.bioMod"
     # participants.pop(participants.index("P12"))
     source = ["dlc"]  # , "vicon", "minimal_vicon"]
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     muscle_to_copy = data_seth[start_idx:]
     for participant in participants:
         for s in source:
-            old_model_path = f"Q:\Projet_hand_bike_markerless\RGBD\{participant}/model_scaled_dlc_ribs.bioMod"
+            old_model_path = f"Q:\Projet_hand_bike_markerless\RGBD\{participant}/model_scaled_dlc_markerless.bioMod"
             with open(old_model_path, "r") as file:
                 data = file.read()
             if thorax:
@@ -65,5 +65,5 @@ if __name__ == "__main__":
                 data = data[:init_idx] + muscle_to_copy
             if fix_model:
                 data = _fix_model(data, seth_model)
-            with open(old_model_path[:-7] + "_new_seth.bioMod", "w") as file:
+            with open(old_model_path.replace("", ""), "w") as file:
                 file.write(data)

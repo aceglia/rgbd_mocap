@@ -21,11 +21,7 @@ def get_end_frame(part, file):
     return end_frame
 
 
-def _compute_part_ba_():
-    pass
-
-
-def remove_outliers(data, data_ref, m=3, plot=False):
+def remove_outliers(data, m=3, plot=False):
     final_data = []
     final_ref = []
     for i in range(data.shape[0]):
