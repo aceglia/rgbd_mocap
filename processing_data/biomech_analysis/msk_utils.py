@@ -68,17 +68,19 @@ def _comment_dofs(data):
 
 def _compute_new_bounds(data):
     bounds = [
-        "rotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n",
-        "rotations x\n\t\tranges\n\t\t\t\t-0.7 0.2",  # clavicle
+        # "rotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\t//ranges \n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n",
+        "rotations xyz // thorax\n\t\ttranslations xyz // thorax\n",  # thorax
+        "rotations x\n\t\tranges\n\t\t\t\t-0.7 0.5",  # clavicle
         "rotations y\n\t\tranges\n\t\t\t\t-0.5 0.5",  # clavicle
-        "rotations z\n\t\tranges\n\t\t\t\t-3 3",  # clavicle
+        "//rotations z\n\t\t//ranges\n\t\t\t\t//-3 3",  # clavicle
         # "rotations xyz\n\t\tranges\n\t\t\t\t-0.2 1",  # scapula
-        "rotations xyz\n\t\tranges\n\t\t\t\t-0.1 1\n\t\t\t\t-0.1 0.8\n\t\t\t\t-0.2 0.5",  # scapula
-        "rotations x\n\t\tranges\n\t\t\t\t-0.4 0.8",  # shoulder
-        "rotations y\n\t\tranges\n\t\t\t\t0.2 1",  # shoulder
-        "rotations z\n\t\tranges\n\t\t\t\t-1.2 0",  # shoulder
-        "rotations z\n\t\tranges\n\t\t\t\t0.8 2.2",  # elbow
-        "rotations y\n\t\tranges\n\t\t\t\t0.3 0.8",  # forearm
+        "rotations xyz\n\t\tranges\n\t\t\t\t-0.5 1\n\t\t\t\t-0.5 0.8\n\t\t\t\t-0.5 0.5",  # scapula
+        "rotations x\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
+        "rotations y\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
+        "rotations z\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
+        "rotations z\n\t\tranges\n\t\t\t\t0 3",  # elbow
+        "rotations y\n\t\tranges\n\t\t\t\t0.1 0.8",  # forearm
+        "//rotations xy\n\t\t//ranges\n\t\t\t\t//0.1 0.8",  # Hand
     ]
     data_tmp = data
     idx_start = 0
@@ -138,6 +140,7 @@ def run_ik(
 
         data = data[:init_idx] + data_to_insert + data[end_idx:]
         new_model_path = compute_new_model_path(model_path, model_prefix=model_prefix)
+        data = _compute_new_bounds(data)
         with open(new_model_path, "w") as file:
             file.write(data)
         msk_function.model = biorbd.Model(new_model_path)
@@ -150,7 +153,7 @@ def run_ik(
                                                                # noise_factor=noise_factor,
                                                                # error_factor=error_factor
                                                               )
-        if "viconddd" in model_path:
+        if "viconbb" in model_path:
             import bioviz
             b = bioviz.Viz(loaded_model=msk_function.model)
             b.load_movement(np.repeat(q, 5, axis=1))
