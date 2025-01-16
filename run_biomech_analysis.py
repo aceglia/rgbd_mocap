@@ -169,8 +169,8 @@ def main(
             else:
                 biomech_pipeline.fps = markers_rate
             biomech_pipeline.init_scapula_cluster(part,
-                                                  measurements_dir_path=f"D:\Documents\Programmation\pose_estimation\data_collection_mesurement",
-                                                  calibration_matrix_dir="D:\Documents\Programmation\pose_estimation\calibration_matrix")
+                                                  measurements_dir_path=f"/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement",
+                                                  calibration_matrix_dir="/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix")
             if live_filter_method[key_counter] == FilteringMethod.Kalman:
                 init_kalman_filter_parameters(biomech_pipeline, key)
                 biomech_pipeline.kalman_instance, biomech_pipeline.n_markers, biomech_pipeline.reordered_idx = (
@@ -195,11 +195,11 @@ def main(
 
         if plot:
             biomech_pipeline.plot_results(plot_by_cycle=False)
-        viz_rerun(biomech_pipeline.results_dict, model_path_final)
+        #viz_rerun(biomech_pipeline.results_dict, model_path_final)
 
 
 if __name__ == "__main__":
-    participants = [f"P{i}" for i in range(9, 10)]
+    participants = [f"P{i}" for i in range(9, 17)]
     #participants.pop(participants.index("P12"))
     source = [
         # "depth",
@@ -230,9 +230,9 @@ if __name__ == "__main__":
         model_dir,
         participants,
         processed_data_path,
-        save_data=False,
-        stop_frame=1000,
-        plot=True,
+        save_data=True,
+        stop_frame=10000,
+        plot=False,
         source=source,
         model_source=model_source,
         live_filter_method=filter_method,
