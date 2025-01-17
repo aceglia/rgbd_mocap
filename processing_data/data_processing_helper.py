@@ -106,7 +106,7 @@ def compute_blandt_altman(
             for j in range(len(mean_tmp)):
                 # if np.abs(diff_tmp[j]) > threeshold:
                 #    continue
-                ax.scatter(mean_tmp[j], diff_tmp[j], c=color_tmp[j], s=100, alpha=0.6, marker=markers)
+                ax.scatter(mean_tmp[j], diff_tmp[j], color=color_tmp[j], s=100, alpha=0.6, marker=markers)
 
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
