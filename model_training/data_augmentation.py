@@ -3,6 +3,7 @@ import os
 import csv
 from pathlib import Path
 import shutil
+
 # import imgaug.augmenters as iaa
 import cv2
 
@@ -138,6 +139,7 @@ def apply_crop_and_ratio(markers, ratio, area):
 
 def get_label_image(participant_to_exclude=None):
     import json
+
     participants = ["P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
     main_path = f"{prefix}/RGBD"
     # main_path = "data_files"
@@ -162,7 +164,7 @@ def get_label_image(participant_to_exclude=None):
             with open(tracking_config_path) as json_file:
                 tracking_config = json.load(json_file)
 
-            area = [0,0,0,0]
+            area = [0, 0, 0, 0]
             area[0] = min([tracking_config["crops"][i]["area"][0] for i in range(len(tracking_config["crops"]))]) - 50
             area[2] = max([tracking_config["crops"][i]["area"][2] for i in range(len(tracking_config["crops"]))]) + 50
             area = np.array(area)

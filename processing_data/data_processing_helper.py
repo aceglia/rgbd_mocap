@@ -104,7 +104,7 @@ def compute_blandt_altman(
             color_markers = plt.cm.viridis(np.linspace(0, 1, diff_tmp.shape[0]))
             color_tmp = color_markers if "marker" in title else color[i]
             for j in range(len(mean_tmp)):
-                #if np.abs(diff_tmp[j]) > threeshold:
+                # if np.abs(diff_tmp[j]) > threeshold:
                 #    continue
                 ax.scatter(mean_tmp[j], diff_tmp[j], c=color_tmp[j], s=100, alpha=0.6, marker=markers)
 
@@ -218,13 +218,15 @@ def compute_error_mark(ref_mark, mark):
         nan_index = np.argwhere(np.isnan(new_markers_depth_tmp))
         new_markers_depth_tmp = np.delete(new_markers_depth_tmp, nan_index, axis=1)
         new_markers_vicon_int_tmp = np.delete(new_markers_vicon_int_tmp, nan_index, axis=1)
-        #err_markers[i, 0] = np.median(
+        # err_markers[i, 0] = np.median(
         #    np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
-        #)
+        # )
         if new_markers_vicon_int_tmp.shape[1] != 0:
-            list_err.append(np.median(
-                np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
-            ))
+            list_err.append(
+                np.median(
+                    np.sqrt(np.mean(((new_markers_depth_tmp * 1000 - new_markers_vicon_int_tmp * 1000) ** 2), axis=0))
+                )
+            )
     return list_err
 
 
@@ -241,6 +243,7 @@ def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=200):
     marker_to_refine_tmp = interpolate_data(marker_to_refine_tmp, marker_full.shape[2])
     if plot_fig:
         import matplotlib.pyplot as plt
+
         plt.figure("refine synchro")
         for i in range(marker_to_refine_tmp.shape[1]):
             plt.subplot(4, 4, i + 1)
@@ -412,22 +415,18 @@ def adjust_idx(data, idx_start, idx_end):
             data_tmp[key] = data[key]
     return data_tmp
 
+
 def _euler_to_rotation_matrix(angles):
     """Convert Euler angles to a rotation matrix."""
     phi, theta, psi = angles
-    R_x = np.array([[1, 0, 0],
-                    [0, np.cos(phi), -np.sin(phi)],
-                    [0, np.sin(phi), np.cos(phi)]])
+    R_x = np.array([[1, 0, 0], [0, np.cos(phi), -np.sin(phi)], [0, np.sin(phi), np.cos(phi)]])
 
-    R_y = np.array([[np.cos(theta), 0, np.sin(theta)],
-                    [0, 1, 0],
-                    [-np.sin(theta), 0, np.cos(theta)]])
+    R_y = np.array([[np.cos(theta), 0, np.sin(theta)], [0, 1, 0], [-np.sin(theta), 0, np.cos(theta)]])
 
-    R_z = np.array([[np.cos(psi), -np.sin(psi), 0],
-                    [np.sin(psi), np.cos(psi), 0],
-                    [0, 0, 1]])
+    R_z = np.array([[np.cos(psi), -np.sin(psi), 0], [np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
 
-    return np.dot(R_z, np.dot( R_y, R_x ))
+    return np.dot(R_z, np.dot(R_y, R_x))
+
 
 # Checks if a matrix is a valid rotation matrix.
 def isRotationMatrix(R):
@@ -442,7 +441,7 @@ def isRotationMatrix(R):
 # The result is the same as MATLAB except the order
 # of the euler angles ( x and z are swapped ).
 def rotationMatrixToEulerAngles(R):
-    assert (isRotationMatrix(R))
+    assert isRotationMatrix(R)
 
     sy = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
 
@@ -458,6 +457,7 @@ def rotationMatrixToEulerAngles(R):
         z = 0
 
     return np.array([x, y, z])
+
 
 def calculate_euler_error(euler1, euler2):
     """Calculate the error between two orientations in Euler angles."""

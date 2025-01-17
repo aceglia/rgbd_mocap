@@ -3,6 +3,7 @@ import numpy as np
 import json
 from biosiglive import save, load
 
+
 def get_normal_vector(data, name):
     marker = data[1][:, data[0].index(name), :]
     M1 = marker[:, 0]
@@ -52,6 +53,7 @@ def get_normal_vector(data, name):
     # plt.show()
     return rt
 
+
 def get_measure(file_path):
     with open(file_path, "r") as file:
         data = json.load(file)
@@ -60,7 +62,7 @@ def get_measure(file_path):
 
 def add_virtual_markers(data, rt, remove_marker=None, measurement_file=None):
     dist = np.linalg.norm(data[1][:, data[0].index("xiph"), :] - data[1][:, data[0].index("ster"), :], axis=0)
-    marker_tec_2 = np.repeat(np.array([0, -0.2, 0, 1])[:, None],data[1].shape[2],  axis = 1)
+    marker_tec_2 = np.repeat(np.array([0, -0.2, 0, 1])[:, None], data[1].shape[2], axis=1)
     l = get_measure(measurement_file) if measurement_file is not None else 0.145
     marker_tec_1 = np.zeros((4, data[1].shape[2]))
     marker_tec_1[2, :] = dist
@@ -76,19 +78,21 @@ def add_virtual_markers(data, rt, remove_marker=None, measurement_file=None):
     if remove_marker is not None:
         data[1] = np.delete(data[1], data[0].index(remove_marker), axis=1)
         names.pop(data[0].index(remove_marker))
-    data_out = np.concatenate((data[1][:, :data[0].index("xiph") + 1, :],
-                               new_markers, data[1][:, data[0].index("xiph") + 1:, :]), axis=1)
-    names = names[:names.index("xiph") + 1] + ["marker_tec_1", "marker_tec_2"] + names[names.index("xiph") + 1:]
-
+    data_out = np.concatenate(
+        (data[1][:, : data[0].index("xiph") + 1, :], new_markers, data[1][:, data[0].index("xiph") + 1 :, :]), axis=1
+    )
+    names = names[: names.index("xiph") + 1] + ["marker_tec_1", "marker_tec_2"] + names[names.index("xiph") + 1 :]
 
     data_out = (names, data_out)
     # plot(data_out)
     return data_out
 
-def plot(data): #, vect_0, vect_1, vect_2):
+
+def plot(data):  # , vect_0, vect_1, vect_2):
     import matplotlib.pyplot as plt
+
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111, projection="3d")
     ax.set_box_aspect([1, 1, 1])
     # ax.quiver(data[1][:, data[0].index("xiph"), 0][0], data[1][:, data[0].index("xiph"), 0][1],
     #           data[1][:, data[0].index("xiph"), 0][2], vect_0[0], vect_0[1], vect_0[2], color='g',
@@ -110,15 +114,14 @@ def plot(data): #, vect_0, vect_1, vect_2):
     plt.show()
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     ratio = 1
     root_dir = "/mnt/shared/Projet_hand_bike_markerless/RGBD"
     participants = [f"P{i}" for i in range(9, 10)]
-    files, participants = get_all_file(participants,root_dir,  is_dir=True, to_include="gear")
+    files, participants = get_all_file(participants, root_dir, is_dir=True, to_include="gear")
     for directory, participant in zip(files, participants):
         # if "gear_20" not in directory : continue
-        #dlc_data_path = f"{directory}/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_{ratio}_with_model_pp_full.bio"
+        # dlc_data_path = f"{directory}/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_{ratio}_with_model_pp_full.bio"
         dlc_data_path = f"{directory}/marker_pos_multi_proc_3_crops_normal_500_model_0_5_pp.bio"
 
         markers_dic = load(dlc_data_path)
@@ -126,10 +129,18 @@ if __name__ == '__main__':
         data_list_dlc = [list(markers_dic["markers_names"][:, 0]), markers_dic["dlc_in_meters"][:3, ...]]
         rt = get_normal_vector(data_list, "styl_r")
         rt_dlc = get_normal_vector(data_list_dlc, "styl_r")
-        data = add_virtual_markers(data_list, rt, remove_marker=None,
-                                   measurement_file=f"/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement/measurements_{participant}.json")
-        data_dlc = add_virtual_markers(data_list_dlc, rt_dlc, remove_marker=None,
-                                   measurement_file=f"/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement/measurements_{participant}.json")
+        data = add_virtual_markers(
+            data_list,
+            rt,
+            remove_marker=None,
+            measurement_file=f"/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement/measurements_{participant}.json",
+        )
+        data_dlc = add_virtual_markers(
+            data_list_dlc,
+            rt_dlc,
+            remove_marker=None,
+            measurement_file=f"/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement/measurements_{participant}.json",
+        )
 
         markers_dic["markers_in_meters"] = data[1]
         markers_dic["dlc_in_meters"] = data_dlc[1]

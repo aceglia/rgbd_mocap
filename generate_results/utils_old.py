@@ -510,7 +510,7 @@ def compute_blandt_altman(
             color_markers = plt.cm.viridis(np.linspace(0, 1, diff_tmp.shape[0]))
             color_tmp = color_markers if "marker" in title else color[i]
             for j in range(len(mean_tmp)):
-                #if np.abs(diff_tmp[j]) > threeshold:
+                # if np.abs(diff_tmp[j]) > threeshold:
                 #    continue
                 ax.scatter(mean_tmp[j], diff_tmp[j], c=color_tmp[j], s=100, alpha=0.6, marker=markers)
 

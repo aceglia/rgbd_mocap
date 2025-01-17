@@ -95,7 +95,9 @@ def main():
         path_to_camera_config_file = (
             f"{prefix}Documents/Programmation/pose_estimation/config_camera_files/config_camera_{part}.json"
         )
-        path_to_camera_config_file = f"D:\Documents\Programmation\pose_estimation\config_camera_files/config_camera_{part}.json"
+        path_to_camera_config_file = (
+            f"D:\Documents\Programmation\pose_estimation\config_camera_files/config_camera_{part}.json"
+        )
         path_to_dlc_model = [
             # f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\DLC_projects\{part}_excluded_non_augmented\exported-models\DLC_test_mobilenet_v2_0.5_iteration-0_shuffle-1",
             # f"Q:\Projet_hand_bike_markerless\RGBD\Training_data\DLC_projects\{part}_excluded_hist_eq\exported-models\DLC_test_mobilenet_v2_0.5_iteration-0_shuffle-1",
@@ -110,9 +112,7 @@ def main():
                 for a, al in enumerate(alone):
                     print(f"working on participant {part} for trial {file[:7]}")
                     # path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_dlc.json"
-                    path = (
-                        f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_cropsnew.json"
-                    )
+                    path = f"{data_files}{os.sep}{part}{os.sep}" + file + f"{os.sep}tracking_config_gui_3_cropsnew.json"
                     if not os.path.exists(path):
                         raise FileNotFoundError(f"No tracking config file found for {part} in {file}")
                         last_config = (

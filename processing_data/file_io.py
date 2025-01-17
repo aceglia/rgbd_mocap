@@ -49,25 +49,23 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     names_from_source.append(list(np.array(vicon_markers_names)[vicon_to_depth_idx]))
     markers_depth_filtered = np.zeros((3, markers_depth.shape[1], markers_depth.shape[2]))
     for i in range(3):
-        markers_depth_filtered[i, :7, :] = OfflineProcessing().butter_lowpass_filter(
-            markers_depth[i, :7, :], 2, 120, 2
-        )
+        markers_depth_filtered[i, :7, :] = OfflineProcessing().butter_lowpass_filter(markers_depth[i, :7, :], 2, 120, 2)
         markers_depth_filtered[i, 7:, :] = OfflineProcessing().butter_lowpass_filter(
             markers_depth[i, 7:, :], 10, 120, 2
         )
     if filter_depth:
         markers_depth = markers_depth_filtered
     if part == "P11":
-       idx_clav_vicon = vicon_markers_names.index("clavac")
-       idx_clav_depth = depth_markers_names.index("clavac")
-       markers_vicon[:, idx_clav_vicon, :] = markers_depth_filtered[:, idx_clav_depth, :]
-       idx_ster_vicon = vicon_markers_names.index("xiph")
-       idx_ster_depth = depth_markers_names.index("xiph")
-       markers_vicon[:, idx_ster_vicon, :] = markers_depth_filtered[:, idx_ster_depth, :]
+        idx_clav_vicon = vicon_markers_names.index("clavac")
+        idx_clav_depth = depth_markers_names.index("clavac")
+        markers_vicon[:, idx_clav_vicon, :] = markers_depth_filtered[:, idx_clav_depth, :]
+        idx_ster_vicon = vicon_markers_names.index("xiph")
+        idx_ster_depth = depth_markers_names.index("xiph")
+        markers_vicon[:, idx_ster_vicon, :] = markers_depth_filtered[:, idx_ster_depth, :]
     if part == "P12":
-       idx_ster_vicon = vicon_markers_names.index("xiph")
-       idx_ster_depth = depth_markers_names.index("xiph")
-       markers_vicon[:, idx_ster_vicon, :] = markers_depth_filtered[:, idx_ster_depth, :]
+        idx_ster_vicon = vicon_markers_names.index("xiph")
+        idx_ster_depth = depth_markers_names.index("xiph")
+        markers_vicon[:, idx_ster_vicon, :] = markers_depth_filtered[:, idx_ster_depth, :]
     if part == "P16":
         idx_clav_vicon = vicon_markers_names.index("clavac")
         idx_clav_depth = depth_markers_names.index("clavac")
@@ -316,7 +314,9 @@ def get_data_from_sources(
             continue
         elif ("vicon" in source or "depth" in source) and not once_loaded:
             print(f"Processing participant {participant}, trial : {trial_name}")
-            filter_depth =  True if "depth" in source_list and live_filter[source_list.index("depth")].value == 4 else False
+            filter_depth = (
+                True if "depth" in source_list and live_filter[source_list.index("depth")].value == 4 else False
+            )
             markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt = load_data(
                 prefix + "/Projet_hand_bike_markerless/process_data",
                 participant,
@@ -330,7 +330,7 @@ def get_data_from_sources(
             is_dlc = True
             ratio = "0_" + source.split("_")[-1] if source.split("_")[-1] != "1" else source.split("_")[-1]
             dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_{ratio}_with_model_pp_full_technical_marker.bio"
-            #dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_model_0_5_pp.bio"
+            # dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_model_0_5_pp.bio"
 
             markers_dic, dlc_frames_idx = get_dlc_data(dlc_data_path, markers_dic, source)
 
@@ -338,6 +338,12 @@ def get_data_from_sources(
         markers_dic, idx_start, idx_end, dlc_frames_idx = refine_markers_dlc(
             markers_dic, dlc_frames_idx, labeled_data_path
         )
+        # idx_start = idx_start if idx_start is not None else 0
+        # idx_end = idx_end if idx_end is not None else markers_dic["vicon"][1].shape[-1]
+        # emg = emg[idx_start:idx_end]
+        # f_ext = f_ext[idx_start:idx_end]
+        # peaks = [peak + idx_start for peak in peaks]
+        # emg = emg[idx_start:idx_end]
     count = 0
     for key in markers_dic:
         if key in source_to_keep and key in existing_keys:

@@ -2,6 +2,7 @@ from processing_data.biomech_analysis.biomech_pipeline import BiomechPipeline
 from processing_data.file_io import get_all_file, get_data_from_sources
 from processing_data.biomech_analysis.enums import FilteringMethod
 import os
+
 try:
     from pyorerun import BiorbdModel, PhaseRerun
 except ImportError:
@@ -126,14 +127,14 @@ def main(
     )
     biomech_pipeline = BiomechPipeline()
     all_files, mapped_part = get_all_file(
-        participants, processed_data_path, to_include=["gear"], to_exclude=["result", "less", "more"]
+        participants, processed_data_path, to_include=["gear_20"], to_exclude=["result", "less", "more"]
     )
     markers_rate = 120
     for part, file in zip(mapped_part, all_files):
         trial_short = file.split(os.sep)[-1].split("_")[0] + "_" + file.split(os.sep)[-1].split("_")[1]
         output_file = (
             prefix
-            + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_with_technical_marker.bio"
+            + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_with_technical_marker_params.bio"
         )
 
         markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frame_idx = get_data_from_sources(
@@ -168,9 +169,11 @@ def main(
                 biomech_pipeline.emg = biomech_pipeline.emg[..., ::2]
             else:
                 biomech_pipeline.fps = markers_rate
-            biomech_pipeline.init_scapula_cluster(part,
-                                                  measurements_dir_path=f"D:\Documents\Programmation\pose_estimation\data_collection_mesurement",
-                                                  calibration_matrix_dir="D:\Documents\Programmation\pose_estimation\calibration_matrix")
+            biomech_pipeline.init_scapula_cluster(
+                part,
+                measurements_dir_path=f"/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/data_collection_mesurement",
+                calibration_matrix_dir="/media/amedeo/Disque Jeux/Documents/Programmation/pose_estimation/calibration_matrix",
+            )
             if live_filter_method[key_counter] == FilteringMethod.Kalman:
                 init_kalman_filter_parameters(biomech_pipeline, key)
                 biomech_pipeline.kalman_instance, biomech_pipeline.n_markers, biomech_pipeline.reordered_idx = (
@@ -195,26 +198,26 @@ def main(
 
         if plot:
             biomech_pipeline.plot_results(plot_by_cycle=False)
-        viz_rerun(biomech_pipeline.results_dict, model_path_final)
+        # viz_rerun(biomech_pipeline.results_dict, model_path_final)
 
 
 if __name__ == "__main__":
-    participants = [f"P{i}" for i in range(9, 10)]
-    #participants.pop(participants.index("P12"))
+    participants = [f"P{i}" for i in range(10, 11)]
+    # participants.pop(participants.index("P12"))
     source = [
         # "depth",
         "vicon",
-        #"minimal_vicon",
+        # "minimal_vicon",
         # , "dlc_0_8", "dlc_0_9",
-        "dlc_1"
+        "dlc_1",
     ]
     model_source = [
         # "depth",
         "vicon_markerless",
         # "minimal_vicon",
         # , "dlc_ribs", "dlc_ribs",
-        #"minimal_vicon",
-        "dlc_technical_marker"
+        # "minimal_vicon",
+        "dlc_technical_marker",
     ]
     filter_method = [
         FilteringMethod.Kalman,
@@ -230,9 +233,9 @@ if __name__ == "__main__":
         model_dir,
         participants,
         processed_data_path,
-        save_data=False,
-        stop_frame=1000,
-        plot=True,
+        save_data=True,
+        stop_frame=5000,
+        plot=False,
         source=source,
         model_source=model_source,
         live_filter_method=filter_method,

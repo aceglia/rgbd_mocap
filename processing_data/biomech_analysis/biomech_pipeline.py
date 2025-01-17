@@ -118,7 +118,7 @@ class BiomechPipeline:
             range_frame = range(stop_frame)
         else:
             range_frame = range(frame_idx[0], frame_idx[-1])
-        if "dlc" in key :
+        if "dlc" in key:
             pass
         self.range_frame = range_frame
         self.stop_frame = stop_frame
@@ -439,6 +439,7 @@ class BiomechPipeline:
 
         if self.key == "viconrr":
             import bioviz
+
             b = bioviz.Viz(loaded_model=self.msk_function.model)
             b.load_movement(final_dic["q"])
             b.load_experimental_markers(final_dic["markers"][:, :, :])
@@ -474,7 +475,7 @@ class BiomechPipeline:
                 dic_to_save=dic_to_save,
                 init_ik=init_ik,
                 kalman_freq=self.fps,
-                model_prefix=self.trial_name
+                model_prefix=self.trial_name,
             )
             if self.compute_id:
                 if not self.compute_ik:
@@ -529,12 +530,12 @@ class BiomechPipeline:
                 # )
                 dlc_mark_tmp = data_dic_tmp["markers"][:, :, :].copy()
                 dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("technical_marker"), axis=1)
-                #dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("marker_tec_2") - 1, axis=1)
+                # dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("marker_tec_2") - 1, axis=1)
 
-                #dlc_mark, idx = refine_synchro(#
+                # dlc_mark, idx = refine_synchro(#
                 #     self.results_dict["minimal_vicon"]["markers"][:, :, :], dlc_mark_tmp, plot_fig=False
-                #)
-                idx  = [0,1,4,5, 6, 7, 8,9,10,12,14,15,16]
+                # )
+                idx = [0, 1, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16]
                 plt.figure("markers_test")
                 for m in range(dlc_mark_tmp.shape[1]):
                     plt.subplot(ceil(dlc_mark_tmp.shape[1] / 4), 4, m + 1)
@@ -593,8 +594,12 @@ class BiomechPipeline:
                 if isinstance(self.results_dict[key][key_2], np.ndarray):
                     if plot_by_cycle:
                         if n_cycle:
-                            dic_tmp[key_2]["mean"] = np.mean(self.results_dict[key]["cycles"][key_2][:n_cycle, ...], axis=0)
-                            dic_tmp[key_2]["std"] = np.std(self.results_dict[key]["cycles"][key_2][:n_cycle, ...], axis=0)
+                            dic_tmp[key_2]["mean"] = np.mean(
+                                self.results_dict[key]["cycles"][key_2][:n_cycle, ...], axis=0
+                            )
+                            dic_tmp[key_2]["std"] = np.std(
+                                self.results_dict[key]["cycles"][key_2][:n_cycle, ...], axis=0
+                            )
                         else:
                             dic_tmp[key_2]["mean"] = np.mean(self.results_dict[key][key_2][:, ...], axis=0)
                             dic_tmp[key_2]["std"] = np.std(self.results_dict[key][key_2][:, ...], axis=0)
@@ -631,7 +636,7 @@ class BiomechPipeline:
                         continue
                     plt.figure("markers")
                     count = 0
-                    idx = [0, 1,  4, 5, 6, 7,  8, 9, 10, 12, 14, 15, 16]
+                    idx = [0, 1, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16]
                     if source == "vicon":
                         mark_tmp = self.results_dict[source][key]["mean"][:, idx, :]
                     else:

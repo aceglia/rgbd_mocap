@@ -294,7 +294,7 @@ class ProcessData:
                 :3, ...
             ]  # + np.array(T)
             count += 1
-        self.rt_matrix  = r
+        self.rt_matrix = r
         self.optimal_r = np.linalg.inv(r)
         if self.plot_fig:
             plt.figure("rotate")
@@ -565,11 +565,11 @@ class ProcessData:
         )
         plt.figure("mvc")
         for i in range(mvc_mat_proc.shape[0]):
-            plt.subplot(mvc_mat_proc.shape[0]//3+1, 3, i + 1)
+            plt.subplot(mvc_mat_proc.shape[0] // 3 + 1, 3, i + 1)
             plt.plot(mvc_mat[i, :])
             plt.plot(mvc_mat_proc[i, :])
 
-        #mvc = list(OfflineProcessing.compute_mvc(mvc_data[0].shape[0], mvc_trials=mvc_mat, window_size=2160))
+        # mvc = list(OfflineProcessing.compute_mvc(mvc_data[0].shape[0], mvc_trials=mvc_mat, window_size=2160))
 
         mvc = list(OfflineProcessing.compute_mvc(mvc_data[0].shape[0], mvc_trials=mvc_mat_proc, window_size=2160))
         self.mvc = mvc

@@ -42,7 +42,7 @@ if __name__ == "__main__":
     prefix = "Q:/"
     data_path = f"{prefix}/Projet_hand_bike_markerless/RGBD"
     model_source = ["vicon"]
-    sources = ["vicon"]  #, "vicon"]
+    sources = ["vicon"]  # , "vicon"]
     for participant in participants:
         all_files = os.listdir(rf"{data_path}/{participant}")
         all_files = [file for file in all_files if "gear_5" in file]
@@ -67,7 +67,9 @@ if __name__ == "__main__":
                     # markers = markers[:, :-3, :]
                 model = biorbd.Model(model_path)
                 # marker_names = get_model_markers_names(model)
-                output_path = rf"{prefix}Projet_hand_bike_markerless/RGBD/{participant}/{file}/{Path(file).stem}_{source}.trc"
+                output_path = (
+                    rf"{prefix}Projet_hand_bike_markerless/RGBD/{participant}/{file}/{Path(file).stem}_{source}.trc"
+                )
                 if os.path.exists(output_path):
                     os.remove(output_path)
                 # ordered_names = [_convert_string(name) for name in marker_names]

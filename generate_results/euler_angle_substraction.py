@@ -7,7 +7,7 @@ import scipy
 
 
 def compute_error(q_ref, q_to_compare, to_vector=False):
-    sequence = [[ None, None, None], [0, 1, 2], [0, 1], [0, 1, 2], [0, 1, 2], [2], [1]]
+    sequence = [[None, None, None], [0, 1, 2], [0, 1], [0, 1, 2], [0, 1, 2], [2], [1]]
     angle_euler_ref = np.zeros((3, q_ref.shape[1]))
     angle_euler_to_compare = np.zeros((3, q_to_compare.shape[1]))
     all_errors = []
@@ -15,46 +15,52 @@ def compute_error(q_ref, q_to_compare, to_vector=False):
 
     if to_vector:
         for i in range(q_ref.shape[0]):
-            error_to_evaluate[i, :]= q_ref[i, :] - q_to_compare[i, :]
+            error_to_evaluate[i, :] = q_ref[i, :] - q_to_compare[i, :]
     else:
         count = 0
         for i in range(len(sequence)):
             if None in sequence[i]:
-                error_to_evaluate[count:count + len(sequence[i]), :] = (q_ref[count:count + len(sequence[i]), :] - q_to_compare[count:count + len(sequence[i]), :]) * 1000
+                error_to_evaluate[count : count + len(sequence[i]), :] = (
+                    q_ref[count : count + len(sequence[i]), :] - q_to_compare[count : count + len(sequence[i]), :]
+                ) * 1000
                 count += len(sequence[i])
                 continue
-            angle_euler_ref[sequence[i]] = q_ref[count:count + len(sequence[i]), :]
-            angle_euler_to_compare[sequence[i]] = q_to_compare[count:count + len(sequence[i]), :]
+            angle_euler_ref[sequence[i]] = q_ref[count : count + len(sequence[i]), :]
+            angle_euler_to_compare[sequence[i]] = q_to_compare[count : count + len(sequence[i]), :]
             for j in range(q_ref.shape[1]):
                 error_tmp = calculate_euler_error(angle_euler_ref[:, j], angle_euler_to_compare[:, j])
-                error_to_evaluate[count:count + len(sequence[i]), j] = error_tmp[sequence[i]]
+                error_to_evaluate[count : count + len(sequence[i]), j] = error_tmp[sequence[i]]
             count += len(sequence[i])
     error_to_evaluate = np.degrees(error_to_evaluate) if to_vector else error_to_evaluate
     rmse = np.sqrt(np.median(np.square(error_to_evaluate), axis=1))
     std = np.std(error_to_evaluate, axis=1)
     return error_to_evaluate, rmse, std
 
+
 def divide_by_cycle(q_ref, error_to_evaluate, n_cycle=None):
     find_peak = scipy.signal.find_peaks(q_ref[-4, :], height=0.01, distance=100)
     find_peak = find_peak[0][:n_cycle] if n_cycle is not None else find_peak[0]
-    #plt.plot(q_ref[-2, :])
-    #plt.plot(find_peak[0], q_ref[-2, find_peak[0]], "x")
+    # plt.plot(q_ref[-2, :])
+    # plt.plot(find_peak[0], q_ref[-2, find_peak[0]], "x")
     nb_peak = len(find_peak)
-    cycle_error = np.zeros((nb_peak , error_to_evaluate.shape[0], 100))
-    for i in range(nb_peak-1):
-        cycle_tmp = error_to_evaluate[:, find_peak[i]:find_peak[i+1]]
+    cycle_error = np.zeros((nb_peak, error_to_evaluate.shape[0], 100))
+    for i in range(nb_peak - 1):
+        cycle_tmp = error_to_evaluate[:, find_peak[i] : find_peak[i + 1]]
         cycle_error[i, ...] = fill_and_interpolate(cycle_tmp, 100, fill=False)
     rmse_cycle = np.sqrt(np.median(np.square(cycle_error), axis=0))
     std_cycle = np.std(cycle_error, axis=0)
     return cycle_error, rmse_cycle, std_cycle
 
+
 def plot_cycle_error(rmse_cycle, std_cycle, index=None):
-    name =("cycle_error" if index is None else f"cycle_error_{index}"   )
+    name = "cycle_error" if index is None else f"cycle_error_{index}"
     plt.figure(name)
     for i in range(rmse_cycle.shape[0]):
-        plt.subplot(int(np.ceil(rmse_cycle.shape[0]/4)), 4, i+1)
+        plt.subplot(int(np.ceil(rmse_cycle.shape[0] / 4)), 4, i + 1)
         plt.plot(rmse_cycle[i, :], label=f"cycle {i+1}")
-        plt.fill_between(np.arange(100), rmse_cycle[i, :] - std_cycle[i, :], rmse_cycle[i, :] + std_cycle[i, :], alpha=0.2)
+        plt.fill_between(
+            np.arange(100), rmse_cycle[i, :] - std_cycle[i, :], rmse_cycle[i, :] + std_cycle[i, :], alpha=0.2
+        )
 
 
 if __name__ == "__main__":
@@ -81,7 +87,7 @@ if __name__ == "__main__":
         for trial in all_data_tmp[patient].keys():
             plt.figure(f"q_{trial}_{patient}")
             for i in range(nb_q):
-                plt.subplot(int(np.ceil(nb_q/4)), 4, i+1)
+                plt.subplot(int(np.ceil(nb_q / 4)), 4, i + 1)
                 plt.plot(np.degrees(all_data_tmp[patient][trial]["vicon"]["q"][i, :]), label="vicon")
                 plt.plot(np.degrees(all_data_tmp[patient][trial]["dlc_1"]["q"][i, :]), label="dlc_1")
                 plt.legend()
@@ -97,7 +103,9 @@ if __name__ == "__main__":
             q_to_compare = data_tmp[to_compare[0]]["q"]
 
             error_to_evaluate, rmse, std = compute_error(q_ref, q_to_compare, to_vector=to_vector)
-            cycle_error, trials_rmse[t, ...], trials_std[t, ...] = divide_by_cycle(q_ref, error_to_evaluate, n_cycle=None)
+            cycle_error, trials_rmse[t, ...], trials_std[t, ...] = divide_by_cycle(
+                q_ref, error_to_evaluate, n_cycle=None
+            )
         all_rmse[i, ...] = np.median(trials_rmse, axis=0)
         all_std[i, ...] = np.median(trials_std, axis=0)
         plot_cycle_error(all_rmse[i, :], all_std[i, :], i)
@@ -107,8 +115,3 @@ if __name__ == "__main__":
     plot_cycle_error(all_rmse_mean, all_std_mean)
 
     plt.show()
-
-
-
-
-
