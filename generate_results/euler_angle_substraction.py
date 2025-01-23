@@ -11,11 +11,11 @@ def compute_error(q_ref, q_to_compare, to_vector=False):
     angle_euler_ref = np.zeros((3, q_ref.shape[1]))
     angle_euler_to_compare = np.zeros((3, q_to_compare.shape[1]))
     all_errors = []
-    error_to_evaluate = np.zeros_like(q_ref)
+    error_to_evaluate = np.zeros_like(q_ref[:, 10:])
 
     if to_vector:
         for i in range(q_ref.shape[0]):
-            error_to_evaluate[i, :]= q_ref[i, :] - q_to_compare[i, :]
+            error_to_evaluate[i, :]= q_ref[i, 10:] - q_to_compare[i, 10:]
     else:
         count = 0
         for i in range(len(sequence)):
@@ -29,42 +29,107 @@ def compute_error(q_ref, q_to_compare, to_vector=False):
                 error_tmp = calculate_euler_error(angle_euler_ref[:, j], angle_euler_to_compare[:, j])
                 error_to_evaluate[count:count + len(sequence[i]), j] = error_tmp[sequence[i]]
             count += len(sequence[i])
-    error_to_evaluate = np.degrees(error_to_evaluate) if to_vector else error_to_evaluate
+    error_to_evaluate[:3, ...] = error_to_evaluate[:3, ...] * 1000
+    error_to_evaluate[3:, ...] = np.degrees(error_to_evaluate[3:, ...])if to_vector else error_to_evaluate
     rmse = np.sqrt(np.median(np.square(error_to_evaluate), axis=1))
     std = np.std(error_to_evaluate, axis=1)
     return error_to_evaluate, rmse, std
 
 def divide_by_cycle(q_ref, error_to_evaluate, n_cycle=None):
-    find_peak = scipy.signal.find_peaks(q_ref[-4, :], height=0.01, distance=100)
+    find_peak = scipy.signal.find_peaks(q_ref[-2, :], height=0.8, distance=50)
     find_peak = find_peak[0][:n_cycle] if n_cycle is not None else find_peak[0]
     #plt.plot(q_ref[-2, :])
-    #plt.plot(find_peak[0], q_ref[-2, find_peak[0]], "x")
+    #plt.plot(find_peak, q_ref[-2, find_peak], "x")
+    #plt.show()
     nb_peak = len(find_peak)
-    cycle_error = np.zeros((nb_peak , error_to_evaluate.shape[0], 100))
+    cycle_error = np.zeros((nb_peak , error_to_evaluate.shape[0], 101))
     for i in range(nb_peak-1):
         cycle_tmp = error_to_evaluate[:, find_peak[i]:find_peak[i+1]]
-        cycle_error[i, ...] = fill_and_interpolate(cycle_tmp, 100, fill=False)
+        cycle_error[i, ...] = fill_and_interpolate(cycle_tmp, 101, fill=False)
     rmse_cycle = np.sqrt(np.median(np.square(cycle_error), axis=0))
+
     std_cycle = np.std(cycle_error, axis=0)
     return cycle_error, rmse_cycle, std_cycle
 
 def plot_cycle_error(rmse_cycle, std_cycle, index=None):
     name =("cycle_error" if index is None else f"cycle_error_{index}"   )
-    plt.figure(name)
-    for i in range(rmse_cycle.shape[0]):
-        plt.subplot(int(np.ceil(rmse_cycle.shape[0]/4)), 4, i+1)
-        plt.plot(rmse_cycle[i, :], label=f"cycle {i+1}")
-        plt.fill_between(np.arange(100), rmse_cycle[i, :] - std_cycle[i, :], rmse_cycle[i, :] + std_cycle[i, :], alpha=0.2)
+    dof_name = ["Thorax - Anteroposterior (mm)",
+                "Thorax - Upward/downward (mm)",
+                "Thorax - Mediolateral (mm)",
+                "Thorax - Lateral rotation (°)",
+                "Thorax - Axial rotation (°)",
+                "Thorax - Flexion/extension (°)",
+                "Clavicle - Pro/retraction (°)",
+                "Clavicle - Depression/elevation (°)",
+                "Scapula - Pro/retraction (°)",
+                "Scapula - Lateral rotation (°)",
+                "Scapula - Tilt (°)",
+                "Humerus - Plane of elevation (°)",
+                "Humerus - Elevation (°)",
+                "Humerus - Axial rotation (°)",
+                "Forearm - Flexion/extension (°)",
+                "Forearm - Pronation/supination (°)",
+                ]
+    segments = [
+        "Thorax", "Thorax", "Thorax",
+        "Thorax", "Thorax", "Thorax",
+        "Clavicle",
+        "Clavicle",
+        "Scapula",
+        "Scapula",
+        "Scapula",
+        "Humerus",
+        "Humerus",
+        "Humerus",
+        "Forearm",
+        "Forearm",
+    ]
+    #plt.figure(name)
+
+    #for i in range(rmse_cycle.shape[0]-2):
+    #    plt.subplot(int(np.ceil((rmse_cycle.shape[0]-2)/3)), 3, i+1)
+    #    plt.plot(rmse_cycle[i, :], label=f"cycle {i+1}")
+    #    plt.title(dof_name[i])
+    #    plt.fill_between(np.arange(100), rmse_cycle[i, :] - std_cycle[i, :], rmse_cycle[i, :] + std_cycle[i, :], alpha=0.2)
+    metrics = ["Position (mm)"] * 3 + ["Joint angle (°)"] * 12
+
+    fig = plt.figure(num=name, constrained_layout=False)
+    subplots = fig.subplots(6, 3, sharex=False, sharey=False)
+    count = 0
+    font_size = 18
+    for i in range(rmse_cycle.shape[0] + 2):
+        if i in [8, 17]:
+            subplots.flat[i].remove()
+            continue
+        ax = subplots.flat[i]
+        ax.fill_between(np.arange(101), rmse_cycle[count, :] - std_cycle[count, :], rmse_cycle[count, :] + std_cycle[count, :], alpha=0.2)
+        ax.plot(rmse_cycle[count, :], label=f"cycle {i+1}")
+        ax.set_title(dof_name[count], fontsize=font_size)
+        ax.tick_params(axis="y", labelsize=font_size - 2)
+        ax.text(0.05, 0.95, f"RMSE: {rmse_cycle[count, :].mean():.2f} ± {std_cycle[count, :].mean():.2f}", transform=ax.transAxes, fontsize=15, va='top', ha='left')
+        ax.set_xlim(0, 100)
+        if i not in [14, 15, 16]:
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+        else:
+            #ax.set_xlabel("Mean cycle (%)", fontsize=font_size)
+            ax.tick_params(axis="x", labelsize=font_size - 2)
+        # if i in [0, 3, 6, 9, 12, 15]:
+        #     ax.set_ylabel(metrics[count], fontsize=font_size, rotation=90)
+        #     ax.tick_params(axis="y", labelsize=font_size - 2)
+        count += 1
+    fig.supylabel('Joint error', fontsize=font_size + 2)
+    fig.supxlabel('Mean cycle (%)', fontsize=font_size + 2)
 
 
 if __name__ == "__main__":
     participants = [f"P{i}" for i in range(9, 17)]
     to_vector = True
-    reload_data = True
+    reload_data = False
     if reload_data:
         all_data, trials = load_results(
             participants,
-            "/mnt/shared/Projet_hand_bike_markerless/process_data",
+            "Q:/Projet_hand_bike_markerless/process_data",
             file_name="_with_technical_marker.bio",
             recompute_cycles=False,
             to_exclude=["live_filt"],
@@ -77,20 +142,21 @@ if __name__ == "__main__":
     all_data_tmp = all_data.copy()
     participants = [f"P{i}" for i in range(9, 17)]
     nb_q = all_data_tmp[participants[0]][list(all_data_tmp[participants[0]].keys())[0]]["vicon"]["q"].shape[0]
-    for patient in all_data_tmp.keys():
-        for trial in all_data_tmp[patient].keys():
-            plt.figure(f"q_{trial}_{patient}")
-            for i in range(nb_q):
-                plt.subplot(int(np.ceil(nb_q/4)), 4, i+1)
-                plt.plot(np.degrees(all_data_tmp[patient][trial]["vicon"]["q"][i, :]), label="vicon")
-                plt.plot(np.degrees(all_data_tmp[patient][trial]["dlc_1"]["q"][i, :]), label="dlc_1")
-                plt.legend()
-            plt.show()
-    all_rmse = np.zeros((len(participants), nb_q, 100))
-    all_std = np.zeros((len(participants), nb_q, 100))
+    #for patient in all_data_tmp.keys():
+    #    for trial in all_data_tmp[patient].keys():
+    #        plt.figure(f"q_{trial}_{patient}")
+    #        for i in range(nb_q):
+    #            plt.subplot(int(np.ceil(nb_q/4)), 4, i+1)
+    #            plt.plot(np.degrees(all_data_tmp[patient][trial]["vicon"]["q"][i, :]), label="vicon")
+    #            plt.plot(np.degrees(all_data_tmp[patient][trial]["dlc_1"]["q"][i, :]), label="dlc_1")
+    #            plt.legend()
+    #        plt.show()
+
+    all_rmse = np.zeros((len(participants), nb_q, 101))
+    all_std = np.zeros((len(participants), nb_q, 101))
     for i, participant in enumerate(participants):
-        trials_rmse = np.zeros((4, nb_q, 100))
-        trials_std = np.zeros((4, nb_q, 100))
+        trials_rmse = np.zeros((4, nb_q, 101))
+        trials_std = np.zeros((4, nb_q, 101))
         for t, trial in enumerate(all_data[participant].keys()):
             data_tmp = all_data[participant][trial]
             q_ref = data_tmp[ref_key[0]]["q"]
@@ -98,6 +164,7 @@ if __name__ == "__main__":
 
             error_to_evaluate, rmse, std = compute_error(q_ref, q_to_compare, to_vector=to_vector)
             cycle_error, trials_rmse[t, ...], trials_std[t, ...] = divide_by_cycle(q_ref, error_to_evaluate, n_cycle=None)
+        print("participant", participant, "rmse", trials_rmse)
         all_rmse[i, ...] = np.median(trials_rmse, axis=0)
         all_std[i, ...] = np.median(trials_std, axis=0)
         plot_cycle_error(all_rmse[i, :], all_std[i, :], i)

@@ -7,7 +7,7 @@ import numpy as np
 if __name__ == "__main__":
     participants = ["P9"]  # , "P11", "P12", "P13"]#, "P14", "P15", "P16"]
     trials = [["gear_10"]] * len(participants)
-    all_data, trials = load_all_data(participants, "/mnt/shared/Projet_hand_bike_markerless/process_data", trials)
+    all_data, trials = load_all_data(participants, "Q:/Projet_hand_bike_markerless/process_data", trials)
     n_peaks = 10
     for part in all_data.keys():
         for f, file in enumerate(all_data[part].keys()):

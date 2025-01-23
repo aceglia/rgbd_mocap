@@ -180,7 +180,7 @@ def load_data_from_dlc(labeled_data_path=None, dlc_data_path=None, part=None, fi
         "m3",
     ]
     init_dlc_markers_names = [
-        "ribs",
+        # "ribs",
         "ster",
         "xiph",
         "clavsc",
@@ -197,8 +197,8 @@ def load_data_from_dlc(labeled_data_path=None, dlc_data_path=None, part=None, fi
     ]
 
     names = [init_depth_markers_names, init_dlc_markers_names]
-    measurements_dir_path = "data_collection_mesurement"
-    calibration_matrix_dir = "../scapula_cluster/calibration_matrix"
+    measurements_dir_path = "D:\Documents\Programmation\pose_estimation\data_collection_mesurement"
+    calibration_matrix_dir = "D:\Documents\Programmation\pose_estimation\calibration_matrix"
     markers_names_list = []
     reordered_markers_list = []
     dict_list = [{}, {}]

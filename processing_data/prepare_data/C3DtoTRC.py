@@ -161,6 +161,12 @@ if __name__ == "__main__":
     # outfile_path = "data.trc"
     # infile_path = "data.c3d"
     from biosiglive import load
+    c3d_file = r"D:\Downloads\static03.c3d"
+    output = c3d_file.replace(".c3d", ".trc")
+
+    converter = WriteTrcFromC3d(output_file_path=output, c3d_file_path=c3d_file)
+    converter.write()
+
 
     # markers_file = "data_files/P3_session2/gear_20_15-08-2023_09_35_38/P3_gear_20_c3d.bio"
     # data = load(markers_file)
@@ -197,77 +203,77 @@ if __name__ == "__main__":
     #                         )
     # write.time = data["markers"].time.values.round(4)
     # write.write()
-    participant = "P4_session2"
-    trial = "standing_anato"
-    file_dir = rf"data_files\{participant}\standing_anato_15-08-2023_10_28_27"
-    vicon_data = load(rf"{file_dir}\P4_{trial}_c3d.bio")
-    import glob
-
-    # markers_depth = load(f"{file_dir}\markers_kalman.bio", number_of_line=len(glob.glob(file_dir + "\color*")))
-    # # end = markers_depth.shape[2]
-    # markers_depth = markers_depth["markers_in_meters"]
-    # markers_depth_names = [
-    #                  "T5",
-    #                  "C7",
-    #                  'RIBS_r',
-    #                  "CLAV_AC",
-    #                  "SCAP_TS",
-    #                  "SCAP_IA",
-    #                  "SCAP_AA",
-    #                  "DELT",
-    #                  "ARMl",
-    #                  "EPICl",
-    #                  "larm_l",
-    #                  "STYLr",
-    #                  "STYLu"
-    #                 ]
-    markers_vicon_names = [
-        "STER",
-        "XIPH",
-        "C7",
-        "T5",
-        "RIBS_r",
-        "CLAV_SC",
-        "CLAV_AC",
-        "SCAP_TS",
-        "SCAP_IA",
-        "SCAP_AA",
-        "DELT",
-        "ARMl",
-        "EPICM",
-        "EPICl",
-        "ELB",
-        "larm_l",
-        "STYLr",
-        "STYLu",
-    ]
-    # # new_markers_depth = np.zeros((3, markers_depth.shape[1], idx[-1]-idx[0]))
-    # count = 0
-    # # for i in range(idx[-1]-idx[0]):
-    # #     if i + start_color_idx in idx:
-    # #         new_markers_depth[:, :, i] = np.dot(np.array(optimal_rotation),
-    # #                                             np.array(markers_depth[:, :, count])
-    # #                                             ) + np.array(optimal_translation)
-    # #         count += 1
-    # #     else:
-    # #         new_markers_depth[:, :, i] = np.nan
-    markers_vicon = vicon_data["markers"].values[:3, : len(markers_vicon_names), :] * 0.001
-    # WriteTrcFromMarkersData(output_file_path =f"{file_dir}\{participant}_{trial}_from_depth.trc",
-    #                         markers=np.round(markers_depth, 5),
-    #                         marker_names=markers_depth_names,
-    #                         data_rate=60,
-    #                         cam_rate=60,
-    #                         n_frames=markers_depth.shape[2],
-    #                         start_frame=1,
-    #                         units="m").write()
-
-    WriteTrcFromMarkersData(
-        output_file_path=f"{file_dir}\{participant}_{trial}_from_vicon.trc",
-        markers=np.round(markers_vicon, 5),
-        marker_names=markers_vicon_names,
-        data_rate=120,
-        cam_rate=120,
-        n_frames=markers_vicon.shape[2],
-        start_frame=1,
-        units="m",
-    ).write()
+    # participant = "P4_session2"
+    # trial = "standing_anato"
+    # file_dir = rf"data_files\{participant}\standing_anato_15-08-2023_10_28_27"
+    # vicon_data = load(rf"{file_dir}\P4_{trial}_c3d.bio")
+    # import glob
+    #
+    # # markers_depth = load(f"{file_dir}\markers_kalman.bio", number_of_line=len(glob.glob(file_dir + "\color*")))
+    # # # end = markers_depth.shape[2]
+    # # markers_depth = markers_depth["markers_in_meters"]
+    # # markers_depth_names = [
+    # #                  "T5",
+    # #                  "C7",
+    # #                  'RIBS_r',
+    # #                  "CLAV_AC",
+    # #                  "SCAP_TS",
+    # #                  "SCAP_IA",
+    # #                  "SCAP_AA",
+    # #                  "DELT",
+    # #                  "ARMl",
+    # #                  "EPICl",
+    # #                  "larm_l",
+    # #                  "STYLr",
+    # #                  "STYLu"
+    # #                 ]
+    # markers_vicon_names = [
+    #     "STER",
+    #     "XIPH",
+    #     "C7",
+    #     "T5",
+    #     "RIBS_r",
+    #     "CLAV_SC",
+    #     "CLAV_AC",
+    #     "SCAP_TS",
+    #     "SCAP_IA",
+    #     "SCAP_AA",
+    #     "DELT",
+    #     "ARMl",
+    #     "EPICM",
+    #     "EPICl",
+    #     "ELB",
+    #     "larm_l",
+    #     "STYLr",
+    #     "STYLu",
+    # ]
+    # # # new_markers_depth = np.zeros((3, markers_depth.shape[1], idx[-1]-idx[0]))
+    # # count = 0
+    # # # for i in range(idx[-1]-idx[0]):
+    # # #     if i + start_color_idx in idx:
+    # # #         new_markers_depth[:, :, i] = np.dot(np.array(optimal_rotation),
+    # # #                                             np.array(markers_depth[:, :, count])
+    # # #                                             ) + np.array(optimal_translation)
+    # # #         count += 1
+    # # #     else:
+    # # #         new_markers_depth[:, :, i] = np.nan
+    # markers_vicon = vicon_data["markers"].values[:3, : len(markers_vicon_names), :] * 0.001
+    # # WriteTrcFromMarkersData(output_file_path =f"{file_dir}\{participant}_{trial}_from_depth.trc",
+    # #                         markers=np.round(markers_depth, 5),
+    # #                         marker_names=markers_depth_names,
+    # #                         data_rate=60,
+    # #                         cam_rate=60,
+    # #                         n_frames=markers_depth.shape[2],
+    # #                         start_frame=1,
+    # #                         units="m").write()
+    #
+    # WriteTrcFromMarkersData(
+    #     output_file_path=f"{file_dir}\{participant}_{trial}_from_vicon.trc",
+    #     markers=np.round(markers_vicon, 5),
+    #     marker_names=markers_vicon_names,
+    #     data_rate=120,
+    #     cam_rate=120,
+    #     n_frames=markers_vicon.shape[2],
+    #     start_frame=1,
+    #     units="m",
+    # ).write()

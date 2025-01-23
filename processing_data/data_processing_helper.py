@@ -1,7 +1,7 @@
 import math
 
 import numpy as np
-from casadi import interp1d
+# from casadi import interp1d
 import pandas as pd
 from scipy.interpolate import interp1d
 from processing_data.scapula_cluster.from_cluster_to_anato import ScapulaCluster
@@ -25,6 +25,7 @@ def compute_blandt_altman(
     ax=None,
     threeshold=np.inf,
     no_y_label=False,
+    plot=True,
 ):
     def _remove_nan(data1, data2):
         mean = data1
@@ -90,46 +91,47 @@ def compute_blandt_altman(
         f"Bias = {np.round(bias, 2)}, 95% CI {np.round(ci_bias, 2)}\n",
         f"Upper LOA = {np.round(upper_loa, 2)}, 95% CI {np.round(ci_upper_loa, 2)}",
     )
-    if ax is None:
-        plt.figure(title)
-    ax = plt.axes() if ax is None else ax
-    markers = markers if markers is not None else "o"
-    if color is not None:
-        for i in range(len(color)):
-            # mean_tmp = mean_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
-            # diff_tmp = diff_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
-            mean_tmp = mean_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
-            diff_tmp = diff_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
-            # ax.scatter(mean_tmp, diff_tmp, color=color[i][0], s=100, alpha=0.6, marker=markers)
-            color_markers = plt.cm.viridis(np.linspace(0, 1, diff_tmp.shape[0]))
-            color_tmp = color_markers if "marker" in title else color[i]
-            for j in range(len(mean_tmp)):
-                #if np.abs(diff_tmp[j]) > threeshold:
-                #    continue
-                ax.scatter(mean_tmp[j], diff_tmp[j], c=color_tmp[j], s=100, alpha=0.6, marker=markers)
+    if plot:
+        if ax is None:
+            plt.figure(title)
+        ax = plt.axes() if ax is None else ax
+        markers = markers if markers is not None else "o"
+        if color is not None:
+            for i in range(len(color)):
+                # mean_tmp = mean_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
+                # diff_tmp = diff_to_plot[i * len(color[i]) * 4 : (i + 1) * len(color[i]) * 4]
+                mean_tmp = mean_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
+                diff_tmp = diff_to_plot[i * len(color[i]) : (i + 1) * len(color[i])]
+                # ax.scatter(mean_tmp, diff_tmp, color=color[i][0], s=100, alpha=0.6, marker=markers)
+                color_markers = plt.cm.viridis(np.linspace(0, 1, diff_tmp.shape[0]))
+                color_tmp = color_markers if "marker" in title else color[i]
+                for j in range(len(mean_tmp)):
+                    #if np.abs(diff_tmp[j]) > threeshold:
+                    #    continue
+                    ax.scatter(mean_tmp[j], diff_tmp[j], c=color_tmp[j], s=100, alpha=0.6, marker=markers)
 
     # ax.scatter(mean, diff, c='k', s=20, alpha=0.6, marker='o')
     # Plot the zero line
-    ax.axhline(y=0, color="k", lw=0.5)
-    # Plot the bias and the limits of agreement
-    ax.axhline(y=loas[1], color="grey", ls="--")
-    ax.axhline(y=bias, color="grey", ls="--")
-    ax.axhline(y=loas[0], color="grey", ls="--")
+        ax.axhline(y=0, color="k", lw=0.5)
+        # Plot the bias and the limits of agreement
+        ax.axhline(y=loas[1], color="grey", ls="--")
+        ax.axhline(y=bias, color="grey", ls="--")
+        ax.axhline(y=loas[0], color="grey", ls="--")
 
-    # Labels
-    font = 18
-    ax.set_title(title, fontsize=font + 2)
-    # ax.set_ylabel(f'Difference ({units} )', fontsize=font)
-    if x_axis is not None:
-        ax.set_xlabel(x_axis, fontsize=font)
-    else:
-        ax.set_xlabel(f"Mean ({units})", fontsize=font)
-    ax.tick_params(axis="y", labelsize=font)
-    ax.tick_params(axis="x", labelsize=font)
-    if not no_y_label:
-        ax.set_ylabel(f"Difference ({units})", fontsize=font)
-    else:
-        ax.set_ylabel("", fontsize=font)
+        # Labels
+        font = 18
+        ax.set_title(title, fontsize=font + 2)
+        # ax.set_ylabel(f'Difference ({units} )', fontsize=font)
+        if x_axis is not None:
+            ax.set_xlabel(x_axis, fontsize=font)
+        else:
+            ax.set_xlabel(f"Mean ({units})", fontsize=font)
+        ax.tick_params(axis="y", labelsize=font)
+        ax.tick_params(axis="x", labelsize=font)
+        if not no_y_label:
+            ax.set_ylabel(f"Difference ({units})", fontsize=font)
+        else:
+            ax.set_ylabel("", fontsize=font)
     # ax.xticks(fontsize=font)
     # ax.yticks(fontsize=font)
     # Confidence intervals
@@ -137,12 +139,12 @@ def compute_blandt_altman(
     # ax.plot([left] * 2, list(ci_bias), color="grey", ls="--", alpha=0.5)
     # ax.plot([left] * 2, list(ci_lower_loa), color="grey", ls="--", alpha=0.5)
     # Confidence intervals' caps
-    left, right = ax.get_xlim()
+        left, right = ax.get_xlim()
 
     # Set x-axis limits
-    domain = right - left
-    ax.set_xlim(left, left + domain)
-    x = np.linspace(left, right, 100)
+        domain = right - left
+        ax.set_xlim(left, left + domain)
+        x = np.linspace(left, right, 100)
     # ax.plot(x_range, [ci_upper_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
     # ax.plot(x_range, [ci_upper_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
     # ax.plot(x_range, [ci_bias[1]] * 2, color="grey", ls="--", alpha=0.5)
@@ -150,23 +152,23 @@ def compute_blandt_altman(
     # ax.plot(x_range, [ci_lower_loa[1]] * 2, color="grey", ls="--", alpha=0.5)
     # ax.plot(x_range, [ci_lower_loa[0]] * 2, color="grey", ls="--", alpha=0.5)
     # fill between confidence intervals for loa
-    ax.fill_between(x, ci_lower_loa[0], ci_lower_loa[1], color="grey", alpha=0.2)
-    ax.fill_between(x, ci_upper_loa[0], ci_upper_loa[1], color="grey", alpha=0.2)
+        ax.fill_between(x, ci_lower_loa[0], ci_lower_loa[1], color="grey", alpha=0.2)
+        ax.fill_between(x, ci_upper_loa[0], ci_upper_loa[1], color="grey", alpha=0.2)
     # Get axis limits
-    bottom, top = ax.get_ylim()
+        bottom, top = ax.get_ylim()
     # Set y-axis limits
     # max_y = max(abs(bottom), abs(top))
-    max_y = top
-    min_y = abs(bottom)
+        max_y = top
+        min_y = abs(bottom)
 
-    ax.set_ylim(-min_y, max_y)
-    # Annotations
-    ax.annotate("+LOA", (right, upper_loa), (0, 7), textcoords="offset pixels", fontsize=font)
-    ax.annotate(f"{upper_loa:+4.2f}", (right, upper_loa), (0, -25), textcoords="offset pixels", fontsize=font)
-    ax.annotate("Bias", (right, bias), (0, 7), textcoords="offset pixels", fontsize=font)
-    ax.annotate(f"{bias:+4.2f}", (right, bias), (0, -25), textcoords="offset pixels", fontsize=font)
-    ax.annotate("-LOA", (right, lower_loa), (0, 7), textcoords="offset pixels", fontsize=font)
-    ax.annotate(f"{lower_loa:+4.2f}", (right, lower_loa), (0, -25), textcoords="offset pixels", fontsize=font)
+        ax.set_ylim(-min_y, max_y)
+        # Annotations
+        ax.annotate("+LOA", (right, upper_loa), (0, 7), textcoords="offset pixels", fontsize=font)
+        ax.annotate(f"{upper_loa:+4.2f}", (right, upper_loa), (0, -25), textcoords="offset pixels", fontsize=font)
+        ax.annotate("Bias", (right, bias), (0, 7), textcoords="offset pixels", fontsize=font)
+        ax.annotate(f"{bias:+4.2f}", (right, bias), (0, -25), textcoords="offset pixels", fontsize=font)
+        ax.annotate("-LOA", (right, lower_loa), (0, 7), textcoords="offset pixels", fontsize=font)
+        ax.annotate(f"{lower_loa:+4.2f}", (right, lower_loa), (0, -25), textcoords="offset pixels", fontsize=font)
 
     if show:
         plt.show()

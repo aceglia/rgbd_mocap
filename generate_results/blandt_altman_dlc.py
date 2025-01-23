@@ -1,12 +1,11 @@
-from pathlib import Path
-import os
+import scipy
 import numpy as np
 
 import matplotlib.pyplot as plt
 
 from biosiglive import load, save
 from utils_old import load_results #, compute_blandt_altman
-from processing_data.data_processing_helper import compute_blandt_altman
+from processing_data.data_processing_helper import compute_blandt_altman, fill_and_interpolate
 
 
 
@@ -61,6 +60,13 @@ def rmse(predictions, targets):
     return np.sqrt(((predictions - targets) ** 2).mean())
 
 
+def get_by_cycles(data, cycles_idx):
+    subarrays = np.split(data, cycles_idx, axis=-1)[1:-1]
+    subarrays = np.array([fill_and_interpolate(subarray, 100, fill=False) for subarray in subarrays])
+    subarrays = np.mean(subarrays, axis=0)
+    return subarrays
+
+
 def get_end_frame(part, file):
     end_frame = None
     if part == "P12" and "gear_10" in file:
@@ -70,7 +76,7 @@ def get_end_frame(part, file):
     elif part == "P12" and "gear_20" in file:
         end_frame = 10130
     elif part == "P11" and "gear_20" in file:
-        end_frame = 8970
+        end_frame = 10200  # 8970
     return end_frame
 
 
@@ -85,8 +91,6 @@ if __name__ == "__main__":
     colors_markers = plt.cm.tab10(np.linspace(0, 1, n_mark))
     # colormap veridis
     colors_markers = plt.cm.viridis(np.linspace(0, 1, n_mark))
-
-
     # plt.show()
     reload_data = False
     if reload_data:
@@ -148,21 +152,27 @@ if __name__ == "__main__":
         n_key = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["dlc_1"][key].shape[shape_idx]
         if key == "markers":
             n_key -= 1
-        if key == "q" or key =="q_dot":
-            n_key -= 2
-        means_file = np.ndarray((n_comparison, len(participants) * n_key))
-        diffs_file = np.ndarray((n_comparison, len(participants) * n_key))
+        # if key == "q" or key =="q_dot":
+        #     n_key -= 2
+        n_frame = 100
+        n_key = n_key * n_frame
+        means_file = np.ndarray((n_comparison, len(participants) * n_key * 4))
+        diffs_file = np.ndarray((n_comparison, len(participants) * n_key * 4))
         rmse = np.ndarray((n_comparison, len(participants) * n_key))
         std = np.ndarray((n_comparison, len(participants) * n_key))
         for p, part in enumerate(all_data.keys()):
             means = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
             diffs = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
             all_colors.append([colors[p]] * n_key)
-            rmse_file = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
-            std_file = np.ndarray((n_comparison, n_key, len(all_data[part].keys())))
+            rmse_file = np.ndarray((n_comparison, n_key//n_frame, len(all_data[part].keys())))
+            std_file = np.ndarray((n_comparison, n_key//n_frame, len(all_data[part].keys())))
             for f, file in enumerate(all_data[part].keys()):
-
-
+                find_peak = scipy.signal.find_peaks(all_data[part][file][source[0]]["q"][-2, :], height=0.01,
+                                                    distance=100)
+                cycles_idx = find_peak[0]
+                find_peak = scipy.signal.find_peaks(all_data[part][file][to_compare_source[0]]["q"][-2, :], height=0.01,
+                                                    distance=100)
+                cycles_idx_dlc = find_peak[0]
                 for j in range(n_comparison):
                     end_frame = get_end_frame(part, file)
                     source_tmp = "vicon" if "markers" in key and "vicon" in source[j] else source[j]
@@ -183,7 +193,7 @@ if __name__ == "__main__":
                             else dlc_mark_tmp
                         )
                         ref_data = all_data[part][file][source[j]]["markers"][:, idx, :]
-                        ref_data =  (
+                        ref_data = (
                             ref_data[..., :end_frame]
                             if end_frame is not None
                             else ref_data
@@ -219,13 +229,19 @@ if __name__ == "__main__":
                             if end_frame is not None
                             else all_data[part][file][source_tmp][key]
                         )
-                    if key =="q" or key == "q_dot":
+                    if key == "q" or key == "q_dot":
                         to_compare = to_compare[:16, :]
                         ref_data = ref_data[:16, :]
+
                     rmse_file[j, :, f] = compute_error(to_compare * factors[k], ref_data * factors[k])
                     std_file[j, :, f] = compute_std(to_compare * factors[k], ref_data * factors[k])
+                    print("part:", part, "trial", file, "mean", np.mean(rmse_file[j, :, f]))
+                    # by cycle
+
                     # if key == "q_dot":
                     #     print(part, file, np.mean(rmse_file[j, :, f]))
+                    to_compare = get_by_cycles(to_compare, cycles_idx_dlc)
+                    ref_data = get_by_cycles(ref_data, cycles_idx)
                     sum_minimal = (to_compare + ref_data) / 2
                     dif_minimal = to_compare - ref_data
                     #nan_idx = np.argwhere(np.isnan(sum_minimal))
@@ -248,16 +264,20 @@ if __name__ == "__main__":
                     if "markers" in key or "center" in key:
                         sum_minimal = np.nanmean(sum_minimal, axis=0)
                         dif_minimal = np.nanmean(dif_minimal, axis=0)
-                    means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
-                    diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
+                    # means[j, :, f] = np.mean(sum_minimal, axis=1) * factors[k]
+                    # diffs[j, :, f] = np.mean(dif_minimal, axis=1) * factors[k]
+                    means[j, :, f] = sum_minimal.flatten() * factors[k]
+                    diffs[j, :, f] = dif_minimal.flatten() * factors[k]
                     #diffs = np.clip(diffs, -10, 10)
                     # print("part:", part, "trial", file, "mean", diffs[j, :, f])
 
             for j in range(n_comparison):
-                means_file[j, n_key * p : n_key * (p + 1)] = np.mean(means[j, :, :], axis=1)
-                diffs_file[j, n_key * p : n_key * (p + 1)] = np.mean(diffs[j, :, :], axis=1)
-                rmse[j, n_key * p : n_key * (p + 1)] = np.mean(rmse_file[j, :, :], axis=1)
-                std[j, n_key * p : n_key * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
+                # means_file[j, n_key * p : n_key * (p + 1)] = np.mean(means[j, :, :], axis=1)
+                # diffs_file[j, n_key * p : n_key * (p + 1)] = np.mean(diffs[j, :, :], axis=1)
+                means_file[j, n_key * p * 4 : n_key * (p + 1) * 4] = means[j, :, :].flatten()
+                diffs_file[j, n_key * p * 4 : n_key * (p + 1) * 4] = diffs[j, :, :].flatten()
+                rmse[j, n_key // n_frame * p : n_key // n_frame * (p + 1)] = np.mean(rmse_file[j, :, :], axis=1)
+                std[j, n_key // n_frame * p : n_key // n_frame * (p + 1)] = np.mean(std_file[j, :, :], axis=1)
         all_rmse.append(rmse.mean(axis=1).round(2))
         all_std.append(std.mean(axis=1).round(2))
         # bias, lower_loa, upper_loa, _ = compute_blandt_altman(
@@ -288,6 +308,7 @@ if __name__ == "__main__":
             title="Bland-Altman Plot for " + key + "1.0",
             show=False,
             color=all_colors,
+            plot=False
         )
 
         all_bias[k].append(np.round(bias, 2))
@@ -370,4 +391,4 @@ if __name__ == "__main__":
 \end{table*}
 """
     )
-    plt.show()
+    # plt.show()

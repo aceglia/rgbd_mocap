@@ -133,7 +133,7 @@ def main(
         trial_short = file.split(os.sep)[-1].split("_")[0] + "_" + file.split(os.sep)[-1].split("_")[1]
         output_file = (
             prefix
-            + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_with_technical_marker.bio"
+            + f"/Projet_hand_bike_markerless/process_data/{part}/result_biomech_{trial_short}_with_technical_marker_yxz.bio"
         )
 
         markers_dic, forces, f_ext, emg, vicon_to_depth, peaks, rt, dlc_frame_idx = get_data_from_sources(
@@ -199,7 +199,7 @@ def main(
 
 
 if __name__ == "__main__":
-    participants = [f"P{i}" for i in range(9, 10)]
+    participants = [f"P{i}" for i in range(12, 17)]
     #participants.pop(participants.index("P12"))
     source = [
         # "depth",

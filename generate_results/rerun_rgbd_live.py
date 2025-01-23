@@ -9,11 +9,31 @@ import numpy as np
 # import pyrealsense2 as rs
 import rerun as rr  # pip install rerun-sdk
 from utils_old import load_data_from_dlc, _convert_string
+from processing_data.file_io import get_dlc_data
 import biorbd
 import biosiglive
+from biosiglive import load
 from rgbd_mocap.camera.camera_converter import CameraConverter
 from pyorerun import BiorbdModel, MultiPhaseRerun, PhaseRerun, DisplayModelOptions
+from scapula_cluster.from_cluster_to_anato import ScapulaCluster
+def convert_cluster_to_anato(data, measurements=None, calibration_matrix=None, scapula_cluster=None):
+    if scapula_cluster is None:
+        if measurements is None or calibration_matrix is None:
+            raise ValueError("Measurements and calibration matrix should be provided")
+        scapula_cluster = ScapulaCluster(
+            measurements[0],
+            measurements[1],
+            measurements[2],
+            measurements[3],
+            measurements[4],
+            measurements[5],
+            calibration_matrix,
+        )
 
+    anato_pos = scapula_cluster.process(
+        marker_cluster_positions=data * 1000, cluster_marker_names=["M1", "M2", "M3"], save_file=False
+    )
+    return anato_pos * 0.001
 
 def reorder_markers(markers, model, names):
     model_marker_names = [_convert_string(model.markerNames()[i].to_string()) for i in range(model.nbMarkers())]
@@ -90,22 +110,15 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
         ),
         timeless=True,
     )
+    #
+    # # model_path = "D:\Documents\Programmation\pose_estimation\data_files\P9\model_scaled_depth.bioMod"
+    # # model_path = "model_tmp_test_pyorerun.bioMod"
 
-    # model_path = "D:\Documents\Programmation\pose_estimation\data_files\P9\model_scaled_depth.bioMod"
-    # model_path = "model_tmp_test_pyorerun.bioMod"
-    model_path = f"Q:\Projet_hand_bike_markerless\RGBD\{part}/model_scaled_depth_new_seth.bioMod"
-    display_option = DisplayModelOptions()
-    display_option.mesh_color = (77, 77, 255)
-    biorbd_model = BiorbdModel(model_path, display_option)
-    q = np.zeros((biorbd_model.model.nbQ()))
-    phase_rerun = PhaseRerun(timeless=True, window=None, name=None)
-    phase_rerun.add_animated_model(biorbd_model, q, timeless=True)
-    phase_rerun.update_animated_model(q)
     import os
     import glob
     import cv2
 
-    image_path = r"../data_files"
+    image_path = r"D:\Documents\Programmation\pose_estimation\data_files"
     main_path = "F:\markerless_project"
     main_path = "Q:\Projet_hand_bike_markerless\RGBD"
     # participants = ["P9"]#, "P10", "P11", "P12", "P13", "P14", "P15", "P16"]
@@ -113,18 +126,50 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
     files = os.listdir(f"{main_path}{os.sep}{part}")
     files = [file for file in files if trial in file and "less" not in file and "more" not in file]
     for file in files:
+        trial_short = file.split("_")[0] + "_" + file.split("_")[1]
+        model_path = f"Q:\Projet_hand_bike_markerless\RGBD\{part}/model_scaled_dlc_technical_marker.bioMod"
+        display_option = DisplayModelOptions()
+        display_option.mesh_color = (77, 77, 255)
+        biorbd_model = BiorbdModel(model_path, display_option)
+        q = np.zeros((biorbd_model.model.nbQ()))
+        phase_rerun = PhaseRerun(timeless=True, window=None, name=None)
+        phase_rerun.add_animated_model(biorbd_model, q, timeless=True)
+        phase_rerun.update_animated_model(q)
         path = f"{main_path}{os.sep}{part}{os.sep}{file}"
         image_path_tmp = f"{image_path}{os.sep}{part}{os.sep}{file}"
         labeled_data_path = f"{path}{os.sep}marker_pos_multi_proc_3_crops_pp.bio"
         dlc_data_path = f"{path}{os.sep}marker_pos_multi_proc_3_crops_normal_alone_pp.bio"
-        if not os.path.isdir(path) or not os.path.exists(labeled_data_path) or not os.path.exists(dlc_data_path):
-            continue
-        data_dlc, data_labeling = load_data_from_dlc(labeled_data_path, dlc_data_path, part, file)
+        dlc_data_path = f"{path}{os.sep}marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_1_with_model_pp_full_technical_marker.bio"
+        # if not os.path.isdir(path) or not os.path.exists(labeled_data_path) or not os.path.exists(dlc_data_path):
+        #     continue
+        data_dlc, idx = get_dlc_data(dlc_data_path, markers_dic=None, source="dlc_1")
+        markers_dlc = data_dlc["dlc_1"][1]
+        markers_names = data_dlc["dlc_1"][0]
+        config = "with_depth"
+        measurements_dir_path = "D:\Documents\Programmation\pose_estimation\data_collection_mesurement"
+        calibration_matrix_dir = "D:\Documents\Programmation\pose_estimation\calibration_matrix"
+        import json
+        measurement_data = json.load(open(measurements_dir_path + os.sep + f"measurements_{part}.json"))
+        measurements = measurement_data[config]["measure"]
+        calibration_matrix = calibration_matrix_dir + os.sep + measurement_data[config]["calibration_matrix_name"]
+        scap_cluster = convert_cluster_to_anato(markers_dlc[:, :-3, :], measurements=measurements,
+                                                calibration_matrix=calibration_matrix,
+                                                scapula_cluster=None)
+        idx_cluster = markers_names.index("clavac")
+        markers_dlc = np.concatenate(
+            (
+                markers_dlc[:, : idx_cluster + 1, :],
+                scap_cluster[:3, ...],
+                markers_dlc[:, idx_cluster + 1:, :],
+            ),
+            axis=1,
+        )
+        markers_names = markers_names[: idx_cluster + 1] + ["scapaa", "scapia", "scapts"] + markers_names[idx_cluster + 1 :]
         from biosiglive import MskFunctions, InverseKinematicsMethods, OfflineProcessing
 
         msk = MskFunctions(biorbd_model.model, data_buffer_size=1)
         reorder_marker_from_source = reorder_markers(
-            data_labeling["markers_in_meters"][:, :-3, :], biorbd_model.model, data_dlc["markers_names"][:-3]
+            markers_dlc[:, :-3, :], biorbd_model.model, markers_names[:-3]
         )
         new_markers_dlc_filtered = np.zeros(
             (3, reorder_marker_from_source.shape[1], reorder_marker_from_source.shape[2])
@@ -133,86 +178,84 @@ def run_realsense(num_frames: int | None, trial=None, part=None) -> None:
             new_markers_dlc_filtered[i, :, :] = OfflineProcessing().butter_lowpass_filter(
                 reorder_marker_from_source[i, :, :], 2, 60, 2
             )
-        idx = data_dlc["frame_idx"]
-        # all_color_files = glob.glob(path + "/color*.png")
+
         all_depth_files = glob.glob(image_path_tmp + "/depth*.png")
         if len(all_depth_files) == 0:
             continue
         # Read frames in a loop
         frame_nr = 0
-
-        q, _ = msk.compute_inverse_kinematics(
+        q, _, _ = msk.compute_inverse_kinematics(
             new_markers_dlc_filtered[:, :, 0:1],
             method=InverseKinematicsMethods.BiorbdLeastSquare,
         )
-        # q[:6, :] = np.zeros_like(q[:6, :])
+        # # q[:6, :] = np.zeros_like(q[:6, :])
         initial_state = [q, np.zeros_like(q), np.zeros_like(q)]
         msk = MskFunctions(biorbd_model.model, data_buffer_size=new_markers_dlc_filtered.shape[2])
-        q, _ = msk.compute_inverse_kinematics(
+        q, _, _ = msk.compute_inverse_kinematics(
             new_markers_dlc_filtered[:, :, :],
             method=InverseKinematicsMethods.BiorbdKalman,
             # initial_state=initial_state
         )
-        try:
-            while True:
-                if num_frames and frame_nr >= num_frames:
-                    break
-                try:
-                    q[:, frame_nr]
-                except:
-                    break
+        #markers = Markers(data=markers, channels=list(biorbd_model.marker_names))
 
-                rr.set_time_sequence("frame_nr", frame_nr)
-                frame_nr += 1
-                try:
-                    depth_image = cv2.imread(image_path_tmp + f"\depth_{idx[frame_nr]}.png", cv2.IMREAD_ANYDEPTH)
-                    depth_image = np.where(
-                        (depth_image > 1.2 / (0.0010000000474974513)) | (depth_image <= 0.2 / (0.0010000000474974513)),
-                        0,
-                        depth_image,
-                    )
-                    color_image = cv2.cvtColor(
-                        cv2.imread(image_path_tmp + f"\color_{idx[frame_nr]}.png"), cv2.COLOR_BGR2RGB
-                    )
-                except:
-                    print(f"frame {idx[frame_nr]} not found")
-                    continue
-                phase_rerun.update_animated_model(q[:, frame_nr])
+        while True:
 
-                # frames = pipe.wait_for_frames()
-                # for f in frames:
-                # Log the depth frame
-                # depth_frame = frames.get_depth_frame()
-                # depth_units = depth_frame.get_units()
-                # depth_image = np.asanyarray(depth_frame.get_data())
-                rr.log("animation_phase_0/depth/image", rr.DepthImage(depth_image, meter=1 / converter.depth_scale))
+            # if num_frames and frame_nr >= num_frames:
+            #     break
+            # try:
+            #     q[:, frame_nr]
+            # except:
+            #     break
 
-                # Log the color frame
-                # color_frame = frames.get_color_frame()
-                # color_image = np.asanyarray(color_frame.get_data())
-                rr.log("animation_phase_0/rgb/image", rr.Image(color_image))
-                # rr.log("animation_phase_0/tracked", rr.Points3D(tracked_markers[..., frame_nr].T, colors=(255, 0, 0), radii=0.01))
-                rr.log(
-                    "animation_phase_0/fk",
-                    rr.Points3D(new_markers_dlc_filtered[..., frame_nr].T, colors=(0, 255, 0), radii=0.01),
+            rr.set_time_sequence("frame_nr", frame_nr)
+            frame_nr += 1
+            try:
+                depth_image = cv2.imread(image_path_tmp + f"\depth_{idx[frame_nr]}.png", cv2.IMREAD_ANYDEPTH)
+                depth_image = np.where(
+                    (depth_image > 1.2 / (0.0010000000474974513)) | (depth_image <= 0.2 / (0.0010000000474974513)),
+                    0,
+                    depth_image,
                 )
-                # rr.log("animation_phase_0/ik", rr.Points3D(tracked_markers_dlc[..., frame_nr].T, colors=(0, 125, 255), radii=0.01))
+                color_image = cv2.cvtColor(
+                    cv2.imread(image_path_tmp + f"\color_{idx[frame_nr]}.png"), cv2.COLOR_BGR2RGB
+                )
+            except:
+                print(f"frame {idx[frame_nr]} not found")
+                continue
+            phase_rerun.update_animated_model(q[:, frame_nr])
 
-        finally:
-            # pipe.stop()
-            pass
+            # frames = pipe.wait_for_frames()
+            # for f in frames:
+            # Log the depth frame
+            # depth_frame = frames.get_depth_frame()
+            # depth_units = depth_frame.get_units()
+            # depth_image = np.asanyarray(depth_frame.get_data())
+            rr.log("animation_phase_0/depth/image", rr.DepthImage(depth_image, meter=1 / converter.depth_scale))
+
+            # Log the color frame
+            # color_frame = frames.get_color_frame()
+            # color_image = np.asanyarray(color_frame.get_data())
+            rr.log("animation_phase_0/rgb/image", rr.Image(color_image))
+            # rr.log("animation_phase_0/tracked", rr.Points3D(tracked_markers[..., frame_nr].T, colors=(255, 0, 0), radii=0.01))
+            rr.log(
+                "animation_phase_0/fk",
+                rr.Points3D(new_markers_dlc_filtered[..., frame_nr].T, colors=(0, 255, 0), radii=0.01),
+            )
+            # rr.log("animation_phase_0/ik", rr.Points3D(tracked_markers_dlc[..., frame_nr].T, colors=(0, 125, 255), radii=0.01))
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Streams frames from a connected realsense depth sensor.")
     parser.add_argument("--num-frames", type=int, default=None, help="The number of frames to log")
-
+    #
     rr.script_add_args(parser)
     args = parser.parse_args()
 
     rr.script_setup(args, "rerun_example_live_depth_sensor")
 
-    run_realsense(args.num_frames, "gear_10", "P16")
+    run_realsense(
+        args.num_frames,
+        "gear_10", "P11")
 
     rr.script_teardown(args)
 
