@@ -74,7 +74,7 @@ def _compute_new_bounds(data):
         "rotations y\n\t\tranges\n\t\t\t\t-0.5 0.5",  # clavicle
         "//rotations z\n\t\t//ranges\n\t\t\t\t//-3 3",  # clavicle
         # "rotations xyz\n\t\tranges\n\t\t\t\t-0.2 1",  # scapula
-        "rotations xyz\n\t\tranges\n\t\t\t\t-0.5 1\n\t\t\t\t-0.5 0.8\n\t\t\t\t-0.5 0.5",  # scapula
+        "rotations xyz\n\t\tranges\n\t\t\t\t-0.5 1\n\t\t\t\t-0.8 0.8\n\t\t\t\t-0.8 1",  # scapula
         "rotations x\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
         "rotations y\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
         "rotations z\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder

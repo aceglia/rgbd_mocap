@@ -202,7 +202,7 @@ def main(
 
 
 if __name__ == "__main__":
-    participants = [f"P{i}" for i in range(10, 11)]
+    participants = [f"P{i}" for i in range(14, 15)]
     # participants.pop(participants.index("P12"))
     source = [
         # "depth",

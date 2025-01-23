@@ -92,7 +92,7 @@ def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
         name="hand_pedal",
         load=np.zeros((6, 1)),
     )
-    if part in ["P10", "P12", "P13", "P14"]:
+    if part in ["P10", "P12", "P13", "P14", "P15", "P16"]:
         f_ext = np.array(
             [
                 sensix_data["LMY"],

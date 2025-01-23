@@ -29,7 +29,7 @@ def get_all_file(participants, data_dir, trial_names=None, to_include=(), to_exc
 
 if __name__ == "__main__":
     source = ["dlc_technical_marker"]  # , "vicon_markerless"]#, "vicon", "minimal_vicon"]
-    participants = [f"P{i}" for i in range(10, 13)]  # , "P15", "P16"]#, "P14", "P15", "P16"]
+    participants = [f"P{i}" for i in range(15, 17)]  # , "P15", "P16"]#, "P14", "P15", "P16"]
     participant = participants[0]
     s = source[0]
     # participants.pop(participants.index("P12"))
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     file_path = (
         f"/mnt/shared/Projet_hand_bike_markerless/process_data/{participant}"
-        + f"/result_biomech_gear_20_with_technical_marker.bio"
+        + f"/result_biomech_gear_20_with_technical_marker_params.bio"
     )
 
     data = load(file_path)
@@ -72,6 +72,7 @@ if __name__ == "__main__":
 
         f_ext_mat[0, :3, i] = vecteur_OB
         f_ext_mat[0, 3:, i] = f_ext[3:, i]
+        # f_ext_mat[0, -2:, i] = - f_ext_mat[0, -2:, i]
         # f_ext_mat[0, 3:, i] = f_ext[:3, i] + np.cross(vecteur_OB, f_ext[3:6, i])
     b.load_experimental_forces(f_ext_mat, segments="ground", normalization_ratio=0.8)
     b.exec()
