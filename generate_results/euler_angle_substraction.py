@@ -7,7 +7,7 @@ import scipy
 
 
 def compute_error(q_ref, q_to_compare, to_vector=False):
-    sequence = [[ None, None, None], [0, 1, 2], [0, 1], [0, 1, 2], [0, 1, 2], [2], [1]]
+    sequence = [[None, None, None], [0, 1, 2], [0, 1], [0, 1, 2], [0, 1, 2], [2], [1]]
     angle_euler_ref = np.zeros((3, q_ref.shape[1]))
     angle_euler_to_compare = np.zeros((3, q_to_compare.shape[1]))
     all_errors = []
@@ -20,20 +20,23 @@ def compute_error(q_ref, q_to_compare, to_vector=False):
         count = 0
         for i in range(len(sequence)):
             if None in sequence[i]:
-                error_to_evaluate[count:count + len(sequence[i]), :] = (q_ref[count:count + len(sequence[i]), :] - q_to_compare[count:count + len(sequence[i]), :]) * 1000
+                error_to_evaluate[count : count + len(sequence[i]), :] = (
+                    q_ref[count : count + len(sequence[i]), :] - q_to_compare[count : count + len(sequence[i]), :]
+                ) * 1000
                 count += len(sequence[i])
                 continue
-            angle_euler_ref[sequence[i]] = q_ref[count:count + len(sequence[i]), :]
-            angle_euler_to_compare[sequence[i]] = q_to_compare[count:count + len(sequence[i]), :]
+            angle_euler_ref[sequence[i]] = q_ref[count : count + len(sequence[i]), :]
+            angle_euler_to_compare[sequence[i]] = q_to_compare[count : count + len(sequence[i]), :]
             for j in range(q_ref.shape[1]):
                 error_tmp = calculate_euler_error(angle_euler_ref[:, j], angle_euler_to_compare[:, j])
-                error_to_evaluate[count:count + len(sequence[i]), j] = error_tmp[sequence[i]]
+                error_to_evaluate[count : count + len(sequence[i]), j] = error_tmp[sequence[i]]
             count += len(sequence[i])
     error_to_evaluate[:3, ...] = error_to_evaluate[:3, ...] * 1000
     error_to_evaluate[3:, ...] = np.degrees(error_to_evaluate[3:, ...])if to_vector else error_to_evaluate
     rmse = np.sqrt(np.median(np.square(error_to_evaluate), axis=1))
     std = np.std(error_to_evaluate, axis=1)
     return error_to_evaluate, rmse, std
+
 
 def divide_by_cycle(q_ref, error_to_evaluate, n_cycle=None):
     find_peak = scipy.signal.find_peaks(q_ref[-2, :], height=0.8, distance=50)
@@ -50,6 +53,7 @@ def divide_by_cycle(q_ref, error_to_evaluate, n_cycle=None):
 
     std_cycle = np.std(cycle_error, axis=0)
     return cycle_error, rmse_cycle, std_cycle
+
 
 def plot_cycle_error(rmse_cycle, std_cycle, index=None):
     name =("cycle_error" if index is None else f"cycle_error_{index}"   )
@@ -174,8 +178,3 @@ if __name__ == "__main__":
     plot_cycle_error(all_rmse_mean, all_std_mean)
 
     plt.show()
-
-
-
-
-

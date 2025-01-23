@@ -1,6 +1,6 @@
 import numpy as np
 import math
-import matplotlib.pyplot    as     plt
+import matplotlib.pyplot as plt
 from biosiglive import load, save
 import cv2
 import pyrealsense2 as rs
@@ -31,6 +31,7 @@ def get_normal_vector(data, name, normal_vector):
     rt[3, 3, :] = 1
     return rt
 
+
 def get_measure(file_path):
     with open(file_path, "r") as file:
         data = json.load(file)
@@ -39,7 +40,7 @@ def get_measure(file_path):
 
 def add_virtual_markers(data, rt, remove_marker=None, measurement_file=None):
     dist = np.linalg.norm(data[1][:, data[0].index("xiph"), :] - data[1][:, data[0].index("ster"), :], axis=0)
-    marker_tec_2 = np.repeat(np.array([0, -0.2, 0, 1])[:, None],data[1].shape[2],  axis = 1)
+    marker_tec_2 = np.repeat(np.array([0, -0.2, 0, 1])[:, None], data[1].shape[2], axis=1)
     l = get_measure(measurement_file) if measurement_file is not None else 0.145
     marker_tec_1 = np.zeros((4, data[1].shape[2]))
     marker_tec_1[2, :] = dist
@@ -55,10 +56,10 @@ def add_virtual_markers(data, rt, remove_marker=None, measurement_file=None):
     if remove_marker is not None:
         data[1] = np.delete(data[1], data[0].index(remove_marker), axis=1)
         names.pop(data[0].index(remove_marker))
-    data_out = np.concatenate((data[1][:, :data[0].index("xiph") + 1, :],
-                               new_markers, data[1][:, data[0].index("xiph") + 1:, :]), axis=1)
-    names = names[:names.index("xiph") + 1] + ["marker_tec_1", "marker_tec_2"] + names[names.index("xiph") + 1:]
-
+    data_out = np.concatenate(
+        (data[1][:, : data[0].index("xiph") + 1, :], new_markers, data[1][:, data[0].index("xiph") + 1 :, :]), axis=1
+    )
+    names = names[: names.index("xiph") + 1] + ["marker_tec_1", "marker_tec_2"] + names[names.index("xiph") + 1 :]
 
     data_out = (names, data_out)
     # plot(data_out)
@@ -95,7 +96,9 @@ def get_label_image(participant, camera):
         if not os.path.isfile(path + "/marker_pos_multi_proc_3_crops_pp.bio"):
             continue
         print("getting data from ", file, "for participant ", participant, "...")
-        markers_data = load(path + "/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_1_with_model_pp_full.bio")
+        markers_data = load(
+            path + "/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_1_with_model_pp_full.bio"
+        )
         markers = markers_data["markers_in_pixel"]
         frame_idx = markers_data["frame_idx"]
         occlusions = markers_data["occlusions"]
@@ -106,8 +109,9 @@ def get_label_image(participant, camera):
         markers_in_meter_augmented = np.zeros((3, markers_in_meter.shape[1] + 1, markers_in_meter.shape[2]))
         markers_in_meter_augmented[:, :-1, :] = markers_in_meter
         markers_names_augmented = marker_names + ["technical_marker"]
-        markers_names_augmented = np.repeat(np.array([markers_names_augmented])[:, None],
-                  markers_in_meter_augmented.shape[2], axis=1)
+        markers_names_augmented = np.repeat(
+            np.array([markers_names_augmented])[:, None], markers_in_meter_augmented.shape[2], axis=1
+        )
         idx_ster = marker_names.index("ster")
         time_list = []
         for i in range(len(frame_idx)):
@@ -180,7 +184,7 @@ def get_label_image(participant, camera):
             # ax = plot_points(points_in_meters, rt, ax, origin=markers_in_meter[:, idx_ster, i])
             # if i == 50:
             #     plt.show()
-            if i!= 0 and i % 500 == 0:
+            if i != 0 and i % 500 == 0:
                 print(f"{i} iterations done for participant {participant}")
         new_path = path + "/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_1_with_model_pp_full.bio"
         new_path = new_path.replace("pp_full", "pp_full_technical_marker")
@@ -225,7 +229,7 @@ def plot_points(points, eigen_vectors, ax=None, origin=None):
     xx, yy = np.meshgrid(range(minPlane, maxPlane), range(minPlane, maxPlane))
 
     # calculate corresponding z for display
-    z = (-normal[0] * xx - normal[1] * yy + d) * 1. / normal[2]
+    z = (-normal[0] * xx - normal[1] * yy + d) * 1.0 / normal[2]
 
     # matplotlib display code
     forGraphs = np.asarray(forGraphs)
@@ -236,7 +240,7 @@ def plot_points(points, eigen_vectors, ax=None, origin=None):
     X2, Y2, Z2, U2, V2, W2 = zip(*forGraphs_2)
     if not ax:
         fig = plt.figure("normals")
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot(111, projection="3d")
     # ax.plot_surface(xx, yy, z, alpha=0.2)
     # ax.scatter(pointsT[0], pointsT[1], pointsT[2])
     ax.quiver(X, Y, Z, U, V, W)
@@ -248,6 +252,7 @@ def plot_points(points, eigen_vectors, ax=None, origin=None):
     set_axes_equal(ax)
     # plt.show()
     return ax
+
 
 def set_axes_equal(ax):
     """
@@ -277,7 +282,8 @@ def set_axes_equal(ax):
     ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     prefix = r"Q:\Projet_hand_bike_markerless" if os.name == "nt" else r"/mnt/shared/Projet_hand_bike_markerless"
     np.random.seed(40)
     participants = [f"P{i}" for i in range(12, 17)]

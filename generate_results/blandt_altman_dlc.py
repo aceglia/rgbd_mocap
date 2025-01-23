@@ -8,7 +8,6 @@ from utils_old import load_results #, compute_blandt_altman
 from processing_data.data_processing_helper import compute_blandt_altman, fill_and_interpolate
 
 
-
 def compute_error(data, ref):
     shape_idx = 1 if data.shape[0] == 3 else 0
     n_data = data.shape[shape_idx]
@@ -19,12 +18,12 @@ def compute_error(data, ref):
         else:
             err[i] = np.nanmean(np.sqrt(np.nanmedian(((data[i, :] - ref[i, :]) ** 2), axis=0)))
         # remove nan values
-        #if len(data.shape) == 3:
+        # if len(data.shape) == 3:
         #    #nan_index = np.argwhere(np.isnan(ref[:, i, :]))
         #    #data_tmp = np.delete(data[:, i, :], nan_index, axis=1)
         #    #ref_tmp = np.delete(ref[:, i, :], nan_index, axis=1)
         #    err[i] = np.mean(np.sqrt(np.nanmedian(((data - ref) ** 2), axis=0)))
-        #else:
+        # else:
         #    #nan_index = np.argwhere(np.isnan(ref[i, :]))
         #    #data_tmp = np.delete(data[i, :], nan_index, axis=0)
         #    #ref_tmp = np.delete(ref[i, :], nan_index, axis=0)
@@ -116,12 +115,11 @@ if __name__ == "__main__":
     # participants.pop(participants.index("P14"))
     # # participants.pop(participants.index("P11"))
 
-
     plt.figure("colors")
     for i in range(len(participants)):
         plt.scatter(i, i, color=colors[i], s=200, alpha=0.5)
     plt.legend(participants)
-    #markers_names = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["minimal_vicon"]["marker_names"]
+    # markers_names = all_data[participants[0]][list(all_data[participants[0]].keys())[0]]["minimal_vicon"]["marker_names"]
 
     # plt.figure("colors_mark")
     # for i in range(n_mark):
@@ -178,20 +176,19 @@ if __name__ == "__main__":
                     source_tmp = "vicon" if "markers" in key and "vicon" in source[j] else source[j]
                     if key == "markers" and "dlc" in to_compare_source[j]:
                         dlc_mark_tmp = all_data[part][file][to_compare_source[j]]["markers"][:, :, :].copy()
-                        dlc_mark_tmp = np.delete(dlc_mark_tmp, all_data[part][file][to_compare_source[j]]["marker_names"].index("technical_marker"),
-                                                 axis=1)
+                        dlc_mark_tmp = np.delete(
+                            dlc_mark_tmp,
+                            all_data[part][file][to_compare_source[j]]["marker_names"].index("technical_marker"),
+                            axis=1,
+                        )
                         # dlc_mark_tmp = np.delete(dlc_mark_tmp, data_dic_tmp["marker_names"].index("marker_tec_2") - 1, axis=1)
 
                         # dlc_mark, idx = refine_synchro(#
                         #     self.results_dict["minimal_vicon"]["markers"][:, :, :], dlc_mark_tmp, plot_fig=False
                         # )
                         idx = [0, 1, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16]
-                        #markers_names = all_data[part][file][to_compare_source[j]]["marker_names"]
-                        to_compare = (
-                            dlc_mark_tmp[..., :end_frame]
-                            if end_frame is not None
-                            else dlc_mark_tmp
-                        )
+                        # markers_names = all_data[part][file][to_compare_source[j]]["marker_names"]
+                        to_compare = dlc_mark_tmp[..., :end_frame] if end_frame is not None else dlc_mark_tmp
                         ref_data = all_data[part][file][source[j]]["markers"][:, idx, :]
                         ref_data = (
                             ref_data[..., :end_frame]
@@ -200,15 +197,15 @@ if __name__ == "__main__":
                         )
                         #from utils_old import reorder_markers_from_names
 
-                        #idx_scap_ia = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_IA")
-                        #idx_scap_ts = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_TS")
-                        #all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ia] = "SCAP_TS"
-                        #all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ts] = "SCAP_IA"
-                        #to_compare, _ = reorder_markers_from_names(
+                        # idx_scap_ia = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_IA")
+                        # idx_scap_ts = all_data[part][file][to_compare_source[j]]["marker_names"].index("SCAP_TS")
+                        # all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ia] = "SCAP_TS"
+                        # all_data[part][file][to_compare_source[j]]["marker_names"][idx_scap_ts] = "SCAP_IA"
+                        # to_compare, _ = reorder_markers_from_names(
                         #    to_compare,
                         #    ordered_markers_names=all_data[part][file][source_tmp]["marker_names"],
                         #    markers_names=all_data[part][file][to_compare_source[j]]["marker_names"],
-                        #)
+                        # )
                         # plt.figure(f"P{part}_{file}_{key}_{to_compare_source[j]}")
                         # for i in range(to_compare.shape[1]):
                         #     plt.subplot(4, 4, i + 1)
@@ -244,13 +241,13 @@ if __name__ == "__main__":
                     ref_data = get_by_cycles(ref_data, cycles_idx)
                     sum_minimal = (to_compare + ref_data) / 2
                     dif_minimal = to_compare - ref_data
-                    #nan_idx = np.argwhere(np.isnan(sum_minimal))
+                    # nan_idx = np.argwhere(np.isnan(sum_minimal))
                     ## print(part, file, nan_idx.shape)
-                    #nan_idx_bis = np.argwhere(np.isnan(dif_minimal))
-                    #axis = 2 if ("markers" in key or "center" in key) else 1
-                    #nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
-                    #sum_minimal = np.delete(sum_minimal, nan_idx, axis=axis)
-                    #dif_minimal = np.delete(dif_minimal, nan_idx, axis=axis)
+                    # nan_idx_bis = np.argwhere(np.isnan(dif_minimal))
+                    # axis = 2 if ("markers" in key or "center" in key) else 1
+                    # nan_idx = np.unique(np.concatenate((nan_idx, nan_idx_bis), axis=1))
+                    # sum_minimal = np.delete(sum_minimal, nan_idx, axis=axis)
+                    # dif_minimal = np.delete(dif_minimal, nan_idx, axis=axis)
                     # if key == "q":
                     #     for m in range(dif_minimal.shape[0]):
                     #         dif_minimal_tmp = dif_minimal[m, :] * factors[k]
@@ -384,8 +381,7 @@ if __name__ == "__main__":
         # + f" {all_rmse[3][2]: .2f}& {all_std[3][2]: .2f}  & {all_loa[3][2][0]: .2f}& {all_loa[3][2][1]: .2f}& {all_bias[3][2]: .2f}"
         # + r"\\"
         # + "\n"
-        + r" \hdashline"
-        + "\n"
+        + r" \hdashline" + "\n"
         r"""\end{tabular}
 \label{tab:errors}
 \end{table*}

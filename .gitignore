@@ -150,3 +150,5 @@ dmypy.json
 .pyre/
 
 *.bio
+
+*.zip

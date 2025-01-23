@@ -69,37 +69,38 @@ def _comment_dofs(data):
 def _compute_new_bounds(data):
     bounds = [
         # "rotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\t//ranges \n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n\t\t-0.5 0.5\n",
-        "rotations xyz // thorax\n\t\ttranslations xyz // thorax\n",  # thorax
+        "rotations xyz // thorax\n\t\ttranslations xyz // thorax",  # thorax
         "rotations x\n\t\tranges\n\t\t\t\t-0.7 0.5",  # clavicle
         "rotations y\n\t\tranges\n\t\t\t\t-0.5 0.5",  # clavicle
         "//rotations z\n\t\t//ranges\n\t\t\t\t//-3 3",  # clavicle
         # "rotations xyz\n\t\tranges\n\t\t\t\t-0.2 1",  # scapula
-        "rotations xyz\n\t\tranges\n\t\t\t\t-0.5 1\n\t\t\t\t-0.5 0.8\n\t\t\t\t-0.5 0.5",  # scapula
+        "rotations xyz\n\t\tranges\n\t\t\t\t-0.5 1\n\t\t\t\t-0.8 0.8\n\t\t\t\t-0.8 1",  # scapula
         "rotations x\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
         "rotations y\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
         "rotations z\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
-        "rotations z\n\t\tranges\n\t\t\t\t0 3",  # elbow
-        "rotations y\n\t\tranges\n\t\t\t\t0.1 0.8",  # forearm
-        "//rotations xy\n\t\t//ranges\n\t\t\t\t//0.1 0.8",  # Hand
+        "rotations z\n\t\tranges\n\t\t\t\t-0.1 3",  # elbow
+        "rotations y\n\t\tranges\n\t\t\t\t-0.1 0.8",  # forearm
+        "//rotations xy\n\t\t//ranges\n\t\t\t\t//-0.1 0.8",  # Hand
     ]
-    data_tmp = data
-    idx_start = 0
     count = 0
+    data_tmp = ""
+    idx_start = 0
     while True:
         if count == 0:
-            idx_start = data_tmp.find("rotations xyz // thorax")
+            idx_start = data.find("rotations xyz // thorax")
             to_replace = "rotations xyz // thorax\n\t\ttranslations xyz // thorax"
             idx_start = idx_start + len(to_replace)
-            data_tmp = data_tmp.replace(to_replace, bounds[0])
+            data_tmp += data[0:idx_start]
             count += 1
+            continue
         else:
-            idx_start = data_tmp.find("rotations", idx_start)
-            if idx_start == -1:
-                break
-            idx_end = data_tmp.find("endsegment", idx_start) - 2
-            data_tmp = data_tmp.replace(data_tmp[idx_start:idx_end], bounds[count])
-            idx_start = idx_end
-            count += 1
+            idx_start_tmp = data.find("rotations", idx_start)
+        if idx_start_tmp == -1:
+            data_tmp += data[idx_start:]
+            break
+        data_tmp += data[idx_start:idx_start_tmp] + bounds[count]
+        idx_start = data.find("endsegment", idx_start_tmp) - 2
+        count += 1
     return data_tmp
 
 
@@ -135,8 +136,8 @@ def run_ik(
         # if part == "P12":
         #     data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n\t\t-0.3 0.4\n"
         # else:
-        #     # data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n\t\tranges \n\t\t-3 3\n\t\t-3 3\n\t\t-3 3\n\t\t-0.15 0.15\n\t\t-0.15 0.15\n\t\t-0.15 0.15\n"
         data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 1.57 -1.57 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n"
+        # data_to_insert = f"SEGMENT DEFINITION\n\tsegment thorax_parent\n\t\tparent base\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0\n\tendsegment\n// Information about ground segment\n\tsegment thorax\n\t parent thorax_parent\n\t \tRTinMatrix\t0\n    \t\tRT 0 0 0 xyz 0 0 0 // thorax\n\t\trotations xyz // thorax\n\t\ttranslations xyz // thorax\n"
 
         data = data[:init_idx] + data_to_insert + data[end_idx:]
         new_model_path = compute_new_model_path(model_path, model_prefix=model_prefix)
@@ -146,19 +147,20 @@ def run_ik(
         msk_function.model = biorbd.Model(new_model_path)
         noise_factor = 1e-6  # if "depth" in model_path else 1e-5
         error_factor = 1e-8  # if "depth" in model_path else 1e-6
-        q, q_dot, _ = msk_function.compute_inverse_kinematics(markers,
-                                                              InverseKinematicsMethods.BiorbdLeastSquare,
-                                                              kalman_freq=kalman_freq,
-                                                               # initial_guess=initial_guess,
-                                                               # noise_factor=noise_factor,
-                                                               # error_factor=error_factor
-                                                              )
-        if "viconbb" in model_path:
-            import bioviz
-            b = bioviz.Viz(loaded_model=msk_function.model)
-            b.load_movement(np.repeat(q, 5, axis=1))
-            b.load_experimental_markers(np.repeat(markers, 5, axis=2))
-            b.exec()
+        q, q_dot, _ = msk_function.compute_inverse_kinematics(
+            markers,
+            InverseKinematicsMethods.BiorbdLeastSquare,
+            kalman_freq=kalman_freq,
+            # initial_guess=initial_guess,
+            # noise_factor=noise_factor,
+            # error_factor=error_factor
+        )
+        # if "dlc" in model_path:
+        #     import bioviz
+        #     b = bioviz.Viz(loaded_model=msk_function.model)
+        #     b.load_movement(np.repeat(q, 5, axis=1))
+        #     b.load_experimental_markers(np.repeat(markers, 5, axis=2))
+        #     b.exec()
         # from biosiglive import save, load
         # if "minimal_vicon" in new_model_path:
         #     q = load("init_guess_tmp.bio")["q"][:, -1]
@@ -242,7 +244,7 @@ def run_ik(
 
 def compute_new_model_path(model_path, model_prefix=""):
     parent = str(Path(model_path).parent)
-    new_model_path = parent + "/output_models/" + model_prefix + "_" + Path(model_path).stem + "_test.bioMod"
+    new_model_path = parent + "/output_models/" + model_prefix + "_" + Path(model_path).stem + "_params.bioMod"
     if not os.path.isdir(parent + "/output_models"):
         os.mkdir(parent + "/output_models")
     if not os.path.isdir(parent + "/output_models/" + "Geometry"):
