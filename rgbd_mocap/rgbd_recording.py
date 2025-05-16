@@ -346,8 +346,8 @@ class RGBDRecorder:
 
 
 if __name__ == "__main__":
-    rec = RGBDRecorder(from_rgbd=True, camera_type="zed")
-    rec.fps = 30
+    rec = RGBDRecorder(from_rgbd=True, camera_type="realsense")
+    rec.fps = 60
     rec.file_name = "demo"
     rec.participant = "P0"
     rec.start(keep_image=False)

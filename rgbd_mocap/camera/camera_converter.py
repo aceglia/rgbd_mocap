@@ -7,6 +7,7 @@ try:
     rs_package = True
 except ImportError:
     rs_package = False
+    ImportWarning("Cannot use camera: Import of the library pyrealsense2 failed")
     pass
     # print ImportWarning("Cannot use camera: Import of the library pyrealsense2 failed")
 

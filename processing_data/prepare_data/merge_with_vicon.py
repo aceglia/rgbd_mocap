@@ -101,8 +101,8 @@ class ProcessData:
             "m3",
         ]
 
-        self.measurements_dir_path = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/data_collection_mesurement"
-        self.calibration_matrix_dir = "/home/amedeoceglia/Documents/programmation/rgbd_mocap/calibration_matrix"
+        self.measurements_dir_path = "D:\Documents\Programmation\pose_estimation/data_collection_mesurement"
+        self.calibration_matrix_dir = "D:\Documents\Programmation\pose_estimation/calibration_matrix"
         self.emg_names = emg_names if emg_names else self.emg_names
         self.calibration_matrix_dir = calibration_matrix_dir if calibration_matrix_dir else self.calibration_matrix_dir
         self.depth_markers_names = depth_markers_names if depth_markers_names else self.depth_markers_names
@@ -561,13 +561,20 @@ class ProcessData:
         mvc_data = [Analogs.from_c3d(filename=file, usecols=self.emg_names).values for file in self.mvc_files]
         mvc_mat = np.append(mvc_data[0], mvc_data[1], axis=1)
         mvc_mat_proc = OfflineProcessing(data_rate=2160).process_emg(
-            mvc_mat, moving_average=False, low_pass_filter=True, normalization=False, mvc_list=self.mvc
+            mvc_mat, moving_average=False, low_pass_filter=True, normalization=False
+            # , mvc_list=self.mvc
         )
-        plt.figure("mvc")
-        for i in range(mvc_mat_proc.shape[0]):
-            plt.subplot(mvc_mat_proc.shape[0] // 3 + 1, 3, i + 1)
-            plt.plot(mvc_mat[i, :])
-            plt.plot(mvc_mat_proc[i, :])
+        # plt.figure("mvc")
+        # for i in range(mvc_mat_proc.shape[0]):
+        #     plt.subplot(mvc_mat_proc.shape[0] // 3 + 1, 3, i + 1)
+        #     plt.plot(mvc_mat[i, :])
+        #     # plt.plot(mvc_mat_proc[i, :])
+        # plt.figure("mvc_proc")
+        # for i in range(mvc_mat_proc.shape[0]):
+        #     plt.subplot(mvc_mat_proc.shape[0] // 3 + 1, 3, i + 1)
+        #     # plt.plot(mvc_mat[i, :])
+        #     plt.plot(mvc_mat_proc[i, :], linewidth=5)
+        # plt.show()
 
         # mvc = list(OfflineProcessing.compute_mvc(mvc_data[0].shape[0], mvc_trials=mvc_mat, window_size=2160))
 
@@ -871,13 +878,13 @@ def main(participants, processed_data_path, vicon_path, rgbd_path, sensix_path, 
 
 
 if __name__ == "__main__":
-    participants = ["P"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
+    # participants = ["P"]  # , "P10", "P11", "P12", "P13", "P14", "P15", "P16"]  # ,"P9", "P10","P9", "P10",
     # participants = ["P16"]  # ,"P9", "P10",
     participants = [f"P{i}" for i in range(10, 17)]
 
     #
     trials = [["gear_5", "gear_10", "gear_15", "gear_20"]] * len(participants)
-    trials = [["gear_20"]] * len(participants)
+    # trials = [["gear_20"]] * len(participants)
 
     # trials = [["anat"]] * len(participants)
     # trials[0] = ["gear_10"]
@@ -887,10 +894,10 @@ if __name__ == "__main__":
     # trials[-1] = ["gear_20"]
     # trials = ["gear_20"]
 
-    processed_data_path = "/mnt/shared/Projet_hand_bike_markerless/process_data/"
-    vicon_data_files = "/mnt/shared/Projet_hand_bike_markerless/vicon/"
-    depth_data_files = "/mnt/shared/Projet_hand_bike_markerless/RGBD/"
-    sensix_path = "/mnt/shared/Projet_hand_bike_markerless/sensix/"
+    processed_data_path = "Q:/Projet_hand_bike_markerless/process_data/"
+    vicon_data_files = "Q:/Projet_hand_bike_markerless/vicon/"
+    depth_data_files = "Q:/Projet_hand_bike_markerless/RGBD/"
+    sensix_path = "Q:/Projet_hand_bike_markerless/sensix/"
     main(
         participants,
         processed_data_path,
@@ -898,6 +905,6 @@ if __name__ == "__main__":
         depth_data_files,
         sensix_path,
         trials,
-        plot=True,
+        plot=False,
         save_data=True,
     )

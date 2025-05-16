@@ -16,6 +16,11 @@ rgbd_mocap/GUI/save/
 *.avi
 *.mp4
 
+*.vtp
+*.stl
+
+Geometry*/
+
 # Distribution / packaging
 
 *.json

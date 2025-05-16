@@ -79,7 +79,7 @@ def _compute_new_bounds(data):
         "rotations y\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
         "rotations z\n\t\tranges\n\t\t\t\t-1.5 1.5",  # shoulder
         "rotations z\n\t\tranges\n\t\t\t\t-0.1 3",  # elbow
-        "rotations y\n\t\tranges\n\t\t\t\t-0.1 0.8",  # forearm
+        "rotations y\n\t\tranges\n\t\t\t\t-0.1 1.5",  # forearm
         "//rotations xy\n\t\t//ranges\n\t\t\t\t//-0.1 0.8",  # Hand
     ]
     count = 0
@@ -91,6 +91,8 @@ def _compute_new_bounds(data):
             to_replace = "rotations xyz // thorax\n\t\ttranslations xyz // thorax"
             idx_start = idx_start + len(to_replace)
             data_tmp += data[0:idx_start]
+            mass_idx = data.find("\n\t\tmass")
+            idx_start = mass_idx
             count += 1
             continue
         else:
@@ -189,7 +191,7 @@ def run_ik(
         # )
         with open(new_model_path, "w") as file:
             file.write(data)
-        # q = q[6:, :]
+        # q = q[3:, :]
         q[:6, :] = 0
 
         msk_function.model = biorbd.Model(new_model_path)
@@ -247,8 +249,8 @@ def compute_new_model_path(model_path, model_prefix=""):
     new_model_path = parent + "/output_models/" + model_prefix + "_" + Path(model_path).stem + "_params.bioMod"
     if not os.path.isdir(parent + "/output_models"):
         os.mkdir(parent + "/output_models")
-    if not os.path.isdir(parent + "/output_models/" + "Geometry"):
-        shutil.copytree(str(Path(model_path).parent) + "/Geometry", parent + "/output_models/" + "Geometry")
+    if not os.path.isdir(parent + "/output_models/" + "Geometry_old"):
+        shutil.copytree(str(Path(model_path).parent) + "/Geometry_old", parent + "/output_models/" + "Geometry_old")
     if not os.path.isdir(parent + "/output_models/" + "Geometry_left"):
         shutil.copytree(str(Path(model_path).parent) + "/Geometry_left", parent + "/output_models/" + "Geometry_left")
     return new_model_path

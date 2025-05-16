@@ -43,18 +43,18 @@ if __name__ == "__main__":
     muscle = False
     thorax = True
     fix_model = True
-    participants = [f"P{i}" for i in range(10, 11)]
+    participants = [f"P{i}" for i in range(16, 17)]
     seth_model = "D:/Documents/Programmation/pose_estimation/data_files/P10/model_scaled_depth_new_seth.bioMod"
     # participants.pop(participants.index("P12"))
     source = ["dlc_technical_marker"]  # , "vicon_markerless"]  # , "vicon", "minimal_vicon"]
-    seth_model = "/mnt/shared/Projet_hand_bike_markerless/RGBD/wu_bras_gauche_seth_for_cycle.bioMod"
+    seth_model = "Q:/Projet_hand_bike_markerless/RGBD/wu_bras_gauche_seth_for_cycle.bioMod"
     with open(seth_model, "r") as file:
         data_seth = file.read()
     start_idx = data_seth.find("// MUSCLE DEFINIION")
     muscle_to_copy = data_seth[start_idx:]
     for participant in participants:
         for s in source:
-            old_model_path = f"/mnt/shared/Projet_hand_bike_markerless/RGBD/{participant}/model_scaled_{s}.bioMod"
+            old_model_path = f"Q:/Projet_hand_bike_markerless/RGBD/{participant}/model_scaled_{s}.bioMod"
             # old_model_path = f"/mnt/shared/Projet_hand_bike_markerless/RGBD/wu_bras_gauche_seth_for_cycle.bioMod"
             with open(old_model_path, "r") as file:
                 data = file.read()

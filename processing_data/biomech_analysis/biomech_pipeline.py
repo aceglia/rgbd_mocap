@@ -277,7 +277,7 @@ class BiomechPipeline:
             return markers_tmp[..., 0]
         if "dlc" not in self.key:
             # self.marker_names = self.marker_names[:self.idx_cluster + 1] + ["scapaa", "scapts", "scapia"] + self.marker_names[self.idx_cluster + 4:]
-            markers_tmp = markers[..., self.frame_count : self.frame_count + 1]
+            markers_tmp = markers[..., self.frame_count: self.frame_count + 1]
             if compute_from_cluster:
                 if self.frame_count == self.moving_window:
                     self.idx_cluster = self.marker_names.index("clavac")
@@ -285,14 +285,13 @@ class BiomechPipeline:
                 markers_tmp = np.delete(
                     markers_tmp, [self.idx_cluster + 1, self.idx_cluster + 2, self.idx_cluster + 3], axis=1
                 )
-
             markers_tmp = self.filter_function(markers_tmp[...], compute_from_cluster=compute_from_cluster, **kwargs)
             if compute_from_cluster and self.key == "depth" and self.live_filter_method == FilteringMethod.Kalman:
                 measurement_noise = [50] * 3
                 proc_noise = [0.8] * 3
                 markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :], self.kalman_cluster = (
                     self._get_next_frame_from_kalman(
-                        markers_tmp[:, self.idx_cluster + 1 : self.idx_cluster + 4, :],
+                        markers_tmp[:, self.idx_cluster + 1: self.idx_cluster + 4, :],
                         forward=0,
                         rotate=False,
                         kalman_instance=self.kalman_cluster,
@@ -398,7 +397,12 @@ class BiomechPipeline:
         )  # "dlc" in self.key)
         self.emg_track_idx = get_tracking_idx(self.msk_function.model, self.emg_names)
         self.muscle_map_idx = get_map_activation_idx(self.msk_function.model, self.emg_names)
+        # count = 0
         for i in self.range_frame:
+            # if count < 200:
+            #     count += 1
+            #     continue
+            # count += 1
             self.current_frame = i
             tic = time.time()
             markers_tmp = self.get_filtered_markers(
@@ -437,13 +441,12 @@ class BiomechPipeline:
 
         final_dic["center_of_rot"] = compute_cor(final_dic["q"], self.msk_function.model)
 
-        if self.key == "viconrr":
-            import bioviz
-
-            b = bioviz.Viz(loaded_model=self.msk_function.model)
-            b.load_movement(final_dic["q"])
-            b.load_experimental_markers(final_dic["markers"][:, :, :])
-            b.exec()
+        # if self.key == "dlc_1":
+        #     import bioviz
+        #     b = bioviz.Viz(loaded_model=self.msk_function.model)
+        #     b.load_movement(final_dic["q"])
+        #     b.load_experimental_markers(final_dic["markers"][:, :, :])
+        #     b.exec()
         # self.rerun_viz.add_xp_markers(
         #     name=f"markers_{self.key}",
         #     markers=markers,
@@ -543,7 +546,7 @@ class BiomechPipeline:
                         plt.plot(dlc_mark_tmp[i, m, :], label=f"marker {m}")
                         plt.plot(self.results_dict["vicon"]["markers"][:, idx, :][i, m, :])
                 dlc_mark, idx = refine_synchro(
-                    self.results_dict["vicon"]["markers"][:, idx, :], dlc_mark_tmp, plot_fig=True
+                      self.results_dict["vicon"]["markers"][:, idx, :], dlc_mark_tmp, plot_fig=True
                 )
                 for key_2 in data_dic_tmp.keys():
                     data_dic_tmp_2 = data_dic_tmp[key_2]

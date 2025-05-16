@@ -232,7 +232,7 @@ def compute_error_mark(ref_mark, mark):
     return list_err
 
 
-def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=200):
+def refine_synchro(marker_full, marker_to_refine, plot_fig=True, nb_frame=600):
     error_list = []
     for i in range(nb_frame):
         marker_to_refine_tmp = marker_to_refine[:, :, :-i] if i != 0 else marker_to_refine

@@ -21,8 +21,8 @@ prefix = "/mnt/shared" if os.name == "posix" else "Q:"
 
 def load_data(data_path, part, file, filter_depth=False, markers_dic=None):
     markers_dic = {} if markers_dic is None else markers_dic
-    # data = load(f"{data_path}/{part}/{file}_processed_3_crops_new_mvc.bio")
-    data = load(f"{data_path}/{part}/{file}_processed_3_crops_rt.bio")
+    data = load(f"{data_path}/{part}/{file}_processed_3_crops_final_optim_param.bio")
+    # data = load(f"{data_path}/{part}/{file}_processed_3_crops_rt.bio")
     rt = None if "rt_matrix" not in data.keys() else data["rt_matrix"]
     # rt = data_old["rt_matrix"]
 
@@ -299,7 +299,8 @@ def get_data_from_sources(
     if len(directory) == 0:
         raise ValueError(f"No directory found for participant {participant} and trial {trial_name}")
     directory = directory[0]
-    labeled_data_path = f"{root_dir + os.sep + directory}{os.sep}marker_pos_multi_proc_3_crops_pp.bio"
+    # labeled_data_path = f"{root_dir + os.sep + directory}{os.sep}marker_pos_multi_proc_3_crops_pp.bio"
+    labeled_data_path = f"{root_dir + os.sep + directory}{os.sep}marker_pos_multi_proc_3_crops_normal_times_three_new_pp.bio"
 
     if source_to_keep is not None and os.path.exists(output_file):
         try:
@@ -331,7 +332,6 @@ def get_data_from_sources(
             ratio = "0_" + source.split("_")[-1] if source.split("_")[-1] != "1" else source.split("_")[-1]
             dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_down_b1_ribs_and_cluster_{ratio}_with_model_pp_full_technical_marker.bio"
             # dlc_data_path = f"{root_dir}/{directory}/marker_pos_multi_proc_3_crops_normal_500_model_0_5_pp.bio"
-
             markers_dic, dlc_frames_idx = get_dlc_data(dlc_data_path, markers_dic, source)
 
     if os.path.isfile(labeled_data_path) and is_dlc:
