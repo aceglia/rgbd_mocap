@@ -3,7 +3,6 @@ import tkinter as tk
 
 import os
 import cv2
-from matplotlib.pylab import False_, rayleigh
 import pyrealsense2 as rs
 import numpy as np
 import json
@@ -17,7 +16,7 @@ from rgbd_mocap.frames.shared_frames import SharedFrames
 
 class Synchronizer:
     def __init__(self, use_trigger=True, fps=60, show_images=True, buffer_size=30, 
-                 start_delay=0, stop_delay=200, from_bag_file=False, bag_path="", n_save_process=3):
+                 start_delay=0, stop_delay=200, from_bag_file=False, bag_path="", n_save_process=3, save_directory=""):
         
         self.from_bag_file = from_bag_file
         self.bag_file_path = bag_path
@@ -34,6 +33,7 @@ class Synchronizer:
         self.file_name = "data"
         self.config_file_name = None
         self.event_started = [mp.Event()] * (n_save_process + 1)
+        self.save_directory = save_directory
 
         now = datetime.datetime.now()
         self.date_time = now.strftime("%d-%m-%Y_%H_%M_%S")
@@ -47,11 +47,12 @@ class Synchronizer:
         self.trigger_stop_event = mp.Event()
         self.init_trigger()
 
-        # self.size = (480, 848)
-        self.size = (480, 640)
+        self.size = (480, 848)
+        # self.size = (480, 640)
 
         self.color_shape = self.size + (3, self.buffer_size)
         self.depth_shape = self.size + (self.buffer_size,)
+        self.stop_event = mp.Event()
 
 
     def init_camera_pipeline(self):
@@ -92,10 +93,12 @@ class Synchronizer:
             "depth_rate": d_profile.fps(),
         }
 
-        self.config_file_name = f"config_camera_files\config_camera_{self.date_time}.json"
+        self.config_file_name = f"config_camera_{self.date_time}.json"
+        congif_dir = "config_camera_files"
         align_to = rs.stream.color
         self.align = rs.align(align_to)
-        with open(f"D:\Documents\Programmation\pose_estimation\{self.config_file_name}", "w") as outfile:
+        os.makedirs(f'{self.save_directory}\{congif_dir}', exist_ok=True)
+        with open(f"{self.save_directory}\{congif_dir}\{self.config_file_name}", "w") as outfile:
             json.dump(self.dic_config_cam, outfile, indent=4)
 
 
@@ -117,7 +120,7 @@ class Synchronizer:
     def init_trigger(self):
         if not self.use_trigger:
             return
-        self.interface = ViconClient(ip="192.168.1.211", system_rate=120, init_now=False)
+        self.interface = ViconClient(ip="127.0.0.1", system_rate=100, init_now=False)
 
     def get_trigger(self):
         if self.use_trigger:
@@ -132,15 +135,20 @@ class Synchronizer:
         init_time = time.time()
         self.event_started[0].set()
         is_started=False
+        count = 0
         while True:
             if self.use_trigger:
                 trigger_data = self.interface.get_device_data(device_name="trigger")
                 if trigger_data is None:
                     continue
-                if len(np.where(np.array(trigger_data) > 0.1)[0]) > 0 and not self.trigger_start_event.is_set():
+                if min(trigger_data[0]) <= 5.215 and not self.trigger_start_event.is_set():
                     self.trigger_start_event.set()
-                elif len(np.where(np.array(trigger_data) > 0.1)[0]) > 0 and not self.trigger_stop_event.is_set():
+                    print("start recording...")
+                if self.trigger_start_event.is_set() and count < 150:
+                    count += 1
+                elif min(trigger_data[0]) <= 5.215 and self.trigger_start_event.is_set() and count > 100:
                     self.trigger_stop_event.set()
+                    print("stop recording...")
                     break
             else:
                 time.sleep(0.005)
@@ -150,8 +158,7 @@ class Synchronizer:
                     print("start recording...")
                     init_time = time.time()
                     is_started = True
-                else:
-                    if delay > self.stop_delay:
+                elif delay > self.stop_delay and is_started:
                         self.trigger_stop_event.set()
                         break
 
@@ -231,69 +238,79 @@ class Synchronizer:
             color_image, depth_image, frame_number = self.get_images()
             if color_image is None:
                 continue
-            if not self.trigger_start_event.is_set() and self.show_images:
-                fps = 1 / np.mean(loop_time_list[-20:])
-                self.show_cv2_images(color_image, depth_image, frame_number, fps)
-            elif self.trigger_start_event.is_set():
-                if count == 0:
-                    cv2.destroyAllWindows()
+            fps = 1 / np.mean(loop_time_list[-20:])
+            self.show_cv2_images(color_image, depth_image, frame_number, fps)
+            # if not self.trigger_start_event.is_set() and self.show_images:
+            #     fps = 1 / np.mean(loop_time_list[-20:])
+            #     self.show_cv2_images(color_image, depth_image, frame_number, fps)
+            if self.trigger_start_event.is_set():
+                # if count == 0:
+                #     cv2.destroyAllWindows()
                 buffer_idx = frame_number % self.buffer_size
                 self.set_shared_memory_images(shared_color, shared_depth, color_image, depth_image, buffer_idx)
                 self.frame_queue.put_nowait((frame_number, buffer_idx))
                 count += 1
             loop_time_list.append(time.time() - tic)
-        print(f"stop recording...nb frame: {len(loop_time_list)}, in {np.array(loop_time_list).sum()}" 
-              "wait until all data are saved")
+
+        print(f"stop recording...nb frame: {count}, in {np.array(loop_time_list).sum():.2f}\n" 
+              "Wait until all data are saved")
+        cv2.destroyAllWindows()
+        
         self.pipeline.stop()
 
     def save_rgbd_from_buffer(self, shared_color, shared_depth, i):
         shared_color = np.frombuffer(shared_color, dtype=np.uint8).reshape((self.color_shape))
         shared_depth = np.frombuffer(shared_depth, dtype=np.uint16).reshape((self.depth_shape))
-        path = f"D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}"
-        if not os.path.exists(path):
-            os.makedirs(path)
+        path = f"{self.save_directory}\{self.participant}\{self.file_name}_{self.date_time}"
+        os.makedirs(path, exist_ok=True)
         self.event_started[i].set()
+        count = 0
         while True:
             try:
-                queue = self.frame_queue.get(0.01)
+                queue = self.frame_queue.get(timeout=0.005)
             except:
                 if self.trigger_stop_event.is_set():
                     break
                 continue
+            count +=1
             shared_idx = queue[1]
             frame_number = queue[0]
             depth_image = shared_depth[..., shared_idx]
             color_image = shared_color[..., shared_idx]
             cv2.imwrite(
-                    f"D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\depth_{frame_number}.png",
+                    f"{self.save_directory}\{self.participant}\{self.file_name}_{self.date_time}\depth_{frame_number}.png",
                     depth_image,
                 )
             cv2.imwrite(
-                    f"D:\Documents\Programmation\pose_estimation\data_files\{self.participant}\{self.file_name}_{self.date_time}\color_{frame_number}.png",
+                    f"{self.save_directory}\{self.participant}\{self.file_name}_{self.date_time}\color_{frame_number}.png",
                     cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB),
                 )
+        print(f"{count} frame saved by the {i} process")
 
     def start(self):
         color_array = RawArray("c", int(np.prod(self.color_shape)))  # 'c' -> value between 0-255
         depth_array = RawArray("H", int(np.prod(self.depth_shape)))  # 'H' -> uint16
         processes = []
-        p = mp.Process(target=Synchronizer.get_rgbd, args=(self, color_array, depth_array,), daemon=True)
+        p = mp.Process(target=Synchronizer.get_rgbd, args=(self, color_array, depth_array,), daemon=True, name="rgbd")
         processes.append(p)
         for i in range(self.nb_save_process):
-            p = mp.Process(target=Synchronizer.save_rgbd_from_buffer, args=(self, color_array, depth_array, i,), daemon=True)
+            p = mp.Process(target=Synchronizer.save_rgbd_from_buffer, args=(self, color_array, depth_array, i,), daemon=True, name=f"save_{i}")
             processes.append(p)
-        p = mp.Process(target=Synchronizer.get_trigger, args=(self,), daemon=True)
+        p = mp.Process(target=Synchronizer.get_trigger, args=(self,), daemon=True, name="triger")
         processes.append(p)
         for p in processes:
             p.start()
         for p in processes:
             p.join()
+        print("All process stopped")
+        return
 
 
 if __name__ == "__main__":
-    sync = Synchronizer(use_trigger=False, start_delay=1, stop_delay=30, from_bag_file=True, 
-                        bag_path=r"test.bag", n_save_process=2, show_images=True)
+    sync = Synchronizer(use_trigger=True, start_delay=10, stop_delay=5, from_bag_file=False, 
+                        bag_path=r"test.bag", n_save_process=3, show_images=True, save_directory=r"C:\Users\Usager\Documents\amedeo\rgbd_data",
+                        )
     sync.fps = 60
-    sync.file_name = "tets"
+    sync.file_name = "test"
     sync.participant = "P00"
     sync.start()
