@@ -304,13 +304,63 @@ class Synchronizer:
             p.join()
         print("All process stopped")
         return
+    
 
+
+class GUI:
+    def __init__(self, synch):
+        self.master =  tk.Tk()
+        self.button_stop_trig = tk.Button(master=self.master, text="Stop\nrecording", command=self.send_trig_stop)
+        self.button_stop = tk.Button(master=self.master, text="quit", command=self.stop)
+        self.button_start = tk.Button(master=self.master, text="Run", command=self.start)
+        self.button_start_trig = tk.Button(master=self.master, text="Send\ntrig", command=self.send_trig_start)
+        self.master.title("Annotation tool")
+        self.button_start.pack(side=tk.TOP)
+        self.button_start_trig.pack(side=tk.TOP)
+        self.sync = synch
+        self.button_stop_trig.pack(side=tk.BOTTOM)
+        self.button_stop.pack(side=tk.BOTTOM)
+
+    def send_trig_start(self):
+        self.trig_start.set()
+        print("start recording...")
+        
+
+    def send_trig_stop(self):
+        self.trig_stop.set()
+        print("stop recording...")
+
+    def start(self):
+        color_array = RawArray("c", int(np.prod(self.sync.color_shape)))  # 'c' -> value between 0-255
+        depth_array = RawArray("H", int(np.prod(self.sync.depth_shape)))  # 'H' -> uint16
+        self.trig_start = sync.trigger_start_event
+        self.trig_stop = sync.trigger_stop_event
+        self.trig_start.clear()
+        self.trig_stop.clear()
+        self.processes = []
+        p = mp.Process(target=Synchronizer.get_rgbd, args=(self.sync, color_array, depth_array,), daemon=True, name="rgbd")
+        self.processes.append(p)
+        for i in range(self.sync.nb_save_process):
+            p = mp.Process(target=Synchronizer.save_rgbd_from_buffer, args=(self.sync, color_array, depth_array, i,), daemon=True, name=f"save_{i}")
+            self.processes.append(p)
+        for p in self.processes:
+            p.start()
+        return
+    
+    def stop(self):
+        for p in self.processes:
+            p.join()
+        print("All process stopped")
+        self.master.destroy()
+        return
 
 if __name__ == "__main__":
-    sync = Synchronizer(use_trigger=True, start_delay=10, stop_delay=5, from_bag_file=False, 
+    sync = Synchronizer(use_trigger=False, start_delay=10, stop_delay=5, from_bag_file=False, 
                         bag_path=r"test.bag", n_save_process=3, show_images=True, save_directory=r"C:\Users\Usager\Documents\amedeo\rgbd_data",
                         )
     sync.fps = 60
     sync.file_name = "test"
     sync.participant = "P00"
+    gui = GUI(sync) 
+    gui.master.mainloop()
     sync.start()
