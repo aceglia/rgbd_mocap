@@ -270,4 +270,4 @@ class KinematicModelChecker:
         markers = self.kinematics_functions.compute_direct_kinematics(q)
         markers = markers[:, self.kin_to_init]
         self._set_markers(markers, crops)
-        return q
+        return q, markers

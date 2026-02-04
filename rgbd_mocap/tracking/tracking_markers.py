@@ -1,6 +1,5 @@
 from typing import List, Tuple
 
-import cv2
 import numpy as np
 
 from ..utils import find_closest_blob
@@ -12,13 +11,13 @@ from ..frames.crop_frames import CropFrames
 
 
 class Tracker:
-    DELTA = 10
+    DELTA = 50
 
     def __init__(
         self,
         frame: CropFrames,
         marker_set: MarkerSet,
-        naive=False,
+        naive=True,
         optical_flow=True,
         kalman=True,
         depth_range=None,
@@ -37,7 +36,7 @@ class Tracker:
         # Tracking method
         self.optical_flow = None
         if optical_flow:
-            depth_clipped = np.where((frame.depth > depth_range[1]), -1, frame.depth)
+            depth_clipped = np.where((frame.depth > depth_range[1]), -1, frame.depth) if frame.depth is not None else None
             self.optical_flow = OpticalFlow(frame.color, depth_clipped, marker_set)
 
         self.kalman = None

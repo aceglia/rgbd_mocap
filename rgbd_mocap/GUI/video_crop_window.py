@@ -177,20 +177,37 @@ class CropWindow(QMainWindow):
             return False
 
     def update_image(self):
+        image_depth = None
         if self.index != [] and self.min_index is not None:
             color_path = self.dir + os.sep + f"color_{self.video_player.value}.png"
             depth_path = self.dir + os.sep + f"depth_{self.video_player.value}.png"
-            if not os.path.isfile(color_path) or not os.path.isfile(depth_path):
+            if not os.path.exists(color_path) and not os.path.exists(depth_path):
                 return
-            try:
-                image_color = cv2.imread(color_path)
-                image_depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
-            except:
-                print("Error loading image number", self.video_player.value)
-                return
+            if os.path.exists(color_path):
+                try:
+                    image_color = cv2.imread(color_path)
+                    if len(image_color.shape) == 3:
+                        image_color = cv2.cvtColor(image_color, cv2.COLOR_BGR2RGB)
+                except Exception as e:
+                    print(f"Could not load {color_path}")
+                    return
+            if os.path.exists(depth_path):
+                try:
+                    image_depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
+                except Exception as e:
+                    print(f"Could not load {depth_path}")
+                    return
+            # if not os.path.isfile(color_path) or not os.path.isfile(depth_path):
+            #     return
+            # try:
+            #     image_color = cv2.imread(color_path)
+            #     image_depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
+            # except:
+            #     print("Error loading image number", self.video_player.value)
+            #     return
 
-            if image_color is None or image_depth is None:
-                return
+            # if image_color is None or image_depth is None:
+            #     return
             # tik = time.time()
             image_color = cv2.cvtColor(image_color, cv2.COLOR_BGR2RGB)
             cv2.putText(

@@ -29,10 +29,12 @@ class ProcessImage:
         ignore_all_checks=False,
         dlc_enhance_markers=(),
         downsample_ratio=None,
+        marker_to_exclude=(),
     ):
         # Options
         self.config = config
         self.from_dlc = from_dlc
+        self.marker_to_exclude = marker_to_exclude
         dlc_marker_names = dlc_marker_names if from_dlc else ()
         dlc_enhance_markers = dlc_enhance_markers if from_dlc else ()
 
@@ -73,15 +75,13 @@ class ProcessImage:
             self.bounded_markers_bounds,
             multi_processing,
             dlc_enhance_markers,
+            self.marker_to_exclude,
             self.downsample_ratio,
         )
+
         self.loading_time = 0
         self.last_index = 0
 
-        # Set offsets for the marker_sets
-        # Already done in the init_marker_set
-        # for i in range(len(self.marker_sets)):
-        #     self.marker_sets[i].set_offset_pos(config['crops'][i]['area'][:2])
         self.tracking_options = tracking_options
         self._init_crops(
             from_dlc=from_dlc,
@@ -127,7 +127,14 @@ class ProcessImage:
 
     # Init
     def _init_marker_set(
-        self, static_markers, bounded_markers, bounds, multi_processing, dlc_enhance_markers=(), downsample_ratio=1
+        self,
+        static_markers,
+        bounded_markers,
+        bounds,
+        multi_processing,
+        dlc_enhance_markers=(),
+        marker_to_exclude=(),
+        downsample_ratio=1,
     ):
         set_names = []
         off_sets = []
@@ -145,6 +152,8 @@ class ProcessImage:
             base_position = []
             ignore_from_dlc = []
             for j in range(len(self.config["crops"][i]["markers"])):
+                if self.config["crops"][i]["markers"][j]["name"] in self.marker_to_exclude:
+                    continue
                 marker_name.append(self.config["crops"][i]["markers"][j]["name"])
                 base_position.append(
                     (
@@ -154,6 +163,8 @@ class ProcessImage:
                 )
             if "dlc_markers" in self.config["crops"][i].keys():
                 for j in range(len(self.config["crops"][i]["dlc_markers"])):
+                    if self.config["crops"][i]["dlc_markers"][j]["name"] in marker_to_exclude:
+                        continue
                     if self.config["crops"][i]["dlc_markers"][j]["name"] not in marker_name:
                         marker_name.append(self.config["crops"][i]["dlc_markers"][j]["name"])
                         base_position.append(
@@ -193,7 +204,8 @@ class ProcessImage:
                     marker.from_dlc = True
                     marker.set_depth(-1)
                 else:
-                    marker.set_depth(DepthCheck.check(marker.get_pos(), depth_cropped, 0, 10000)[0])
+                    if depth_cropped is not None:
+                        marker.set_depth(DepthCheck.check(marker.get_pos(), depth_cropped, 0, 10000)[0])
                 if marker.name in marker_set.dlc_enhance_markers:
                     marker.set_depth(-1)
                 if static_markers and marker.name in static_markers:
@@ -208,9 +220,9 @@ class ProcessImage:
     def _load_img(self, return_color=True):
         color, depth = None, None
         count = 1 if self.first_image_loaded else 0
-        while (color is None and return_color is True) or depth is None:
+        while (color is None and return_color is True): # or (depth is None and return_depth is True):
             color, depth = load_img(self.path, self.index + count, self.ROTATION, return_color)
-            if (color is None and return_color is True) or depth is None:
+            if (color is None and return_color is True): # or (depth is None and return_depth is True):
                 count += 1
                 if self.index == self.config["end_index"]:
                     return None, None
@@ -340,18 +352,21 @@ def load_img(path, index, rotation=None, return_color=True):  # Possibly change 
     color_file = path + os.sep + f"color_{index}.png"
     depth_file = path + os.sep + f"depth_{index}.png"
 
-    if not os.path.isfile(color_file) or not os.path.isfile(depth_file):
+    if not os.path.isfile(color_file) and not os.path.isfile(depth_file):
         return None, None
     try:
-        color_image = None if not return_color else cv2.imread(color_file, cv2.IMREAD_GRAYSCALE)
-        depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH)
+        color_image = None if (not return_color or not os.path.isfile(color_file)) else cv2.imread(color_file, cv2.IMREAD_GRAYSCALE)
     except:
-        return None, None
+        color_image = None
+    try:
+        depth_image = cv2.imread(depth_file, cv2.IMREAD_ANYDEPTH) if os.path.isfile(depth_file) else None
+    except:
+        depth_image = None
 
     if rotation is not None and rotation != Rotation.ROTATE_0:
         if rotation != Rotation.ROTATE_180:
             raise NotImplementedError("Only 180 degrees rotation is implemented")
-        color_image = None if not return_color else cv2.rotate(color_image, rotation.value)
-        depth_image = cv2.rotate(depth_image, rotation.value)
+        color_image = cv2.rotate(color_image, rotation.value) if color_image is not None else None
+        depth_image = cv2.rotate(depth_image, rotation.value) if depth_image is not None else None
 
     return color_image, depth_image

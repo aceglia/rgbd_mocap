@@ -55,13 +55,15 @@ class RgbdImages:
         self.frame = None
         self.camera_conf_file = camera_conf_file
         self.pipeline = None
+        self.video_path = None
 
         # Camera
         self.camera: Camera = None
         self.converter = CameraConverter()
-        self.converter.set_intrinsics(self.camera_conf_file)
-        if self.converter.depth_scale != DepthCheck.DEPTH_SCALE:
-            DepthCheck.set_depth_scale(self.converter.depth_scale)
+        if self.camera_conf_file is not None:
+            self.converter.set_intrinsics(self.camera_conf_file)
+            if self.converter.depth_scale != DepthCheck.DEPTH_SCALE:
+                DepthCheck.set_depth_scale(self.converter.depth_scale)
 
         self.iter = 0
 
@@ -185,7 +187,7 @@ class RgbdImages:
                 )
                 self.kinematic_model_checker.ik_method = "kalman"
                 self.kinematic_model_checker.markers_to_exclude = self.markers_to_exclude_for_ik
-            self.kinematic_model_checker.fit_kinematics_model(self.process_image)
+            joint_angle, markers = self.kinematic_model_checker.fit_kinematics_model(self.process_image)
             fit_model_time = time.time() - tic
             process_image = None
             self.marker_sets = self.kinematic_model_checker.marker_sets
@@ -251,7 +253,11 @@ class RgbdImages:
             if self.iter == 0 and os.path.isfile(file_path):
                 os.remove(file_path)
             markers_pos, markers_names, occlusions = self._get_all_markers()
-            markers_in_meter = self.converter.get_markers_pos_in_meter(markers_pos)
+            markers_in_meter = (
+                self.converter.get_markers_pos_in_meter(markers_pos)
+                if self.converter.color.intrinsics_mat is not None
+                else np.array(markers_pos).T
+            )
             dic = {
                 "markers_in_meters": markers_in_meter[:, :, np.newaxis],
                 "markers_in_pixel": np.array(markers_pos).T[:, :, np.newaxis],
@@ -313,11 +319,12 @@ class RgbdImages:
                     2,
                     cv2.LINE_AA,
                 )
+                fps = self.converter.color.fps if self.converter.color.fps else 30
                 self.video_object = _save_video(
                     process_image,
                     (process_image.shape[1], process_image.shape[0]),
                     video_path,
-                    self.converter.color.fps,
+                    fps,
                     self.video_object,
                 )
         self.iter += 1
@@ -350,11 +357,13 @@ class RgbdImages:
         ignore_all_checks=False,
         start_idx=None,
         downsample_ratio=1,
+        marker_to_exclude=(),
     ):
         if downsample_ratio != 1 and multi_processing is True:
             raise RuntimeError("Down sampling and multiprocessing cannot be used together yet.")
         self.from_dlc = from_dlc
         self.static_markers = static_markers if static_markers else self.static_markers
+        self.marker_to_exclude = marker_to_exclude
         self.tracking_config = {} if not tracking_config_dict else self._get_tracking_config(tracking_config_dict)
         if from_dlc:
             multi_processing = False
@@ -401,6 +410,7 @@ class RgbdImages:
             ignore_all_checks=ignore_all_checks,
             dlc_enhance_markers=self.dlc_enhance_markers,
             downsample_ratio=downsample_ratio,
+            marker_to_exclude=self.marker_to_exclude,
         )
 
         self.model_name = self.tracking_config["directory"] + os.sep + model_name if model_name else None

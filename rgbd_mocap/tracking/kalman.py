@@ -145,10 +145,10 @@ class KalmanSet:
         self.kalman_filters: list[Kalman] = []
 
         for marker in marker_set.markers:
-            k = Kalman(marker.get_pos(), n_diff=2, init=False)
+            k = Kalman(marker.get_pos(), n_diff=2, init=False, fps=30)
             k.set_params(
-                measurement_noise_factor=1e-2,
-                process_noise_factor=1e-1,
+                measurement_noise_factor=1e-4,
+                process_noise_factor=1e-2,
                 error_cov_post_factor=0,
                 error_cov_pre_factor=0,
             )

@@ -81,6 +81,7 @@ class VideoEdit(QLabel):
         :return: None
         """
         if self.color_frame is None or self.depth_frame is None:
+            self.filtered_frame = self.color_frame.copy()
             return
 
         if self.parent().select_area_button.isChecked() and self.parent().select_area_button.isEnabled():
@@ -274,10 +275,14 @@ class VideoEdit(QLabel):
         :type depth: Mat | ndarray[Any, dtype[generic]] | ndarray
         :return: None
         """
-        if color is None or depth is None:
+        self.depth_frame = None
+        self.color_frame = None
+        if color is None and depth is None:
             return
-        self.color_frame = color[self.area[1] : self.area[3], self.area[0] : self.area[2]]
-        self.depth_frame = depth[self.area[1] : self.area[3], self.area[0] : self.area[2]]
+        if color is not None:
+            self.color_frame = color[self.area[1] : self.area[3], self.area[0] : self.area[2]]
+        if depth is not None:
+            self.depth_frame = depth[self.area[1] : self.area[3], self.area[0] : self.area[2]]
         # print("WARING --- to remove")
         # h, w = self.depth_frame.shape
         # ratio = 1

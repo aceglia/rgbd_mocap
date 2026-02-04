@@ -49,6 +49,8 @@ class Filter:
             raise Warning("No image has been filtered.")
 
     def _distance_range_mask(self):
+        if self.frame.depth is None:
+            return
         mask_color = 20
         from ..crops.crop import DepthCheck
 
@@ -125,7 +127,7 @@ class Filter:
     def apply_filters(self, frame):
         self.frame = frame
         self.filtered_frame = self.frame.color.copy()
-        self.filtered_depth = self.frame.depth.copy()
+        self.filtered_depth = self.frame.depth.copy() if self.frame.depth is not None else None
         # Clahe filters
         # Masks
         if self.options["clahe_option"]:

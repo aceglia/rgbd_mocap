@@ -4,7 +4,7 @@ import cv2
 try:
     from dlclive import DLCLive, Processor
 except:
-    raise ImportError("Please install the dlclive package to use the DeepLabCup model.")
+    pass
 
 
 class DlcLive:

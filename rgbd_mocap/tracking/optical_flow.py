@@ -42,7 +42,7 @@ def background_remover(frame, depth, clipping_distance, depth_scale, clipping_co
 class OpticalFlow:
     BLUR = 5
     optical_flow_parameters = {
-        "winSize": (15, 15),
+        "winSize": (35, 35),
         "maxLevel": 2,
         "criteria": (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03),
     }
@@ -54,7 +54,7 @@ class OpticalFlow:
                 continue
             else:
                 positions.append(mark.pos)
-        frame = background_remover(frame, depth, 1.4, 0.0010000000474974513, 100)
+        frame = background_remover(frame, depth, 1.4, 0.0010000000474974513, 100) if depth is not None else frame
         self.frame = image_gray_and_blur(frame, OpticalFlow.BLUR)
         self.previous_frame = self.frame.copy()
         self.previous_positions = np.array(positions, dtype=np.float32)
@@ -62,7 +62,7 @@ class OpticalFlow:
 
     def get_optical_flow_pos(self, frame, depth, marker_set):
         self.previous_frame = self.frame.copy()
-        frame = background_remover(frame, depth, 1.4, 0.0010000000474974513, 100, use_contour=True)
+        frame = background_remover(frame, depth, 1.4, 0.0010000000474974513, 100, use_contour=True) if depth is not None else frame
         self.depth = depth
         self.frame = image_gray_and_blur(frame, OpticalFlow.BLUR)
         self.value = cv2.calcOpticalFlowPyrLK(

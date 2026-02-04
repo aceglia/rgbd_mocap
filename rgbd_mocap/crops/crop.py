@@ -201,8 +201,8 @@ class Crop:
             self.dlc_live.update_depth_frame(self.filter.filtered_depth)
         # Get tracking positions
         positions, estimate_positions = self.tracker.track(self.frame, self.filter.filtered_depth, blobs)
-
-        # Set depth for the new positions
-        self.attribute_depth_from_position(positions)
+        if self.filter.filtered_depth is not None:
+            # Set depth for the new positions
+            self.attribute_depth_from_position(positions)
 
         return blobs, positions, estimate_positions

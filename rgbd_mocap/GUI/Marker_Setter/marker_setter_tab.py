@@ -1,8 +1,8 @@
-import sys
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 import cv2
+import os
 
 from rgbd_mocap.GUI.Marker_Setter.marker_adder import MarkerAdder
 from rgbd_mocap.GUI.Marker_Setter.display_marker_image import DisplayMarkerImage
@@ -116,9 +116,10 @@ class MarkerSetter(QMainWindow):
 
         # Load image #
         self.image = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
-        depth = cv2.imread(path.replace("color", "depth"), cv2.IMREAD_ANYDEPTH)
-        depth_3d = cv2.applyColorMap(cv2.convertScaleAbs(depth, alpha=0.03), cv2.COLORMAP_JET)
-        self.image = cv2.addWeighted(self.image, 0.5, depth_3d, 0.5, 0, self.image)
+        if os.path.exists(path.replace("color", "depth")):
+            depth = cv2.imread(path.replace("color", "depth"), cv2.IMREAD_ANYDEPTH)
+            depth_3d = cv2.applyColorMap(cv2.convertScaleAbs(depth, alpha=0.03), cv2.COLORMAP_JET)
+            self.image = cv2.addWeighted(self.image, 0.5, depth_3d, 0.5, 0, self.image)
         self.drop_image_tab.set_image(self.image)
 
         ### Drop Image Buttons ####
